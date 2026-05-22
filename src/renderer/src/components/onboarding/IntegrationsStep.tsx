@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useAppStore } from '@/store'
-import { cn } from '@/lib/utils'
+import { IntegrationStatusPill } from '@/components/integration-status-pill'
 import { OnboardingInlineCommandTerminal } from './OnboardingInlineCommandTerminal'
 
 type GitHubSetupState = 'checking' | 'connected' | 'not-installed' | 'not-authenticated'
@@ -27,43 +27,6 @@ function getGitHubSetupState(
     return 'not-installed'
   }
   return status.gh.authenticated ? 'connected' : 'not-authenticated'
-}
-
-type StatusTone = 'connected' | 'attention' | 'neutral'
-
-const statusToneClassNames: Record<StatusTone, { pill: string; dot: string }> = {
-  connected: {
-    pill: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-    dot: 'bg-emerald-500'
-  },
-  attention: {
-    pill: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    dot: 'bg-amber-500'
-  },
-  neutral: {
-    pill: 'border-border bg-background text-muted-foreground',
-    dot: 'bg-muted-foreground'
-  }
-}
-
-function StatusPill({
-  tone,
-  children
-}: {
-  tone: StatusTone
-  children: React.ReactNode
-}): React.JSX.Element {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium',
-        statusToneClassNames[tone].pill
-      )}
-    >
-      <span className={cn('size-1.5 rounded-full', statusToneClassNames[tone].dot)} />
-      {children}
-    </span>
-  )
 }
 
 function GitHubRow(): React.JSX.Element {
@@ -86,13 +49,13 @@ function GitHubRow(): React.JSX.Element {
           <div className="flex items-center gap-2">
             <h3 className="text-[15px] font-semibold leading-tight text-foreground">GitHub</h3>
             {state === 'connected' ? (
-              <StatusPill tone="connected">Connected</StatusPill>
+              <IntegrationStatusPill tone="connected">Connected</IntegrationStatusPill>
             ) : state === 'not-installed' ? (
-              <StatusPill tone="attention">CLI not installed</StatusPill>
+              <IntegrationStatusPill tone="attention">CLI not installed</IntegrationStatusPill>
             ) : state === 'not-authenticated' ? (
-              <StatusPill tone="attention">Sign in needed</StatusPill>
+              <IntegrationStatusPill tone="attention">Sign in needed</IntegrationStatusPill>
             ) : (
-              <StatusPill tone="neutral">Checking…</StatusPill>
+              <IntegrationStatusPill tone="neutral">Checking…</IntegrationStatusPill>
             )}
           </div>
           <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
@@ -189,7 +152,9 @@ function LinearRow(): React.JSX.Element {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-[15px] font-semibold leading-tight text-foreground">Linear</h3>
-              {linearStatus.connected ? <StatusPill tone="connected">Connected</StatusPill> : null}
+              {linearStatus.connected ? (
+                <IntegrationStatusPill tone="connected">Connected</IntegrationStatusPill>
+              ) : null}
             </div>
             <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
               {linearStatus.connected
@@ -334,7 +299,7 @@ export function IntegrationsStep(): React.JSX.Element {
               Issues, sprints, and assignees.
             </span>
           </div>
-          <StatusPill tone="neutral">Coming soon</StatusPill>
+          <IntegrationStatusPill tone="neutral">Coming soon</IntegrationStatusPill>
         </div>
       </div>
     </div>
