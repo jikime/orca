@@ -113,6 +113,10 @@ import {
 } from '../../../src/tasks/mobile-task-providers'
 import { MOBILE_TUI_AGENT_AUTO_PICK_ORDER } from '../../../src/tasks/mobile-tui-agents'
 import { resolveComposerBranchSelection } from '../../../src/tasks/mobile-composer-branch-selection'
+import {
+  clearMobileTaskCopyFeedbackTimer,
+  scheduleMobileTaskCopyFeedbackReset
+} from '../../../src/tasks/mobile-task-copy-feedback-timer'
 import type {
   BaseRefSearchResult,
   PersistedTrustedOrcaHooks,
@@ -2146,6 +2150,7 @@ export default function MobileTasksScreen() {
   const [prFileLoadingPath, setPrFileLoadingPath] = useState<string | null>(null)
   const [prFileCommentDrafts, setPrFileCommentDrafts] = useState<Record<string, string>>({})
   const [copiedLinkKey, setCopiedLinkKey] = useState<string | null>(null)
+  const copiedLinkResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [expandedResolvedCommentGroups, setExpandedResolvedCommentGroups] = useState<Set<string>>(
     () => new Set()
   )
@@ -3737,6 +3742,10 @@ export default function MobileTasksScreen() {
     }, 300)
     return () => clearTimeout(timer)
   }, [githubKind, provider, query, taskStateHydrated])
+
+  useEffect(() => {
+    return () => clearMobileTaskCopyFeedbackTimer(copiedLinkResetTimerRef)
+  }, [])
 
   useEffect(() => {
     if (!taskUiReady || provider !== 'github' || githubMode !== 'items') return
@@ -6809,9 +6818,7 @@ export default function MobileTasksScreen() {
     try {
       await Clipboard.setStringAsync(url)
       setCopiedLinkKey(key)
-      setTimeout(() => {
-        setCopiedLinkKey((current) => (current === key ? null : current))
-      }, 1500)
+      scheduleMobileTaskCopyFeedbackReset(copiedLinkResetTimerRef, key, setCopiedLinkKey)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to copy link')
     }
@@ -6821,9 +6828,7 @@ export default function MobileTasksScreen() {
     try {
       await Clipboard.setStringAsync(value)
       setCopiedLinkKey(key)
-      setTimeout(() => {
-        setCopiedLinkKey((current) => (current === key ? null : current))
-      }, 1500)
+      scheduleMobileTaskCopyFeedbackReset(copiedLinkResetTimerRef, key, setCopiedLinkKey)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to copy text')
     }
