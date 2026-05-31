@@ -410,6 +410,22 @@ describe('resolveDropdownItems', () => {
     expect(byKind.publish.disabled).toBe(true)
   })
 
+  it('points an unpublished dirty branch with no commits at committing first', () => {
+    const items = resolveDropdownItems(
+      inputs({
+        stagedCount: 1,
+        upstreamStatus: { hasUpstream: false, ahead: 0, behind: 0 },
+        branchCommitsAhead: 0
+      })
+    )
+    const byKind = Object.fromEntries(
+      items.filter((e) => e.kind !== 'separator').map((e) => [e.kind, e])
+    )
+    expect(byKind.publish.label).toBe('Commit Changes First')
+    expect(byKind.publish.title).toBe('Commit changes before publishing the branch')
+    expect(byKind.publish.disabled).toBe(true)
+  })
+
   it('does not mention Publish Branch when the linked PR is already merged', () => {
     const items = resolveDropdownItems(
       inputs({

@@ -139,6 +139,7 @@ export function resolveDropdownItems(inputs: DropdownActionInputs): DropdownEntr
   const publishBlockedByMergedPR = !hasUpstream && prState === 'merged'
   const publishBlockedByPRLoading = !hasUpstream && !!isPRStateLoading
   const publishBlockedByNoBranchCommits = !hasUpstream && branchCommitsAhead === 0
+  const publishBlockedByUncommittedChanges = publishBlockedByNoBranchCommits && hasDirtyLocalChanges
   const ahead = upstreamStatus?.ahead ?? 0
   const behind = upstreamStatus?.behind ?? 0
   const shouldForcePushWithLease = shouldForcePushWithLeaseForUpstream(upstreamStatus)
@@ -384,20 +385,24 @@ export function resolveDropdownItems(inputs: DropdownActionInputs): DropdownEntr
     label:
       publishBlockedByMergedPR || publishBlockedByPRLoading
         ? 'PR Status'
-        : publishBlockedByNoBranchCommits
-          ? 'No Branch Changes'
-          : 'Publish Branch',
+        : publishBlockedByUncommittedChanges
+          ? 'Commit Changes First'
+          : publishBlockedByNoBranchCommits
+            ? 'No Branch Changes'
+            : 'Publish Branch',
     title: upstreamLoading
       ? 'Checking branch status…'
       : publishBlockedByPRLoading
         ? 'Checking PR status…'
         : publishBlockedByMergedPR
           ? 'PR is already merged'
-          : publishBlockedByNoBranchCommits
-            ? 'Nothing to publish'
-            : hasUpstream
-              ? 'Branch is already published'
-              : 'Publish this branch to origin',
+          : publishBlockedByUncommittedChanges
+            ? 'Commit changes before publishing the branch'
+            : publishBlockedByNoBranchCommits
+              ? 'Nothing to publish'
+              : hasUpstream
+                ? 'Branch is already published'
+                : 'Publish this branch to origin',
     disabled:
       globalBusy ||
       upstreamLoading ||

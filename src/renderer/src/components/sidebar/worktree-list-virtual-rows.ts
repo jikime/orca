@@ -56,7 +56,9 @@ export function getVirtualRowTransform(start: number): string {
 export function getStickyHeaderIndexes(rows: readonly RenderRow[]): number[] {
   const indexes: number[] = []
   rows.forEach((row, index) => {
-    if (row.type === 'header') {
+    // Why: project groups are the top-level repo sidebar context; nested repo
+    // headers should not replace their containing group as the pinned header.
+    if (row.type === 'header' && (row.projectGroupDepth ?? 0) === 0) {
       indexes.push(index)
     }
   })
