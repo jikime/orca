@@ -148,7 +148,7 @@ describe('buildNewWorkspaceShortcutModalData', () => {
     } as never)
 
     expect(data.telemetrySource).toBe('shortcut')
-    expect(data.prefilledName).toBe('fix-linear-context-handoff')
+    expect(data.prefilledName).toBe('eng-123-fix-linear-context-handoff')
     expect(data.linkedWorkItem).toMatchObject({
       type: 'issue',
       number: 0,
