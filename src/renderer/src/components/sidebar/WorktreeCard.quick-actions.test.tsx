@@ -189,6 +189,23 @@ describe('WorktreeCard quick actions', () => {
     expect(markup).toContain('tabindex="0"')
   })
 
+  it('does not reserve an empty metadata row for detached git worktrees', () => {
+    worktreeCardProperties = []
+
+    const markup = renderToStaticMarkup(
+      <WorktreeCard
+        worktree={makeWorktree({ displayName: 'orca', branch: '' })}
+        repo={makeRepo()}
+        isActive={false}
+        hideRepoBadge
+      />
+    )
+
+    expect(markup).toContain('orca')
+    expect(markup).not.toContain('data-worktree-card-meta-row=""')
+    expect(markup).toContain('tabindex="0"')
+  })
+
   it('omits the repeated branch metadata row when compact cards are enabled', () => {
     worktreeCardProperties = []
     settings = { experimentalCompactWorktreeCards: true }

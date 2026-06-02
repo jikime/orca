@@ -584,7 +584,8 @@ const WorktreeCard = React.memo(function WorktreeCard({
   const cacheTtlMs = useAppStore((s) => s.settings?.promptCacheTtlMs ?? 0)
   const showInlineRepoBadge = compactCards && !!repo && !hideRepoBadge && !isFolder
   const showRepoBadgeInMetaRow = !compactCards && !!repo && !hideRepoBadge
-  const showBranch = !isFolder && (!compactCards || branch !== worktree.displayName)
+  const showBranch =
+    !isFolder && branch.length > 0 && (!compactCards || branch !== worktree.displayName)
   // Why: rebases already surface in source control; keep dense cards from
   // carrying a persistent rebase chip while preserving other interruption cues.
   const showConflictOperationBadge =
@@ -598,9 +599,20 @@ const WorktreeCard = React.memo(function WorktreeCard({
   const showTitleRowUnread = compactCards && showUnreadQuickAction && !showStatus
   const showTitleRowPrimary = compactCards && worktree.isMainWorktree && !isFolder
   const showMetaRowDetails = !compactCards && (hasDetails || hasPorts)
-  // Why: detailed layout is the user's explicit choice to reserve a scannable
-  // metadata lane; compact layout only opens that lane for transient state.
-  const hasMetaRow = !compactCards || hasMetadataBadge || cacheStartedAt != null
+  // Why: detailed cards need a stable metadata lane only when it has content.
+  // Detached git worktrees can have no branch text, and grouped project
+  // views hide the repo badge; don't reserve a blank metadata lane in that case.
+  const hasDetailedMetaRowContent = Boolean(
+    (showRepoBadgeInMetaRow && repo) ||
+    isFolder ||
+    showBranch ||
+    showConflictOperationBadge ||
+    cacheStartedAt != null ||
+    showMetaRowDetails
+  )
+  const hasMetaRow = compactCards
+    ? hasMetadataBadge || cacheStartedAt != null
+    : hasDetailedMetaRowContent
   const showHeaderActions = showTitleRowUnread || showTitleRowPrimary || showDeleteQuickAction
   const showBranchIdentityHover = compactCards && showBranch
   // Why: sidebar rows need a small surface inset, while their content remains
