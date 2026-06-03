@@ -45,7 +45,7 @@ import { RuntimeEnvironmentsPane } from './RuntimeEnvironmentsPane'
 import { PrivacyPane } from './PrivacyPane'
 import { AdvancedPane } from './AdvancedPane'
 import { SettingsSidebar } from './SettingsSidebar'
-import { SettingsSetupGuideCard } from './SettingsSetupGuideCard'
+import { SettingsSetupGuidePane } from './SettingsSetupGuidePane'
 import { ActiveSettingsSectionProvider, SettingsSection } from './SettingsSection'
 import { matchesSettingsSearch } from './settings-search'
 import { cn } from '@/lib/utils'
@@ -857,7 +857,7 @@ function Settings(): React.JSX.Element {
   const generalNavGroups: SettingsNavGroup[] = SETTINGS_NAV_GROUPS.map((group) => ({
     ...group,
     sections: generalNavSections.filter((section) => section.group === group.id)
-  })).filter((group) => group.sections.length > 0)
+  })).filter((group) => group.sections.length > 0 || group.id === 'setup')
   const repoNavSections = visibleNavSections
     .filter((section) => section.id.startsWith('repo-'))
     .map((section) => {
@@ -910,8 +910,6 @@ function Settings(): React.JSX.Element {
               </div>
             ) : (
               <ActiveSettingsSectionProvider value={activeSectionId}>
-                {settingsSearchQuery.trim() === '' ? <SettingsSetupGuideCard /> : null}
-
                 <SettingsSection
                   id="agents"
                   title="Agents"
@@ -981,6 +979,16 @@ function Settings(): React.JSX.Element {
                     </SettingsSection>
                   </>
                 ) : null}
+
+                <SettingsSection
+                  id="setup-guide"
+                  title="Onboarding checklist"
+                  description="Finish the core workflows that make Orca useful for parallel agent work."
+                  searchEntries={getSectionSearchEntries('setup-guide')}
+                  bodyClassName="overflow-hidden p-0"
+                >
+                  {isSectionMounted('setup-guide') ? <SettingsSetupGuidePane /> : null}
+                </SettingsSection>
 
                 <SettingsSection
                   id="general"
