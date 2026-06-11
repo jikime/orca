@@ -4,6 +4,7 @@
 import {
   extractLastOscTitle,
   detectAgentStatusFromTitle,
+  isClaudeManagementTitle,
   isShellProcess
 } from '../../shared/agent-detection'
 import type { AgentStatus } from '../../shared/agent-detection'
@@ -672,6 +673,8 @@ type RuntimeLeafRecord = RuntimeSyncedLeaf & {
   // serving a stale `lastAgentStatus` after the agent process exits and the
   // shell takes over the title — the bug behind issue #1437.
   lastOscTitle: string | null
+  lastOscTitleAt: number | null
+  paneTitleUpdatedAt: number | null
 }
 
 function isCursorAgentOrchestrationTarget(
@@ -712,7 +715,11 @@ type RuntimePtyWorktreeRecord = {
   lastExitCode: number | null
   lastAgentStatus: AgentStatus | null
   lastOscTitle: string | null
+  lastOscTitleAt: number | null
+  managementTitle: string | null
+  managementTitleAt: number | null
   title: string | null
+  titleUpdatedAt: number | null
   lastOutputAt: number | null
   tailBuffer: string[]
   tailPartialLine: string
@@ -1388,6 +1395,7 @@ export class OrcaRuntimeService {
   // iterates them all. Listeners are cleaned up via subscriptionCleanups.
   private notificationListeners = new Set<(event: MobileNotificationEvent) => void>()
   private ptysById = new Map<string, RuntimePtyWorktreeRecord>()
+  private titleObservationSequence = 0
   private headlessTerminals = new Map<string, RuntimeHeadlessTerminal>()
   private ptyOutputSequenceById = new Map<string, number>()
   // Why: OSC 9999 status can span PTY chunks. Keeping parser state in the
@@ -2065,6 +2073,7 @@ export class OrcaRuntimeService {
     this.tabs = new Map(graph.tabs.map((tab) => [tab.tabId, tab]))
     this.syncMobileSessionTabs(graph.mobileSessionTabs)
     const nextLeaves = new Map<string, RuntimeLeafRecord>()
+    const graphSyncedAt = this.nextTitleObservationSequence()
 
     // Why: renderer reloads can briefly republish the same leaf with no ptyId;
     // keep live CLI handles usable while the UI graph rebuilds.
@@ -2095,7 +2104,12 @@ export class OrcaRuntimeService {
         tailLinesTotal: existing?.ptyId === ptyId ? existing.tailLinesTotal : 0,
         preview: existing?.ptyId === ptyId ? existing.preview : '',
         lastAgentStatus: existing?.ptyId === ptyId ? existing.lastAgentStatus : null,
-        lastOscTitle: existing?.ptyId === ptyId ? existing.lastOscTitle : null
+        lastOscTitle: existing?.ptyId === ptyId ? existing.lastOscTitle : null,
+        lastOscTitleAt: existing?.ptyId === ptyId ? existing.lastOscTitleAt : null,
+        paneTitleUpdatedAt:
+          existing?.ptyId === ptyId && existing.paneTitle === leaf.paneTitle
+            ? existing.paneTitleUpdatedAt
+            : graphSyncedAt
       })
 
       if (leaf.ptyId) {
@@ -2356,7 +2370,7 @@ export class OrcaRuntimeService {
     args: { tabId: string; leafId: string; title: string | null; activate: boolean }
   ): void {
     const existing = this.mobileSessionTabsByWorktree.get(worktreeId)
-    const title = args.title ?? pty.title ?? pty.lastOscTitle ?? 'Terminal'
+    const title = args.title ?? getLatestPtyTitle(pty) ?? 'Terminal'
     const existingTab = existing?.tabs.find(
       (candidate): candidate is RuntimeMobileSessionTerminalTab =>
         candidate.type === 'terminal' &&
@@ -3347,8 +3361,11 @@ export class OrcaRuntimeService {
       if (oscTitle !== null) {
         const prevStatus = pty.lastAgentStatus
         const prevTitle = pty.lastOscTitle
+        const observedAt = this.nextTitleObservationSequence()
         pty.lastOscTitle = oscTitle
+        pty.lastOscTitleAt = observedAt
         pty.lastAgentStatus = agentStatus
+        this.setPtyManagementTitleFromObservedTitle(pty, oscTitle, observedAt)
         shouldTouchPtyBackedSessionTabs =
           prevTitle !== oscTitle || prevStatus !== pty.lastAgentStatus
         if (agentStatus === 'idle' && prevStatus !== 'idle') {
@@ -3407,6 +3424,7 @@ export class OrcaRuntimeService {
         // way to clear a stale 'working' status after the agent exited and
         // the shell took over the title — the stuck-spinner bug in #1437.
         leaf.lastOscTitle = oscTitle
+        leaf.lastOscTitleAt = this.nextTitleObservationSequence()
         const prevStatus = leaf.lastAgentStatus
         // Why: when a new OSC title doesn't classify as an agent state (e.g.
         // bare shell title after the agent exits), clear lastAgentStatus so
@@ -3753,11 +3771,19 @@ export class OrcaRuntimeService {
       return
     }
     const status = detectAgentStatusFromTitle(title)
+    const pty = this.ptysById.get(ptyId)
+    if (pty) {
+      const observedAt = this.nextTitleObservationSequence()
+      pty.lastOscTitle = title
+      pty.lastOscTitleAt = observedAt
+      this.setPtyManagementTitleFromObservedTitle(pty, title, observedAt)
+    }
     for (const leaf of this.getLeavesForPty(ptyId)) {
       // Why: seed lastOscTitle even when the seeded title doesn't classify
       // as an agent state, so worktree.ps recomputes status from the live
       // title rather than treating the leaf as agentless.
       leaf.lastOscTitle = title
+      leaf.lastOscTitleAt = this.nextTitleObservationSequence()
       if (status !== null) {
         leaf.lastAgentStatus = status
       }
@@ -11185,7 +11211,15 @@ export class OrcaRuntimeService {
       this.registerPty(result.id, worktree.id, repo?.connectionId ?? null)
       const pty = this.getOrCreatePtyWorktreeRecord(result.id)
       if (pty) {
-        pty.title = opts.title ?? null
+        if (opts.title) {
+          const observedAt = this.nextTitleObservationSequence()
+          pty.title = opts.title
+          pty.titleUpdatedAt = observedAt
+          this.setPtyManagementTitleFromObservedTitle(pty, opts.title, observedAt)
+        } else {
+          pty.title = null
+          pty.titleUpdatedAt = null
+        }
         pty.tabId = tabId
         pty.paneKey = paneKey
       }
@@ -11676,7 +11710,7 @@ export class OrcaRuntimeService {
       const parsedPaneKey = parsePaneKey(pty.pty.paneKey ?? '')
       const revealed = await this.notifier?.revealTerminalSession?.(pty.pty.worktreeId, {
         ptyId: pty.pty.ptyId,
-        title: pty.pty.title ?? pty.pty.lastOscTitle,
+        title: getLatestPtyTitle(pty.pty),
         ...(pty.pty.tabId !== null ? { tabId: pty.pty.tabId } : {}),
         ...(parsedPaneKey ? { leafId: parsedPaneKey.leafId } : {})
       })
@@ -12665,6 +12699,7 @@ export class OrcaRuntimeService {
   ): RuntimePtyWorktreeRecord {
     let pty = this.ptysById.get(ptyId)
     if (!pty) {
+      const titleObservedAt = state.title ? this.nextTitleObservationSequence() : null
       pty = {
         ptyId,
         worktreeId,
@@ -12676,13 +12711,20 @@ export class OrcaRuntimeService {
         lastExitCode: null,
         lastAgentStatus: null,
         lastOscTitle: null,
+        lastOscTitleAt: null,
+        managementTitle: null,
+        managementTitleAt: null,
         title: state.title ?? null,
+        titleUpdatedAt: titleObservedAt,
         lastOutputAt: state.lastOutputAt ?? null,
         tailBuffer: [],
         tailPartialLine: '',
         tailTruncated: false,
         tailLinesTotal: 0,
         preview: state.preview ?? ''
+      }
+      if (state.title) {
+        this.setPtyManagementTitleFromObservedTitle(pty, state.title, titleObservedAt ?? 0)
       }
       this.ptysById.set(ptyId, pty)
       // Why: restored/controller-discovered PTYs learn their worktree here
@@ -12713,7 +12755,10 @@ export class OrcaRuntimeService {
       pty.preview = state.preview
     }
     if (state.title !== undefined && state.title !== null && state.title.length > 0) {
+      const observedAt = this.nextTitleObservationSequence()
       pty.title = state.title
+      pty.titleUpdatedAt = observedAt
+      this.setPtyManagementTitleFromObservedTitle(pty, state.title, observedAt)
     }
     // Why: recordPtyWorktree is the common lifecycle point for every path that
     // resolves a PTY's worktree, including renderer restore and controller list.
@@ -12766,8 +12811,7 @@ export class OrcaRuntimeService {
         findResolvedWorktreeIdForPath(resolvedWorktrees, session.cwd)
       if (worktreeId) {
         this.recordPtyWorktree(session.id, worktreeId, {
-          connected: true,
-          title: session.title
+          connected: true
         })
       }
     }
@@ -12880,7 +12924,7 @@ export class OrcaRuntimeService {
       branch: worktree?.branch ?? '',
       tabId: leaf.tabId,
       leafId: leaf.leafId,
-      title: tab?.title ?? null,
+      title: getLatestLeafTitle(leaf, tab?.title ?? null),
       connected: leaf.connected,
       writable: leaf.writable,
       lastOutputAt: leaf.lastOutputAt,
@@ -13260,6 +13304,26 @@ export class OrcaRuntimeService {
       const paneKey = isTerminalLeafId(tab.leafId)
         ? makePaneKey(tab.parentTabId, tab.leafId)
         : `${tab.parentTabId}:${legacyPaneId ?? tab.leafId}`
+      const leafTitle = leaf
+        ? getLatestAgentCandidateTitle(
+            { title: leaf.paneTitle, updatedAt: leaf.paneTitleUpdatedAt },
+            { title: leaf.lastOscTitle, updatedAt: leaf.lastOscTitleAt }
+          )
+        : null
+      const ptyTitle = pty
+        ? getLatestAgentCandidateTitle(
+            { title: pty.title, updatedAt: pty.titleUpdatedAt },
+            { title: pty.lastOscTitle, updatedAt: pty.lastOscTitleAt }
+          )
+        : null
+      const title = leafTitle ?? ptyTitle ?? syncedTab?.title ?? tab.title
+      const liveTitleEvidence = leafTitle ?? ptyTitle
+      const liveTitleEvidenceClassification = classifyAgentTitle(liveTitleEvidence)
+      const agentStatus =
+        tab.agentStatus &&
+        (liveTitleEvidence === null || liveTitleEvidenceClassification === 'agent')
+          ? { agentStatus: tab.agentStatus }
+          : null
       // Why: web/mobile clients hold these handles across renderer graph syncs;
       // leaf handles are graph-epoch-bound, but PTY handles remain streamable.
       const terminalHandle = liveLeafPtyId
@@ -13278,12 +13342,10 @@ export class OrcaRuntimeService {
         id: tab.id,
         parentTabId: tab.parentTabId,
         leafId: tab.leafId,
-        title: leaf?.paneTitle ?? syncedTab?.title ?? pty?.lastOscTitle ?? pty?.title ?? tab.title,
+        title,
         ...(tab.ptyId ? { ptyId: tab.ptyId } : {}),
         ...(tab.terminalTheme ? { terminalTheme: tab.terminalTheme } : {}),
-        ...(tab.agentStatus
-          ? { agentStatus: tab.agentStatus }
-          : this.buildPtyMobileAgentStatus(livePty ?? pty, tab, terminalHandle)),
+        ...(agentStatus ?? this.buildPtyMobileAgentStatus(livePty ?? pty, tab, terminalHandle)),
         ...(tab.parentLayout ? { parentLayout: tab.parentLayout } : {}),
         isActive: tab.isActive,
         ...(terminalHandle
@@ -13338,6 +13400,14 @@ export class OrcaRuntimeService {
     if (!pty?.lastAgentStatus) {
       return {}
     }
+    const ptyTitle = getLatestAgentCandidateTitle(
+      { title: pty.title, updatedAt: pty.titleUpdatedAt },
+      { title: pty.lastOscTitle, updatedAt: pty.lastOscTitleAt }
+    )
+    const ptyTitleClassification = classifyAgentTitle(ptyTitle)
+    if (ptyTitle !== null && ptyTitleClassification !== 'agent') {
+      return {}
+    }
     const now = pty.lastOutputAt ?? Date.now()
     return {
       agentStatus: {
@@ -13354,7 +13424,7 @@ export class OrcaRuntimeService {
         ...(terminalHandle ? { terminalHandle } : {}),
         worktreeId: pty.worktreeId,
         tabId: tab.parentTabId,
-        terminalTitle: pty.lastOscTitle ?? pty.title ?? tab.title,
+        terminalTitle: getLatestPtyTitle(pty) ?? tab.title,
         stateHistory: []
       }
     }
@@ -13428,6 +13498,14 @@ export class OrcaRuntimeService {
   getAgentStatusForHandle(handle: string): string | null {
     try {
       const { leaf } = this.getLiveLeafForHandle(handle)
+      const title = getLatestAgentCandidateTitle(
+        { title: leaf.paneTitle, updatedAt: leaf.paneTitleUpdatedAt },
+        { title: leaf.lastOscTitle, updatedAt: leaf.lastOscTitleAt },
+        { title: this.tabs.get(leaf.tabId)?.title, updatedAt: 0 }
+      )
+      if (title) {
+        return detectAgentStatusFromTitle(title)
+      }
       return leaf.lastAgentStatus
     } catch {
       return null
@@ -13563,33 +13641,66 @@ export class OrcaRuntimeService {
     return makePaneKey(record.tabId, record.leafId)
   }
 
-  // Why: OSC title detection via onPtyData is the tightest signal for agent
-  // presence, but the runtime may not see PTY data for daemon-hosted terminals
-  // (the daemon adapter stubs getForegroundProcess). This checks three signals
-  // in order: (1) lastAgentStatus from PTY data OSC titles, (2) the renderer-
-  // synced tab title (which reflects OSC titles from the xterm instance), (3)
-  // retained ready-tail text, and (4) the PTY foreground process. Returns true
-  // if any signal indicates a non-shell agent is running.
+  private setPtyManagementTitleFromObservedTitle(
+    pty: RuntimePtyWorktreeRecord,
+    title: string | null | undefined,
+    observedAt: number
+  ): void {
+    const trimmed = title?.trim()
+    if (!trimmed) {
+      return
+    }
+    if (isClaudeManagementTitle(trimmed)) {
+      pty.managementTitle = trimmed
+      pty.managementTitleAt = observedAt
+      return
+    }
+    if (
+      detectAgentStatusFromTitle(trimmed) !== null &&
+      observedAt >= (pty.managementTitleAt ?? -1)
+    ) {
+      pty.managementTitle = null
+      pty.managementTitleAt = null
+    }
+  }
+
+  private nextTitleObservationSequence(): number {
+    this.titleObservationSequence += 1
+    return this.titleObservationSequence
+  }
+
+  // Why: title detection is the tightest signal for agent presence, but a
+  // Claude management title is negative evidence for task-capable activity.
+  // Check pane-scoped titles before tab fallback, then retained ready-tail text,
+  // stale title status, and foreground process.
   async isTerminalRunningAgent(handle: string): Promise<boolean> {
     try {
       const pty = this.getLivePtyForHandle(handle)
       if (pty) {
-        return await this.isPtyRunningAgent(pty.pty)
+        const leaf = this.getPrimaryLeafForPty(pty.pty.ptyId)
+        return await this.isPtyRunningAgent(pty.pty, leaf)
       }
       const { leaf } = this.getLiveLeafForHandle(handle)
-      if (leaf.lastAgentStatus !== null) {
-        return true
-      }
       // Why: check both the leaf-level pane title (synced from the renderer's
       // runtimePaneTitlesByTabId) and the tab-level title. The tab title already
       // includes OSC-enriched agent indicators (e.g. ✳ prefix) synced from the
       // renderer's xterm instance.
-      const titleToCheck = leaf.paneTitle ?? this.tabs.get(leaf.tabId)?.title
-      if (titleToCheck && detectAgentStatusFromTitle(titleToCheck) !== null) {
+      const paneTitle = getLatestLeafTitle(leaf, null)
+      const paneTitleClassification = classifyAgentTitle(paneTitle)
+      if (paneTitleClassification === 'agent') {
+        return true
+      }
+      const tabTitle = this.tabs.get(leaf.tabId)?.title?.trim() || null
+      const tabTitleClassification = paneTitle === null ? classifyAgentTitle(tabTitle) : 'neutral'
+      if (tabTitleClassification === 'agent') {
         return true
       }
       const waitText = buildTerminalWaitText(leaf.tailBuffer, leaf.tailPartialLine, leaf.preview)
       if (isKnownReadyPromptPreview(waitText)) {
+        return true
+      }
+      const hasCurrentTitleEvidence = paneTitle !== null || tabTitle !== null
+      if (leaf.lastAgentStatus !== null && !hasCurrentTitleEvidence) {
         return true
       }
       if (!leaf.ptyId || !this.ptyController) {
@@ -13599,22 +13710,59 @@ export class OrcaRuntimeService {
       if (!fg) {
         return false
       }
+      // Why: Claude's management UI runs under the Claude process but is not a
+      // task-capable agent session. Suppress that process only; another foreground
+      // agent can take over before titles update.
+      if (
+        (paneTitleClassification === 'management' || tabTitleClassification === 'management') &&
+        isExpectedAgentProcess(fg, 'claude')
+      ) {
+        return false
+      }
       return !isShellProcess(fg)
     } catch {
       return false
     }
   }
 
-  private async isPtyRunningAgent(pty: RuntimePtyWorktreeRecord): Promise<boolean> {
-    if (pty.lastAgentStatus !== null) {
+  private async isPtyRunningAgent(
+    pty: RuntimePtyWorktreeRecord,
+    leaf: RuntimeLeafRecord | null = null
+  ): Promise<boolean> {
+    const leafTitle = leaf
+      ? getLatestAgentCandidateTitle(
+          { title: leaf.paneTitle, updatedAt: leaf.paneTitleUpdatedAt },
+          { title: leaf.lastOscTitle, updatedAt: leaf.lastOscTitleAt }
+        )
+      : null
+    const leafTitleClassification = classifyAgentTitle(leafTitle)
+    if (leafTitleClassification === 'agent') {
       return true
     }
-    const titleToCheck = pty.lastOscTitle ?? pty.title
-    if (titleToCheck && detectAgentStatusFromTitle(titleToCheck) !== null) {
+    const ptyTitle = getLatestAgentCandidateTitle(
+      { title: pty.title, updatedAt: pty.titleUpdatedAt },
+      { title: pty.lastOscTitle, updatedAt: pty.lastOscTitleAt }
+    )
+    const ptyTitleClassification = classifyAgentTitle(ptyTitle)
+    if (leafTitle === null && ptyTitleClassification === 'agent') {
       return true
     }
+    const managementTitleClassification = classifyLatestAgentTitle({
+      title: pty.managementTitle,
+      updatedAt: pty.managementTitleAt
+    })
     const waitText = buildTerminalWaitText(pty.tailBuffer, pty.tailPartialLine, pty.preview)
     if (isKnownReadyPromptPreview(waitText)) {
+      return true
+    }
+    // Why: stale status is only a fallback when no current title evidence
+    // exists; neutral titles such as shells should clear it.
+    if (
+      pty.lastAgentStatus !== null &&
+      leafTitle === null &&
+      ptyTitle === null &&
+      managementTitleClassification !== 'management'
+    ) {
       return true
     }
     if (!this.ptyController) {
@@ -13624,7 +13772,18 @@ export class OrcaRuntimeService {
     if (!fg) {
       return false
     }
+    const shouldSuppressClaudeForeground =
+      leafTitle !== null
+        ? leafTitleClassification === 'management'
+        : managementTitleClassification === 'management'
+    if (shouldSuppressClaudeForeground && isExpectedAgentProcess(fg, 'claude')) {
+      return false
+    }
     return !isShellProcess(fg)
+  }
+
+  private getPrimaryLeafForPty(ptyId: string): RuntimeLeafRecord | null {
+    return this.getLeavesForPty(ptyId)[0] ?? null
   }
 
   deliverPendingMessagesForHandle(handle: string): void {
@@ -13740,7 +13899,7 @@ export class OrcaRuntimeService {
       branch: worktree?.branch ?? '',
       tabId: `pty:${pty.ptyId}`,
       leafId: `pty:${pty.ptyId}`,
-      title: pty.lastOscTitle ?? pty.title,
+      title: getLatestPtyTitle(pty),
       connected: pty.connected,
       writable: pty.connected,
       lastOutputAt: pty.lastOutputAt,
@@ -15962,12 +16121,16 @@ function getLeafWorktreeStatus(
 ): RuntimeWorktreeStatus {
   // Why: recompute from the live title each call so worktree.ps mirrors what
   // the desktop sidebar's getWorktreeStatus does (no sticky state). Prefer
-  // the runtime-tracked OSC title (covers daemon-hosted terminals) over the
-  // renderer-pushed leaf.title and the tab title. Falling back to
-  // lastAgentStatus only when no title is available preserves a sensible
-  // signal for very fresh leaves before any title has been observed.
-  const liveTitle = leaf.lastOscTitle ?? leaf.title ?? tabTitle ?? ''
-  const detected = liveTitle ? detectAgentStatusFromTitle(liveTitle) : leaf.lastAgentStatus
+  // the freshest pane/OSC title, then tab title. Falling back to lastAgentStatus
+  // only when no title is available preserves a sensible signal for very fresh
+  // leaves before any title has been observed.
+  const titleCandidates = [
+    { title: leaf.paneTitle, updatedAt: leaf.paneTitleUpdatedAt },
+    { title: leaf.lastOscTitle, updatedAt: leaf.lastOscTitleAt },
+    { title: tabTitle, updatedAt: 0 }
+  ]
+  const latestTitle = getLatestAgentCandidateTitle(...titleCandidates)
+  const detected = latestTitle ? detectAgentStatusFromTitle(latestTitle) : leaf.lastAgentStatus
   if (detected === 'permission') {
     return 'permission'
   }
@@ -15975,6 +16138,54 @@ function getLeafWorktreeStatus(
     return 'working'
   }
   return leaf.ptyId ? 'active' : 'inactive'
+}
+
+function classifyLatestAgentTitle(
+  ...titles: { title: string | null | undefined; updatedAt: number | null | undefined }[]
+): 'agent' | 'management' | 'neutral' {
+  return classifyAgentTitle(getLatestAgentCandidateTitle(...titles))
+}
+
+function getLatestPtyTitle(pty: RuntimePtyWorktreeRecord): string | null {
+  return getLatestAgentCandidateTitle(
+    { title: pty.title, updatedAt: pty.titleUpdatedAt },
+    { title: pty.lastOscTitle, updatedAt: pty.lastOscTitleAt }
+  )
+}
+
+function getLatestLeafTitle(leaf: RuntimeLeafRecord, tabTitle: string | null): string | null {
+  return getLatestAgentCandidateTitle(
+    { title: leaf.paneTitle, updatedAt: leaf.paneTitleUpdatedAt },
+    { title: leaf.lastOscTitle, updatedAt: leaf.lastOscTitleAt },
+    { title: tabTitle, updatedAt: 0 }
+  )
+}
+
+function classifyAgentTitle(title: string | null): 'agent' | 'management' | 'neutral' {
+  if (!title) {
+    return 'neutral'
+  }
+  if (isClaudeManagementTitle(title)) {
+    return 'management'
+  }
+  return detectAgentStatusFromTitle(title) !== null ? 'agent' : 'neutral'
+}
+
+function getLatestAgentCandidateTitle(
+  ...titles: { title: string | null | undefined; updatedAt: number | null | undefined }[]
+): string | null {
+  let latest: { title: string; updatedAt: number } | null = null
+  for (const candidate of titles) {
+    const title = candidate.title?.trim()
+    if (!title) {
+      continue
+    }
+    const updatedAt = candidate.updatedAt ?? 0
+    if (!latest || updatedAt > latest.updatedAt) {
+      latest = { title, updatedAt }
+    }
+  }
+  return latest?.title ?? null
 }
 
 function getSavedTabWorktreeStatus(title: string, hasPty: boolean): RuntimeWorktreeStatus {
