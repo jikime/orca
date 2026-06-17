@@ -364,6 +364,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
     clearTerminalTabUnread: vi.fn(),
     clearTerminalPaneUnread: vi.fn(),
     dispatchNotification: vi.fn(),
+    onShowSessionRestoredBanner: vi.fn(),
     setCacheTimerStartedAt: vi.fn(),
     syncPanePtyLayoutBinding: vi.fn(),
     ...overrides
@@ -3155,17 +3156,14 @@ describe('connectPanePty', () => {
     await new Promise((resolve) => setTimeout(resolve, 70))
 
     expect(pane.terminal.write).toHaveBeenCalledWith('cold-payload', expect.any(Function))
-    expect(pane.terminal.write).toHaveBeenCalledWith(
+    expect(pane.terminal.write).not.toHaveBeenCalledWith(
       expect.stringContaining('--- session restored ---'),
       expect.any(Function)
     )
     const writeCalls = pane.terminal.write.mock.calls.map(([data]) => data)
-    expect(writeCalls.indexOf('cold-payload')).toBeLessThan(
-      writeCalls.findIndex((data) => data.includes('--- session restored ---'))
-    )
-    expect(writeCalls.findIndex((data) => data.includes('--- session restored ---'))).toBeLessThan(
-      writeCalls.indexOf(POST_REPLAY_MODE_RESET)
-    )
+    expect(writeCalls.findIndex((data) => data.includes('--- session restored ---'))).toBe(-1)
+    expect(deps.onShowSessionRestoredBanner).toHaveBeenCalledTimes(1)
+    expect(deps.onShowSessionRestoredBanner).toHaveBeenCalledWith(1)
     expect(transport.sendInput).toHaveBeenCalledWith(
       "codex '--dangerously-bypass-approvals-and-sandbox' 'resume' 'codex-session-1'\r"
     )
@@ -3245,10 +3243,12 @@ describe('connectPanePty', () => {
       expect.not.objectContaining({ sessionId: expect.any(String) })
     )
     expect(deps.clearTabPtyId).toHaveBeenCalledWith('tab-1', staleSessionId)
-    expect(pane.terminal.write).toHaveBeenCalledWith(
+    expect(pane.terminal.write).not.toHaveBeenCalledWith(
       expect.stringContaining('--- session restored ---'),
       expect.any(Function)
     )
+    expect(deps.onShowSessionRestoredBanner).toHaveBeenCalledTimes(1)
+    expect(deps.onShowSessionRestoredBanner).toHaveBeenCalledWith(2)
     expect(mockStoreState.clearSleepingAgentSession).toHaveBeenCalledWith(paneKey)
   })
 
