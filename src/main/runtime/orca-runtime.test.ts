@@ -14102,6 +14102,9 @@ describe('OrcaRuntimeService', () => {
           repo: 'repo',
           path: '/tmp/worktree-a',
           branch: 'feature/foo',
+          isArchived: false,
+          isMainWorktree: false,
+          hasHostSidebarActivity: true,
           parentWorktreeId: null,
           childWorktreeIds: [],
           displayName: 'foo',
@@ -14149,6 +14152,44 @@ describe('OrcaRuntimeService', () => {
     expect(summary?.linkedPR).toEqual({ number: 42, state: 'merged' })
   })
 
+  it('omits worktrees hidden by the host visibility policy from mobile summaries', async () => {
+    const hiddenExternalRepo = {
+      ...store.getRepos()[0],
+      externalWorktreeVisibility: 'hide' as const,
+      externalWorktreeVisibilityLegacy: false
+    }
+    const runtimeStore = {
+      ...store,
+      getRepos: () => [hiddenExternalRepo],
+      getRepo: () => hiddenExternalRepo
+    }
+    const runtime = new OrcaRuntimeService(runtimeStore as never)
+
+    await expect(runtime.getWorktreePs()).resolves.toMatchObject({
+      worktrees: [],
+      totalCount: 0,
+      truncated: false
+    })
+  })
+
+  it('marks saved session tabs with live PTYs as host sidebar activity', async () => {
+    const { runtimeStore } = makeRuntimeStoreWithWorkspaceSession(
+      makeWorkspaceSessionWithHeadlessTerminal()
+    )
+    const runtime = new OrcaRuntimeService(runtimeStore as never)
+
+    runtime.registerPty('persisted-pty', TEST_WORKTREE_ID)
+    runtime.onPtyData('persisted-pty', 'ready\n', 456)
+
+    const { worktrees } = await runtime.getWorktreePs()
+    expect(worktrees[0]).toMatchObject({
+      worktreeId: TEST_WORKTREE_ID,
+      hasHostSidebarActivity: true,
+      status: 'active',
+      liveTerminalCount: 1
+    })
+  })
+
   it('falls back to the path-keyed GitHub cache entry', async () => {
     const runtimeStore = {
       ...store,
@@ -14191,6 +14232,9 @@ describe('OrcaRuntimeService', () => {
       repo: 'Store',
       path: TEST_FOLDER_WORKSPACE_PATH,
       branch: '',
+      isArchived: false,
+      isMainWorktree: false,
+      hasHostSidebarActivity: false,
       displayName: 'GG',
       comment: 'dujiao-next-eval',
       isPinned: false,

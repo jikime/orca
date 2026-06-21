@@ -8425,7 +8425,11 @@ export class OrcaRuntimeService {
     if (!Number.isInteger(limit) || limit <= 0) {
       throw new Error('invalid_limit')
     }
-    const resolvedWorktrees = await this.listResolvedWorktrees()
+    const resolvedWorktrees = (await this.listResolvedWorktrees()).filter((worktree) =>
+      this.isRuntimeWorktreeVisible(worktree)
+    )
+    // Why: worktree.ps backs the mobile sidebar, so it must use the same
+    // host-owned imported-worktree visibility gate as worktree.list/desktop.
     await this.refreshPtyWorktreeRecordsFromController(resolvedWorktrees)
     const repoById = new Map((this.store?.getRepos() ?? []).map((repo) => [repo.id, repo]))
     const summaries = new Map<string, RuntimeWorktreePsSummary>()
@@ -8463,6 +8467,9 @@ export class OrcaRuntimeService {
         repo: repo?.displayName ?? worktree.repoId,
         path: worktree.path,
         branch: worktree.branch,
+        isArchived: worktree.isArchived,
+        isMainWorktree: worktree.isMainWorktree,
+        hasHostSidebarActivity: false,
         parentWorktreeId: worktree.parentWorktreeId,
         childWorktreeIds: worktree.childWorktreeIds,
         displayName: worktree.displayName,
@@ -8500,6 +8507,9 @@ export class OrcaRuntimeService {
         repo: projectGroup.name,
         path: worktree.path,
         branch: worktree.branch,
+        isArchived: worktree.isArchived,
+        isMainWorktree: worktree.isMainWorktree,
+        hasHostSidebarActivity: false,
         parentWorktreeId: null,
         childWorktreeIds: [],
         displayName: worktree.displayName,
@@ -8533,6 +8543,9 @@ export class OrcaRuntimeService {
       }
       if (leaf.ptyId) {
         countedPtyIds.add(leaf.ptyId)
+      }
+      if (leaf.ptyId && leaf.connected) {
+        summary.hasHostSidebarActivity = true
       }
       const previousLastOutputAt = summary.lastOutputAt
       summary.liveTerminalCount += 1
@@ -8589,6 +8602,9 @@ export class OrcaRuntimeService {
       // still needs those worktrees to show as terminal-bearing entries.
       summary.liveTerminalCount = Math.max(summary.liveTerminalCount, tabs.length)
       summary.hasAttachedPty = summary.hasAttachedPty || tabs.some((tab) => tab.ptyId !== null)
+      if (tabs.some((tab) => tab.ptyId !== null && this.ptysById.get(tab.ptyId)?.connected)) {
+        summary.hasHostSidebarActivity = true
+      }
       for (const tab of tabs) {
         summary.status = mergeWorktreeStatus(
           summary.status,
