@@ -2950,7 +2950,11 @@ describe('GitHub GraphQL rate-limit guard', () => {
   })
 
   it('sets and disables PR auto-merge with explicit PR repos and SSH context', async () => {
-    ghExecFileAsyncMock.mockResolvedValue({ stdout: '', stderr: '' })
+    ghExecFileAsyncMock
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({ id: 'PR_kwDO123', headRefOid: 'head-oid' })
+      })
+      .mockResolvedValue({ stdout: '', stderr: '' })
 
     await expect(
       setPRAutoMerge('/remote/repo-root', 7, true, 'squash', 'ssh-1', {
@@ -2967,19 +2971,97 @@ describe('GitHub GraphQL rate-limit guard', () => {
 
     expect(ghExecFileAsyncMock).toHaveBeenNthCalledWith(
       1,
-      ['pr', 'merge', '7', '--auto', '--squash', '--repo', 'stablyai/orca'],
+      ['pr', 'view', '7', '--json', 'id,headRefOid,baseRefName', '--repo', 'stablyai/orca'],
+      {}
+    )
+    expect(ghExecFileAsyncMock).toHaveBeenNthCalledWith(
+      2,
+      expect.arrayContaining([
+        'api',
+        'graphql',
+        '-f',
+        'pullRequestId=PR_kwDO123',
+        '-f',
+        'mergeMethod=SQUASH',
+        '-f',
+        'expectedHeadOid=head-oid'
+      ]),
       expect.objectContaining({
         env: expect.objectContaining({ GH_PROMPT_DISABLED: '1' })
       })
     )
     expect(ghExecFileAsyncMock).toHaveBeenNthCalledWith(
-      2,
+      3,
       ['pr', 'merge', '7', '--disable-auto', '--repo', 'stablyai/orca'],
       expect.objectContaining({
         env: expect.objectContaining({ GH_PROMPT_DISABLED: '1' })
       })
     )
     expect(ghExecFileAsyncMock.mock.calls[0]?.[1]).not.toHaveProperty('cwd')
+  })
+
+  it('enables auto-merge without invoking the direct merge command', async () => {
+    ghExecFileAsyncMock
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({ id: 'PR_kwDO123', headRefOid: 'head-oid' })
+      })
+      .mockResolvedValue({ stdout: '', stderr: '' })
+
+    await expect(
+      setPRAutoMerge('/repo-root', 7, true, 'squash', undefined, {
+        owner: 'stablyai',
+        repo: 'orca'
+      })
+    ).resolves.toEqual({ ok: true })
+
+    expect(
+      ghExecFileAsyncMock.mock.calls.some((call) =>
+        (call[0] as string[]).some((arg) => arg.includes('enablePullRequestAutoMerge'))
+      )
+    ).toBe(true)
+    expect(
+      ghExecFileAsyncMock.mock.calls.some(
+        (call) =>
+          call[0][0] === 'pr' && call[0][1] === 'merge' && (call[0] as string[]).includes('--auto')
+      )
+    ).toBe(false)
+  })
+
+  it('uses the queue-aware gh merge path when the base branch has a merge queue', async () => {
+    ghExecFileAsyncMock
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({ id: 'PR_kwDO123', headRefOid: 'head-oid', baseRefName: 'main' })
+      })
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({ data: { repository: { mergeQueue: { id: 'MQ_kw' } } } })
+      })
+      .mockResolvedValue({ stdout: '', stderr: '' })
+
+    await expect(
+      setPRAutoMerge('/repo-root', 7, true, 'squash', undefined, {
+        owner: 'stablyai',
+        repo: 'orca'
+      })
+    ).resolves.toEqual({ ok: true })
+
+    expect(ghExecFileAsyncMock).toHaveBeenNthCalledWith(
+      2,
+      expect.arrayContaining(['api', 'graphql', '-f', 'branch=main']),
+      { cwd: '/repo-root' }
+    )
+    expect(ghExecFileAsyncMock).toHaveBeenNthCalledWith(
+      3,
+      ['pr', 'merge', '7', '--auto', '--squash', '--repo', 'stablyai/orca'],
+      expect.objectContaining({
+        cwd: '/repo-root',
+        env: expect.objectContaining({ GH_PROMPT_DISABLED: '1' })
+      })
+    )
+    expect(
+      ghExecFileAsyncMock.mock.calls.some((call) =>
+        (call[0] as string[]).some((arg) => arg.includes('enablePullRequestAutoMerge'))
+      )
+    ).toBe(false)
   })
 
   it('blocks direct merge when GitHub reports required approval', async () => {

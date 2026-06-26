@@ -1989,6 +1989,12 @@ const PR_LOOKUP_JSON_FIELDS =
   'number,title,state,url,statusCheckRollup,updatedAt,isDraft,mergeable,reviewDecision,mergeStateStatus,autoMergeRequest,baseRefName,headRefName,baseRefOid,headRefOid'
 const PR_BRANCH_LIST_JSON_FIELDS =
   'number,title,state,url,statusCheckRollup,updatedAt,isDraft,mergeable,baseRefName,headRefName,baseRefOid,headRefOid'
+const PR_AUTO_MERGE_IDENTITY_JSON_FIELDS = 'id,headRefOid,baseRefName'
+const GITHUB_AUTO_MERGE_METHODS: Record<GitHubPRMergeMethod, 'MERGE' | 'SQUASH' | 'REBASE'> = {
+  merge: 'MERGE',
+  squash: 'SQUASH',
+  rebase: 'REBASE'
+}
 
 export type GitHubPRBranchLookupOptions = HostedReviewExecutionOptions & {
   acceptMergedFallbackPR?: boolean
@@ -3903,10 +3909,10 @@ export async function setPRAutoMerge(
   const ownerRepo = prRepo ?? (await getOwnerRepo(repoPath, connectionId, localGitOptions))
   await acquire()
   try {
-    const args = ['pr', 'merge', String(prNumber), enabled ? '--auto' : '--disable-auto']
     if (enabled) {
-      args.push(`--${method}`)
+      return await enablePRAutoMerge(prNumber, method, ownerRepo, ghOptions)
     }
+    const args = ['pr', 'merge', String(prNumber), '--disable-auto']
     if (ownerRepo) {
       args.push('--repo', `${ownerRepo.owner}/${ownerRepo.repo}`)
     }
@@ -3922,6 +3928,103 @@ export async function setPRAutoMerge(
   } finally {
     release()
   }
+}
+
+type PRAutoMergeIdentity = {
+  id?: string
+  headRefOid?: string
+  baseRefName?: string
+}
+
+async function getPRAutoMergeIdentity(
+  prNumber: number,
+  ownerRepo: OwnerRepo | null,
+  ghOptions: GhExecOptions
+): Promise<PRAutoMergeIdentity | null> {
+  const args = ['pr', 'view', String(prNumber), '--json', PR_AUTO_MERGE_IDENTITY_JSON_FIELDS]
+  if (ownerRepo) {
+    args.push('--repo', `${ownerRepo.owner}/${ownerRepo.repo}`)
+  }
+  const { stdout } = await ghExecFileAsync(args, ghOptions)
+  const data = JSON.parse(stdout) as PRAutoMergeIdentity
+  return {
+    id: typeof data.id === 'string' ? data.id : undefined,
+    headRefOid: typeof data.headRefOid === 'string' ? data.headRefOid : undefined,
+    baseRefName: typeof data.baseRefName === 'string' ? data.baseRefName : undefined
+  }
+}
+
+async function runPRAutoMergeCommand(
+  prNumber: number,
+  method: GitHubPRMergeMethod,
+  ownerRepo: OwnerRepo | null,
+  ghOptions: GhExecOptions
+): Promise<void> {
+  const args = ['pr', 'merge', String(prNumber), '--auto', `--${method}`]
+  if (ownerRepo) {
+    args.push('--repo', `${ownerRepo.owner}/${ownerRepo.repo}`)
+  }
+  await ghExecFileAsync(args, {
+    ...ghOptions,
+    env: { ...process.env, GH_PROMPT_DISABLED: '1' }
+  })
+}
+
+async function shouldUseMergeQueueAutoMerge(
+  pr: PRAutoMergeIdentity,
+  ownerRepo: OwnerRepo | null,
+  ghOptions: GhExecOptions
+): Promise<boolean> {
+  if (!ownerRepo || !pr.baseRefName) {
+    return false
+  }
+  const mergeMetadata = await detectRepositoryMergeMetadata(ownerRepo, pr.baseRefName, ghOptions)
+  return mergeMetadata.mergeQueueRequired === true
+}
+
+async function enablePRAutoMerge(
+  prNumber: number,
+  method: GitHubPRMergeMethod,
+  ownerRepo: OwnerRepo | null,
+  ghOptions: GhExecOptions
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const pr = await getPRAutoMergeIdentity(prNumber, ownerRepo, ghOptions)
+  if (!pr?.id) {
+    return { ok: false, error: 'Could not resolve GitHub pull request ID' }
+  }
+  if (await shouldUseMergeQueueAutoMerge(pr, ownerRepo, ghOptions)) {
+    await runPRAutoMergeCommand(prNumber, method, ownerRepo, ghOptions)
+    return { ok: true }
+  }
+  const query = `mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!, $expectedHeadOid: GitObjectID) {
+    enablePullRequestAutoMerge(input: {
+      pullRequestId: $pullRequestId,
+      mergeMethod: $mergeMethod,
+      expectedHeadOid: $expectedHeadOid
+    }) {
+      pullRequest { id }
+    }
+  }`
+  const args = [
+    'api',
+    'graphql',
+    '-f',
+    `query=${query}`,
+    '-f',
+    `pullRequestId=${pr.id}`,
+    '-f',
+    `mergeMethod=${GITHUB_AUTO_MERGE_METHODS[method]}`
+  ]
+  if (pr.headRefOid) {
+    args.push('-f', `expectedHeadOid=${pr.headRefOid}`)
+  }
+  // Why: `gh pr merge --auto` can perform an immediate merge; this mutation
+  // only creates GitHub's auto-merge request and lets branch requirements gate it.
+  await ghExecFileAsync(args, {
+    ...ghOptions,
+    env: { ...process.env, GH_PROMPT_DISABLED: '1' }
+  })
+  return { ok: true }
 }
 
 async function getPRMergeBlocker(
