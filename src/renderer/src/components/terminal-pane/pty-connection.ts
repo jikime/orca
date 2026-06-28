@@ -2110,6 +2110,37 @@ export function connectPanePty(
   if (geometryReportObserver && pane.container instanceof Element) {
     geometryReportObserver.observe(pane.container)
   }
+
+  // Why: the deferred-rAF fit can spawn the PTY at a stale width when the pane's
+  // real (e.g. split/narrower) layout has not settled by the first frame — the
+  // PTY is born at the wide window width while xterm later reflows to the pane
+  // width. The corrective onResize is then dropped (cols already matched at fit
+  // time, or isRendererPtyResizeAuthoritative() was false mid-mount), pinning
+  // process.stdout.columns forever and garbling TUIs. Re-fit once layout has
+  // settled and force the PTY to xterm's dimensions; the initial spawn-time sync
+  // is authoritative by definition, so it bypasses the visibility gate (but not
+  // the mobile-fit override, which legitimately parks the PTY at phone dims).
+  const reconcilePtySizeAfterSpawn = (
+    ptyId: string,
+    spawnCols: number,
+    spawnRows: number
+  ): void => {
+    requestAnimationFrame(() => {
+      if (disposed || transport.getPtyId() !== ptyId) {
+        return
+      }
+      if (getFitOverrideForPty(ptyId) || isPtyLocked(ptyId)) {
+        return
+      }
+      safeFit(pane)
+      const cols = pane.terminal.cols
+      const rows = pane.terminal.rows
+      if (cols > 0 && rows > 0 && (cols !== spawnCols || rows !== spawnRows)) {
+        transport.resize(cols, rows)
+      }
+    })
+  }
+
   // Defer PTY spawn/attach to next frame so FitAddon has time to calculate
   // the correct terminal dimensions from the laid-out container.
   connectFrame = requestAnimationFrame(() => {
@@ -2488,6 +2519,9 @@ export function connectPanePty(
             // registry. If spawn produced no PTY, the launch is no longer a
             // viable delivery target and must not wait for a future pane.
             clearRegisteredStartupLaunchConfig()
+          }
+          if (resolvedPtyId) {
+            reconcilePtySizeAfterSpawn(resolvedPtyId, cols, rows)
           }
           const gen = await preSignalPromise
           if (typeof gen === 'number' && resolvedPtyId) {
