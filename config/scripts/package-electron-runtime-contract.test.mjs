@@ -217,6 +217,53 @@ describe('Electron runtime package contract', () => {
     expect(installRun).not.toMatch(/throw\s+\$_/)
   })
 
+  it('verifies the SignPath-signed Windows inner executable before publishing', () => {
+    const releaseWorkflow = readFileSync(
+      join(projectDir, '.github/workflows/release-cut.yml'),
+      'utf8'
+    )
+    const parsedWorkflow = parse(releaseWorkflow)
+    const steps = parsedWorkflow.jobs.build.steps
+    const stepNames = steps.map((step) => step.name)
+    const outerVerifyIndex = stepNames.indexOf('Verify signed Windows installer')
+    const innerVerifyIndex = stepNames.indexOf('Verify signed Windows inner executable')
+    const publishIndex = stepNames.indexOf('Publish signed Windows release artifacts')
+
+    expect(outerVerifyIndex).toBeGreaterThan(-1)
+    expect(innerVerifyIndex).toBe(outerVerifyIndex + 1)
+    expect(innerVerifyIndex).toBeLessThan(publishIndex)
+
+    const innerVerifyStep = steps[innerVerifyIndex]
+    const innerVerifyRun = innerVerifyStep.run
+
+    expect(innerVerifyStep.if).toBe("matrix.platform == 'win'")
+    expect(innerVerifyStep.shell).toBe('pwsh')
+    expect(innerVerifyStep.env.ORCA_WINDOWS_EXPECTED_SIGNERS).toBe(
+      'CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US;CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, ST=Delaware, C=US'
+    )
+    expect(innerVerifyRun).toContain('& 7z x -y "-o$setupExtractDir" $installer')
+    expect(innerVerifyRun).toContain(
+      "$innerExecutables = @(Get-ChildItem -LiteralPath $setupExtractDir -File -Filter 'Orca.exe')"
+    )
+    expect(innerVerifyRun).toContain('if ($innerExecutables.Count -eq 0)')
+    expect(innerVerifyRun).toContain(
+      "$appArchives = @(Get-ChildItem -LiteralPath $setupExtractDir -Recurse -File -Filter 'app-*.7z')"
+    )
+    expect(innerVerifyRun).toContain('if ($appArchives.Count -ne 1)')
+    expect(innerVerifyRun).toContain('Expected app-root Orca.exe or exactly one app-*.7z')
+    expect(innerVerifyRun).toContain('& 7z x -y "-o$appExtractDir" $($appArchives[0].FullName)')
+    expect(innerVerifyRun).toContain(
+      "$innerExecutables = @(Get-ChildItem -LiteralPath $appExtractDir -File -Filter 'Orca.exe')"
+    )
+    expect(innerVerifyRun.indexOf("-Filter 'Orca.exe'")).toBeLessThan(
+      innerVerifyRun.indexOf("-Filter 'app-*.7z'")
+    )
+    expect(innerVerifyRun).toContain('if ($innerExecutables.Count -ne 1)')
+    expect(innerVerifyRun).toContain(
+      'node config/scripts/verify-windows-inner-signature.mjs $($innerExecutables[0].FullName)'
+    )
+  })
+
   it('publishes both Linux release matrix entries', () => {
     const releaseWorkflow = readFileSync(
       join(projectDir, '.github/workflows/release-cut.yml'),
