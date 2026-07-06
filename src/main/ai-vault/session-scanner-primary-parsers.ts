@@ -3,8 +3,13 @@ import { readFile } from 'node:fs/promises'
 import { createInterface } from 'node:readline'
 import type { AiVaultSession } from '../../shared/ai-vault-types'
 import type { ExecutionHostId } from '../../shared/execution-host'
-import type { FileWithMtime, SessionAccumulator } from './session-scanner-types'
+import type {
+  FileWithMtime,
+  ResumableSessionParseState,
+  SessionAccumulator
+} from './session-scanner-types'
 import {
+  accumulatorFoldResumeState,
   addPreviewContent,
   createAccumulator,
   finalizeSession,
@@ -139,6 +144,23 @@ export function finalizeClaudeSessionParseState(
   return finalizeSession(snapshot.accumulator, platform, options)
 }
 
+export function createClaudeSessionResumeState(file: FileWithMtime): ResumableSessionParseState {
+  return claudeResumeStateFromParseState(createClaudeSessionParseState(file))
+}
+
+function claudeResumeStateFromParseState(
+  state: ClaudeSessionParseState
+): ResumableSessionParseState {
+  return {
+    consumeLine: (line) => consumeClaudeSessionLine(state, line),
+    clone: () => claudeResumeStateFromParseState(cloneClaudeSessionParseState(state)),
+    touchFile: (file) => {
+      state.accumulator.modifiedAt = file.modifiedAt
+    },
+    finalize: (platform, options) => finalizeClaudeSessionParseState(state, platform, options)
+  }
+}
+
 export async function parseClaudeSessionFile(
   file: FileWithMtime,
   platform: NodeJS.Platform = process.platform
@@ -239,38 +261,47 @@ export async function parseGeminiJsonlSessionFile(
   return parseGeminiJsonlSessionLines({ file, lines, platform })
 }
 
+function consumeGeminiJsonlRecordLine(accumulator: SessionAccumulator, line: string): void {
+  const record = parseJsonObject(line)
+  if (!record) {
+    return
+  }
+  const setRecord = asRecord(record.$set)
+  if (setRecord) {
+    updateTimeline(accumulator, extractString(setRecord.lastUpdated))
+    return
+  }
+  const sessionId = extractString(record.sessionId)
+  if (sessionId) {
+    accumulator.sessionId = sessionId
+  }
+  updateTimeline(accumulator, extractString(record.startTime))
+  updateTimeline(accumulator, extractString(record.lastUpdated))
+  consumeGeminiMessage(accumulator, record)
+}
+
+// Resumable only for the JSONL log format; Gemini's legacy single-JSON
+// session documents are rewritten in place and must be re-read whole.
+export function createGeminiJsonlSessionResumeState(
+  file: FileWithMtime
+): ResumableSessionParseState {
+  return accumulatorFoldResumeState(
+    createAccumulator({ agent: 'gemini', file, sessionId: sessionIdFromFileName(file.path) }),
+    consumeGeminiJsonlRecordLine
+  )
+}
+
 async function parseGeminiJsonlSessionLines(args: {
   file: FileWithMtime
   lines: AsyncIterable<string> | Iterable<string>
   platform: NodeJS.Platform
   options?: ParserSessionOptions
 }): Promise<AiVaultSession | null> {
-  const accumulator = createAccumulator({
-    agent: 'gemini',
-    file: args.file,
-    sessionId: sessionIdFromFileName(args.file.path)
-  })
-
+  const state = createGeminiJsonlSessionResumeState(args.file)
   for await (const line of args.lines) {
-    const record = parseJsonObject(line)
-    if (!record) {
-      continue
-    }
-    const setRecord = asRecord(record.$set)
-    if (setRecord) {
-      updateTimeline(accumulator, extractString(setRecord.lastUpdated))
-      continue
-    }
-    const sessionId = extractString(record.sessionId)
-    if (sessionId) {
-      accumulator.sessionId = sessionId
-    }
-    updateTimeline(accumulator, extractString(record.startTime))
-    updateTimeline(accumulator, extractString(record.lastUpdated))
-    consumeGeminiMessage(accumulator, record)
+    state.consumeLine(line)
   }
-
-  return finalizeSession(accumulator, args.platform, args.options)
+  return state.finalize(args.platform, args.options)
 }
 
 export function consumeGeminiMessage(

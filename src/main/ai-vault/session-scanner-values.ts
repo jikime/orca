@@ -154,6 +154,7 @@ export function errorMessage(err: unknown): string {
 }
 
 export {
+  addCodexUsage,
   claudeUsageTotal,
   copilotModelMetricsTotal,
   normalizeCodexUsage,
