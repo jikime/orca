@@ -118,6 +118,10 @@ function createMockDeps() {
   } as unknown as SshPortForwardManager
   const mockWindow = {
     isDestroyed: () => false,
+    // Why: the port scanner visibility-gates its ticks; a visible mock window
+    // keeps establish-path tests exercising the scan-on-ready behavior.
+    isVisible: () => true,
+    isMinimized: () => false,
     webContents: { send: vi.fn() }
   }
   const getMainWindow = vi.fn().mockReturnValue(mockWindow)

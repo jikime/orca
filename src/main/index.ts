@@ -111,6 +111,7 @@ import {
 import { createMainWindow, loadMainWindow } from './window/createMainWindow'
 import { createSystemTray, destroySystemTray } from './tray/system-tray'
 import { focusExistingMainWindow } from './window/focus-existing-window'
+import { notifyMainWindowBecameVisible } from './window/main-window-visibility'
 import { CodexAccountService } from './codex-accounts/service'
 import { CodexRuntimeHomeService } from './codex-accounts/runtime-home-service'
 import {
@@ -986,6 +987,11 @@ function openMainWindow(): BrowserWindow {
   window.on('restore', resumeSyntheticTitleSpinnerTimer)
   window.on('hide', stopSyntheticTitleSpinnerTimer)
   window.on('minimize', stopSyntheticTitleSpinnerTimer)
+  // Why: visibility-gated main-process pollers (SSH port scanner) park while
+  // hidden and rely on this signal to resume; re-wired per window because
+  // macOS dock re-activation recreates the BrowserWindow.
+  window.on('show', notifyMainWindowBecameVisible)
+  window.on('restore', notifyMainWindowBecameVisible)
   agentHookServer.setListener(
     ({
       paneKey,
