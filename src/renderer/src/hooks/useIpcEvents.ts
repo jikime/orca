@@ -83,6 +83,10 @@ import { attachMobileMarkdownBridge } from '@/runtime/mobile-markdown-bridge'
 import { closeMobileSessionTabInStore } from '@/runtime/mobile-session-tab-close'
 import { createWorktreeChangeRefreshQueue } from './worktree-change-refresh-queue'
 import { subscribeRuntimeClientEvents } from '@/runtime/runtime-client-events'
+import {
+  applyRuntimeEnvironmentSshStateChanged,
+  hydrateRuntimeEnvironmentSshState
+} from '@/runtime/runtime-environment-ssh-state'
 import { isPairedWebClientWindow } from '@/lib/desktop-window-chrome'
 import { createRuntimeProjectRefreshScheduler } from './runtime-project-refresh-scheduler'
 import { createRuntimeClientEventsSync } from './runtime-client-events-sync'
@@ -770,6 +774,15 @@ export function getNewlyConnectedRuntimeEnvironmentIds(
   return [...new Set(next)].filter((environmentId) => !known.has(environmentId))
 }
 
+/** Ids in `previous` not in `next` — runtime environments whose transport was
+ *  just observed down. Their mirrored SSH buckets get downgraded to unknown. */
+export function getNewlyDisconnectedRuntimeEnvironmentIds(
+  previous: readonly string[],
+  next: readonly string[]
+): string[] {
+  return getNewlyConnectedRuntimeEnvironmentIds(next, previous)
+}
+
 export function getRuntimeProjectRefreshEnvironmentIds(args: {
   previousDesired: readonly string[]
   nextDesired: readonly string[]
@@ -955,6 +968,13 @@ export function useIpcEvents(): void {
 
     const runtimeProjectRefreshScheduler = createRuntimeProjectRefreshScheduler({
       refresh: async (environmentId) => {
+        if (!isPairedWebClientWindow()) {
+          // Why: mirrored SSH-backed workspaces read the owning environment's
+          // SSH bucket; refresh it whenever the environment (re)connects so a
+          // pre-drop snapshot can't keep a reconnect overlay stale. The web
+          // client mirrors host SSH state through the global store instead.
+          void hydrateRuntimeEnvironmentSshState(environmentId, { force: true }).catch(() => {})
+        }
         const repos = await useAppStore.getState().fetchRuntimeEnvironmentRepos(environmentId)
         await refreshRuntimeProjectWorktrees(repos)
         await useAppStore.getState().fetchWorktreeLineage()
@@ -975,12 +995,14 @@ export function useIpcEvents(): void {
         return
       }
       if (event.type === 'sshStateChanged') {
-        // Why: only a paired web client routes its ssh.* API to the host that
-        // emitted this event, so only there can the store mirror host SSH state
-        // (STA-1468). Desktop clients own a local SSH surface a foreign
-        // runtime's targets would pollute, so they ignore it.
+        // Why: a paired web client mirrors host SSH state in the global store —
+        // its whole ssh.* API routes to that one host (STA-1468). A desktop
+        // client owns a local SSH surface those maps must keep describing, so a
+        // remote host's state goes into that environment's own bucket instead.
         if (isPairedWebClientWindow()) {
           handleSshStateChangedEvent?.({ targetId: event.targetId, state: event.state })
+        } else {
+          applyRuntimeEnvironmentSshStateChanged(environmentId, event.targetId, event.state)
         }
         return
       }
@@ -1008,7 +1030,17 @@ export function useIpcEvents(): void {
 
     const runtimeClientEventsSync = createRuntimeClientEventsSync({
       getDesiredEnvironmentIds: getRuntimeClientEventEnvironmentIds,
-      subscribe: subscribeRuntimeClientEvents,
+      subscribe: (environmentId, onEvent, onError) =>
+        subscribeRuntimeClientEvents(environmentId, onEvent, onError, () => {
+          if (isPairedWebClientWindow()) {
+            return
+          }
+          // Why: sshStateChanged events during the transport gap are lost, so
+          // the pre-drop bucket may hold a stale "connected". Downgrade to
+          // unknown, then refetch the authoritative state.
+          useAppStore.getState().markEnvironmentSshStateStale(environmentId)
+          void hydrateRuntimeEnvironmentSshState(environmentId, { force: true }).catch(() => {})
+        }),
       onEvent: handleRuntimeClientEvent
     })
 
@@ -1048,6 +1080,13 @@ export function useIpcEvents(): void {
           nextReachable: nextReachableEnvironmentIds
         })) {
           runtimeProjectRefreshScheduler.request(environmentId)
+        }
+        for (const environmentId of getNewlyDisconnectedRuntimeEnvironmentIds(
+          reachableRuntimeEnvironmentIds,
+          nextReachableEnvironmentIds
+        )) {
+          // No-op when the environment has no SSH bucket (e.g. web client).
+          useAppStore.getState().markEnvironmentSshStateStale(environmentId)
         }
         runtimeClientEventEnvironmentIds = nextEnvironmentIds
         runtimeClientEventEnvironmentKey = nextKey

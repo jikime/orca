@@ -17,6 +17,11 @@ const deleteFlowMocks = vi.hoisted(() => ({
   runWorktreeDelete: vi.fn()
 }))
 
+const environmentSshMocks = vi.hoisted(() => ({
+  connectRuntimeEnvironmentSshTarget: vi.fn(),
+  resyncRuntimeEnvironmentSshTargets: vi.fn()
+}))
+
 vi.mock('sonner', () => ({
   toast: {
     error: toastMocks.error
@@ -26,6 +31,8 @@ vi.mock('sonner', () => ({
 vi.mock('../sidebar/delete-worktree-flow', () => ({
   runWorktreeDelete: deleteFlowMocks.runWorktreeDelete
 }))
+
+vi.mock('@/runtime/runtime-environment-ssh-state', () => environmentSshMocks)
 
 vi.mock('@/i18n/i18n', () => ({
   translate: (_key: string, fallback: string, values?: Record<string, string>) =>
@@ -54,6 +61,8 @@ describe('TerminalSshReconnectOverlay', () => {
     useAppStore.setState(useAppStore.getInitialState(), true)
     toastMocks.error.mockReset()
     deleteFlowMocks.runWorktreeDelete.mockReset()
+    environmentSshMocks.connectRuntimeEnvironmentSshTarget.mockReset()
+    environmentSshMocks.resyncRuntimeEnvironmentSshTargets.mockReset()
   })
 
   afterEach(() => {
@@ -188,6 +197,65 @@ describe('TerminalSshReconnectOverlay', () => {
     await user.click(screen.getByRole('button', { name: 'Remove workspace' }))
     expect(deleteFlowMocks.runWorktreeDelete).toHaveBeenCalledWith('repo::/work/wt')
     expect(connect).not.toHaveBeenCalled()
+  })
+
+  it('routes Connect to the owning environment runtime RPC for a remote-owned workspace', async () => {
+    const connect = vi.fn().mockResolvedValue(undefined)
+    installSshConnect(connect)
+    environmentSshMocks.connectRuntimeEnvironmentSshTarget.mockResolvedValue(null)
+    const user = userEvent.setup()
+
+    render(
+      <TerminalSshReconnectOverlay
+        targetId="ssh-remote-1"
+        targetLabel="devbox"
+        status="disconnected"
+        sshOwnerEnvironmentId="env-1"
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() =>
+      expect(environmentSshMocks.connectRuntimeEnvironmentSshTarget).toHaveBeenCalledWith(
+        'env-1',
+        'ssh-remote-1'
+      )
+    )
+    // The local ssh API must never see a remote host's target.
+    expect(connect).not.toHaveBeenCalled()
+  })
+
+  it('resyncs the owning environment (not the local store) after a failed remote connect', async () => {
+    const connect = vi.fn().mockResolvedValue(undefined)
+    const listTargets = vi.fn().mockResolvedValue([])
+    installSshConnect(connect, { listTargets })
+    environmentSshMocks.connectRuntimeEnvironmentSshTarget.mockRejectedValue(
+      new Error('SSH target "ssh-remote-dead" not found')
+    )
+    environmentSshMocks.resyncRuntimeEnvironmentSshTargets.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    render(
+      <TerminalSshReconnectOverlay
+        targetId="ssh-remote-dead"
+        targetLabel="devbox"
+        status="disconnected"
+        sshOwnerEnvironmentId="env-1"
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() =>
+      expect(toastMocks.error).toHaveBeenCalledWith('SSH target "ssh-remote-dead" not found')
+    )
+    await waitFor(() =>
+      expect(environmentSshMocks.resyncRuntimeEnvironmentSshTargets).toHaveBeenCalledWith('env-1')
+    )
+    // The failed-connect resync must not rewrite local target metadata.
+    expect(listTargets).not.toHaveBeenCalled()
+    expect(useAppStore.getState().sshTargetsHydrated).toBe(false)
   })
 
   it('publishes the returned SSH state so deferred terminal reattach can resume', async () => {

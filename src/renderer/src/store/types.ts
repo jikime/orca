@@ -21,6 +21,7 @@ import type { OpenCodeUsageSlice } from './slices/opencode-usage'
 import type { BrowserSlice } from './slices/browser'
 import type { RateLimitSlice } from './slices/rate-limits'
 import type { SshSlice } from './slices/ssh'
+import type { RuntimeEnvironmentSshSlice } from './slices/runtime-environment-ssh'
 import type { AgentStatusSlice } from './slices/agent-status'
 import type { PaneForegroundAgentSlice } from './slices/pane-foreground-agent'
 import type { DiffCommentsSlice } from './slices/diffComments'
@@ -56,6 +57,7 @@ export type AppState = RepoSlice &
   BrowserSlice &
   RateLimitSlice &
   SshSlice &
+  RuntimeEnvironmentSshSlice &
   AgentStatusSlice &
   PaneForegroundAgentSlice &
   DiffCommentsSlice &
