@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Activity,
   CheckCircle2,
+  ScrollText,
   XCircle,
   AlertTriangle
 } from 'lucide-react-native'
@@ -211,6 +212,17 @@ export default function TroubleshootScreen() {
                 ? 'Run again'
                 : 'Run diagnostics'}
           </Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.diagnosticButton,
+            pressed && styles.diagnosticButtonPressed
+          ]}
+          onPress={() => router.push('/connection-log')}
+        >
+          <ScrollText size={16} color={colors.textPrimary} />
+          <Text style={styles.diagnosticButtonLabel}>View connection log</Text>
         </Pressable>
 
         {checks.length > 0 && (
