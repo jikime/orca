@@ -1998,6 +1998,9 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
   // TanStack's default correction writes scrollTop in that path, which feels
   // like rubber-banding. Structural mutations still use our explicit anchor
   // restore after direct scroll input has settled.
+  // TODO(scroll-origin-migration): this wall-clock suppression misclassifies
+  // under main-thread jank; migrate to programmaticScrollMarks + restoreSignal
+  // (see CombinedDiffViewer) once that wiring is validated for the sidebar.
   virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (_item, _delta, instance) =>
     shouldAdjustWorktreeSidebarMeasuredRowScroll({
       isScrolling: instance.isScrolling,
