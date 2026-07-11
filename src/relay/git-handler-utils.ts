@@ -7,6 +7,7 @@
  */
 import { existsSync } from 'node:fs'
 import * as path from 'node:path'
+import { decodeGitCQuotedPath } from '../shared/git-cquoted-path'
 import { isBinaryBuffer } from '../shared/binary-buffer'
 import type { GitLineStats } from '../shared/git-uncommitted-line-stats'
 
@@ -178,6 +179,8 @@ export function parseWorktreeList(
     let head = ''
     let branch = ''
     let isBare = false
+    let locked = false
+    let lockReason = ''
 
     for (const line of lines) {
       if (line.startsWith('worktree ')) {
@@ -188,6 +191,10 @@ export function parseWorktreeList(
         branch = line.slice('branch '.length)
       } else if (line === 'bare') {
         isBare = true
+      } else if (line === 'locked' || line.startsWith('locked ')) {
+        locked = true
+        const rawReason = line.slice('locked'.length).trim()
+        lockReason = options.nulDelimited ? rawReason : decodeGitCQuotedPath(rawReason)
       }
     }
 
@@ -197,6 +204,8 @@ export function parseWorktreeList(
         head,
         branch,
         isBare,
+        ...(locked ? { locked: true } : {}),
+        ...(lockReason ? { lockReason } : {}),
         isMainWorktree: worktrees.length === 0
       })
     }

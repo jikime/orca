@@ -4285,7 +4285,9 @@
               "1d0fa5c0a5": "无法删除工作区 {{value0}}",
               "ead7b8ee15": "它已更改文件。无论如何，请使用强制删除将其删除。",
               "905fc8efac": "Git 已经删除了这个工作区。使用强制删除将其从 Orca 中清除。",
-              "0899ebdb28": "Git 已经忘记了这个工作区，但它的目录仍然在磁盘上。使用强制删除来删除孤立目录。"
+              "0899ebdb28": "Git 已经忘记了这个工作区，但它的目录仍然在磁盘上。使用强制删除来删除孤立目录。",
+              "locked": "This workspace is locked by Git. Run git worktree unlock <worktree-path> from its repository, then retry deletion.",
+              "lockedReason": "This workspace is locked by Git. Git reported: {{value0}}. Run git worktree unlock <worktree-path> from its repository, then retry deletion."
             }
           }
         },

@@ -74,6 +74,7 @@ import {
   unregisterSshFilesystemProvider
 } from '../providers/ssh-filesystem-dispatch'
 import { registerSshGitProvider, unregisterSshGitProvider } from '../providers/ssh-git-dispatch'
+import * as localWorktreeFilesystem from '../local-worktree-filesystem'
 import {
   DEFAULT_REPO_BADGE_COLOR,
   FLOATING_TERMINAL_WORKTREE_ID,
@@ -89,6 +90,12 @@ import { TERMINAL_METHODS } from './rpc/methods/terminal'
 
 const ORIGINAL_PLATFORM = process.platform
 const ORIGINAL_PLATFORM_DESCRIPTOR = Object.getOwnPropertyDescriptor(process, 'platform')
+const removeWorktreeLinkedPathsMock = vi.hoisted(() => vi.fn())
+
+vi.mock('../ipc/worktree-symlinks', () => ({
+  createWorktreeLinkedPaths: vi.fn(),
+  removeWorktreeLinkedPaths: removeWorktreeLinkedPathsMock
+}))
 
 async function waitForMobileSessionTabsEvents(
   events: RuntimeMobileSessionTabsResult[],
@@ -544,6 +551,7 @@ function resetRuntimeTestMocks(): void {
   vi.mocked(assertWorktreeCleanForRemoval).mockReset()
   vi.mocked(assertWorktreeCleanForRemoval).mockResolvedValue(undefined)
   vi.mocked(removeWorktree).mockReset()
+  removeWorktreeLinkedPathsMock.mockReset()
   vi.mocked(forceDeleteLocalBranchMock).mockReset()
   vi.mocked(forceDeleteLocalBranchMock).mockResolvedValue(undefined)
   sshGitProviders.clear()
@@ -4443,7 +4451,7 @@ describe('OrcaRuntimeService', () => {
     const runtime = new OrcaRuntimeService(remoteStore as never)
 
     try {
-      await runtime.removeManagedWorktree('path:/remote/feature', true)
+      await runtime.removeManagedWorktree('path:/remote/feature', true, false)
     } finally {
       unregisterSshGitProvider('ssh-1')
     }
@@ -27098,6 +27106,10 @@ describe('OrcaRuntimeService', () => {
         stderr: 'error: failed to delete deep/file.txt: Filename too long'
       })
     )
+    vi.mocked(listWorktreesStrict)
+      .mockResolvedValueOnce(MOCK_GIT_WORKTREES)
+      .mockResolvedValueOnce(MOCK_GIT_WORKTREES)
+      .mockResolvedValue([])
 
     try {
       const result = await runtime.removeManagedWorktree(TEST_WORKTREE_ID, true)
@@ -27119,7 +27131,7 @@ describe('OrcaRuntimeService', () => {
     }
   })
 
-  it('keeps runtime metadata when long-path recovery deletes the directory but prune fails', async () => {
+  it('refuses runtime Windows recovery while Git still reports the row and keeps metadata', async () => {
     setPlatform('win32')
     const removeWorktreeMeta = vi.fn()
     const runtimeStore = {
@@ -27127,11 +27139,13 @@ describe('OrcaRuntimeService', () => {
       removeWorktreeMeta
     }
     const runtime = new OrcaRuntimeService(runtimeStore as never)
-    const gitSpy = vi.spyOn(gitRunner, 'gitExecFileAsync').mockRejectedValue(
-      Object.assign(new Error('git prune failed'), {
-        stderr: 'fatal: unable to lock worktree admin dir'
-      })
-    )
+    const gitSpy = vi.spyOn(gitRunner, 'gitExecFileAsync').mockResolvedValue({
+      stdout: '',
+      stderr: ''
+    })
+    const removePathSpy = vi
+      .spyOn(localWorktreeFilesystem, 'removeLocalWorktreePath')
+      .mockResolvedValue(undefined)
     vi.mocked(getEffectiveHooks).mockReturnValue(null)
     vi.mocked(removeWorktree).mockRejectedValue(
       Object.assign(new Error('git worktree remove failed'), {
@@ -27141,10 +27155,13 @@ describe('OrcaRuntimeService', () => {
 
     try {
       await expect(runtime.removeManagedWorktree(TEST_WORKTREE_ID, true)).rejects.toThrow(
-        'Git still has stale worktree registration'
+        `Failed to force delete worktree at ${TEST_WORKTREE_PATH}. error: failed to delete deep/file.txt: Filename too long`
       )
+      expect(removePathSpy).not.toHaveBeenCalled()
+      expect(gitSpy).not.toHaveBeenCalledWith(['worktree', 'prune'], expect.anything())
       expect(removeWorktreeMeta).not.toHaveBeenCalled()
     } finally {
+      removePathSpy.mockRestore()
       gitSpy.mockRestore()
     }
   })
@@ -27176,7 +27193,7 @@ describe('OrcaRuntimeService', () => {
       stderr: ''
     })
     vi.mocked(listWorktrees).mockResolvedValue(registeredWorktrees)
-    vi.mocked(listWorktreesStrict).mockResolvedValue(registeredWorktrees)
+    vi.mocked(listWorktreesStrict).mockResolvedValueOnce(registeredWorktrees).mockResolvedValue([])
     vi.mocked(getEffectiveHooks).mockReturnValue({
       scripts: {
         archive: 'pnpm worktree:archive'
@@ -27198,6 +27215,34 @@ describe('OrcaRuntimeService', () => {
     } finally {
       gitSpy.mockRestore()
     }
+  })
+
+  it('preserves a locked missing runtime registration even with force', async () => {
+    setPlatform('win32')
+    const missingWorktreePath = 'C:\\workspace\\locked-already-removed'
+    const worktreeId = `${TEST_REPO_ID}::${missingWorktreePath}`
+    const { runtimeStore, removeWorktreeMeta } = createStaleRuntimeWorktreeStore(worktreeId)
+    const runtime = new OrcaRuntimeService(runtimeStore as never)
+    const registeredWorktrees = [
+      {
+        path: missingWorktreePath,
+        head: 'abc',
+        branch: 'refs/heads/feature/foo',
+        isBare: false,
+        isMainWorktree: false,
+        locked: true,
+        lockReason: 'active agent session'
+      }
+    ]
+    vi.mocked(listWorktreesStrict).mockResolvedValue(registeredWorktrees)
+    vi.mocked(removeWorktree).mockResolvedValue({})
+
+    await expect(runtime.removeManagedWorktree(worktreeId, true, false)).rejects.toThrow(
+      'Worktree is locked by Git. Lock reason: active agent session'
+    )
+
+    expect(removeWorktree).not.toHaveBeenCalled()
+    expect(removeWorktreeMeta).not.toHaveBeenCalled()
   })
 
   it('routes runtime worktree removal through the selected WSL project runtime', async () => {
@@ -27924,6 +27969,83 @@ describe('OrcaRuntimeService', () => {
       `Failed to delete worktree at ${TEST_WORKTREE_PATH}. ?? scratch.txt`
     )
 
+    expect(killSpy).not.toHaveBeenCalled()
+    expect(removeWorktree).not.toHaveBeenCalled()
+  })
+
+  it('fails locked dirty-force deletes before hooks, link cleanup, or PTY teardown', async () => {
+    const repo = { ...store.getRepos()[0], symlinkPaths: ['node_modules'] }
+    const runtimeStore = {
+      ...store,
+      getRepos: () => [repo],
+      getRepo: () => repo
+    }
+    const runtime = new OrcaRuntimeService(runtimeStore as never)
+    const killSpy = vi.fn().mockReturnValue(true)
+    runtime.setPtyController({
+      write: () => true,
+      kill: (id) => killSpy(id),
+      getForegroundProcess: async () => null
+    })
+    syncSinglePty(runtime, 'pty-1')
+    vi.mocked(getEffectiveHooks).mockReturnValue({
+      scripts: { archive: 'pnpm worktree:archive' }
+    })
+    vi.mocked(listWorktreesStrict).mockResolvedValue([
+      {
+        ...MOCK_GIT_WORKTREES[0],
+        locked: true,
+        lockReason: 'active agent session'
+      }
+    ])
+
+    await expect(runtime.removeManagedWorktree(TEST_WORKTREE_ID, true, true)).rejects.toThrow(
+      `Failed to force delete worktree at ${TEST_WORKTREE_PATH}. Worktree is locked by Git.`
+    )
+
+    expect(assertWorktreeCleanForRemoval).not.toHaveBeenCalled()
+    expect(runHook).not.toHaveBeenCalled()
+    expect(removeWorktreeLinkedPathsMock).not.toHaveBeenCalled()
+    expect(killSpy).not.toHaveBeenCalled()
+    expect(removeWorktree).not.toHaveBeenCalled()
+  })
+
+  it('rechecks a runtime Git lock after the archive hook before teardown', async () => {
+    const repo = { ...store.getRepos()[0], symlinkPaths: ['node_modules'] }
+    const runtimeStore = {
+      ...store,
+      getRepos: () => [repo],
+      getRepo: () => repo
+    }
+    const runtime = new OrcaRuntimeService(runtimeStore as never)
+    const killSpy = vi.fn().mockReturnValue(true)
+    runtime.setPtyController({
+      write: () => true,
+      kill: (id) => killSpy(id),
+      getForegroundProcess: async () => null
+    })
+    syncSinglePty(runtime, 'pty-1')
+    vi.mocked(getEffectiveHooks).mockReturnValue({
+      scripts: { archive: 'pnpm worktree:archive' }
+    })
+    vi.mocked(runHook).mockResolvedValue({ success: true, output: '' })
+    vi.mocked(listWorktreesStrict)
+      .mockResolvedValueOnce(MOCK_GIT_WORKTREES)
+      .mockResolvedValueOnce([
+        {
+          ...MOCK_GIT_WORKTREES[0],
+          locked: true,
+          lockReason: 'locked during archive'
+        }
+      ])
+
+    await expect(runtime.removeManagedWorktree(TEST_WORKTREE_ID, true, true)).rejects.toThrow(
+      'Worktree is locked by Git'
+    )
+
+    expect(runHook).toHaveBeenCalled()
+    expect(removeWorktreeLinkedPathsMock).not.toHaveBeenCalled()
+    expect(assertWorktreeCleanForRemoval).not.toHaveBeenCalled()
     expect(killSpy).not.toHaveBeenCalled()
     expect(removeWorktree).not.toHaveBeenCalled()
   })

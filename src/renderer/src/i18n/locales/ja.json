@@ -4285,7 +4285,9 @@
               "1d0fa5c0a5": "ワークスペース {{value0}} の削除に失敗しました",
               "ead7b8ee15": "ファイルが変更されました。とにかく削除するには、強制削除を使用してください。",
               "905fc8efac": "Git はこのワークスペースをすでに削除しています。 Orca から削除するには、強制削除を使用します。",
-              "0899ebdb28": "Git はすでにこのワークスペースを忘れていますが、そのディレクトリはまだディスク上にあります。孤立したディレクトリを削除するには、強制削除を使用します。"
+              "0899ebdb28": "Git はすでにこのワークスペースを忘れていますが、そのディレクトリはまだディスク上にあります。孤立したディレクトリを削除するには、強制削除を使用します。",
+              "locked": "This workspace is locked by Git. Run git worktree unlock <worktree-path> from its repository, then retry deletion.",
+              "lockedReason": "This workspace is locked by Git. Git reported: {{value0}}. Run git worktree unlock <worktree-path> from its repository, then retry deletion."
             }
           }
         },

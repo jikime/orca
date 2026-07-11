@@ -139,6 +139,7 @@ import type {
   WorkspaceSessionState,
   DirEntry
 } from '../../shared/types'
+import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
 import {
   getRepoExecutionHostId,
   parseExecutionHostId,
@@ -469,8 +470,8 @@ import {
   toLocalWorktreeRuntimePath
 } from '../local-worktree-filesystem'
 import {
-  pruneStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
-  recoverLocalWindowsLongPathWorktreeRemoval
+  removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
+  recoverLocalWindowsWorktreeRemoval
 } from '../local-worktree-removal-recovery'
 import {
   connect as connectLinear,
@@ -16552,8 +16553,16 @@ export class OrcaRuntimeService {
       const canonicalWorktreePath = registeredWorktree.path
       const deleteBranch = removedMeta?.preserveBranchOnDelete !== true
 
+      // Why: a Git lock must block before archive hooks or linked-path cleanup
+      // mutate the workspace; dirty-file force is a separate permission.
+      try {
+        assertWorktreeUnlockedForRemoval(registeredWorktree)
+      } catch (error) {
+        throw new Error(formatWorktreeRemovalError(error, canonicalWorktreePath, force))
+      }
+
       // Why: a prior forced Windows recovery can delete the directory but leave
-      // Git's stale registration; retry by pruning instead of removing a missing path.
+      // Git's stale registration; recover and verify it before clearing metadata.
       if (
         !repo.connectionId &&
         force === true &&
@@ -16562,7 +16571,7 @@ export class OrcaRuntimeService {
         removedMeta &&
         (await isRuntimeWorktreePathMissing(repo, canonicalWorktreePath, localWorktreeGitOptions))
       ) {
-        const removalResult = await pruneStaleLocalWorktreeRegistrationAfterFilesystemRemoval({
+        const removalResult = await removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval({
           canonicalWorktreePath,
           repoPath: repo.path,
           localWorktreeGitOptions,
@@ -16590,9 +16599,10 @@ export class OrcaRuntimeService {
         return removalResult ?? {}
       }
       if (repo.connectionId) {
-        const rawRemovalResult = await (deleteBranch
-          ? provider!.removeWorktree(canonicalWorktreePath, force)
-          : provider!.removeWorktree(canonicalWorktreePath, force, { deleteBranch }))
+        const remoteRemoveOptions = !deleteBranch ? { deleteBranch } : {}
+        const rawRemovalResult = await (Object.keys(remoteRemoveOptions).length > 0
+          ? provider!.removeWorktree(canonicalWorktreePath, force, remoteRemoveOptions)
+          : provider!.removeWorktree(canonicalWorktreePath, force))
         const removalResult = this.preserveBranchHeadFallback(
           rawRemovalResult,
           registeredWorktree.head
@@ -16635,6 +16645,27 @@ export class OrcaRuntimeService {
         // Runtime RPC calls have no renderer trust prompt, so hooks require explicit CLI opt-in.
         warning = `orca.yaml archive hook skipped for ${canonicalWorktreePath}; pass --run-hooks to run it.`
         console.warn(`[hooks] ${warning}`)
+      }
+
+      const refreshedWorktrees = hasLocalWorktreeGitOptions
+        ? await listWorktreesStrict(repo.path, localWorktreeGitOptions)
+        : await listWorktreesStrict(repo.path)
+      const refreshedRegisteredWorktree = findRegisteredDeletableWorktree(
+        repo.path,
+        canonicalWorktreePath,
+        refreshedWorktrees
+      )
+      if (!refreshedRegisteredWorktree) {
+        throw new Error(
+          `Worktree registration changed during deletion: ${canonicalWorktreePath}. Retry deletion.`
+        )
+      }
+      try {
+        // Why: an archive hook can race another Git client that locks the row;
+        // recheck before linked-path, watcher, or terminal teardown side effects.
+        assertWorktreeUnlockedForRemoval(refreshedRegisteredWorktree)
+      } catch (error) {
+        throw new Error(formatWorktreeRemovalError(error, canonicalWorktreePath, force))
       }
 
       let shouldTearDownPtys = true
@@ -16691,23 +16722,23 @@ export class OrcaRuntimeService {
           ...(!deleteBranch ? { deleteBranch } : {}),
           // Why: removal already validated the Git row under the selected
           // project runtime; keep branch cleanup on that same canonical row.
-          knownRemovedWorktree: registeredWorktree,
+          knownRemovedWorktree: refreshedRegisteredWorktree,
           ...localWorktreeGitOptions
         }
         removalResult = this.preserveBranchHeadFallback(
           await removeWorktree(repo.path, canonicalWorktreePath, force, removeOptions),
-          registeredWorktree.head
+          refreshedRegisteredWorktree.head
         )
       } catch (error) {
-        // Why: Git for Windows can fail long-path directory deletion after
-        // Orca has already validated the target and explicit force delete.
-        const recoveredRemovalResult = await recoverLocalWindowsLongPathWorktreeRemoval({
+        // Why: Git for Windows can deregister a clean worktree before its
+        // recursive filesystem deletion fails transiently.
+        const recoveredRemovalResult = await recoverLocalWindowsWorktreeRemoval({
           error,
           force,
           canonicalWorktreePath,
           repoPath: repo.path,
           localWorktreeGitOptions,
-          registeredWorktree,
+          registeredWorktree: refreshedRegisteredWorktree,
           deleteBranch,
           closeWatcher: (worktreePath) =>
             closeLocalWatcherForWorktreePath(worktreePath).catch((err) => {
@@ -16776,7 +16807,7 @@ export class OrcaRuntimeService {
       this.rememberPreservedBranchCleanupTarget(
         removalTarget.id,
         removalResult,
-        registeredWorktree.head,
+        refreshedRegisteredWorktree.head,
         removedPushTarget
       )
       this.clearOptimisticReconcileToken(removalTarget.id)

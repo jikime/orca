@@ -128,6 +128,32 @@ describe('addWorktreeOp', () => {
 })
 
 describe('removeWorktreeOp', () => {
+  it('rejects a locked SSH worktree before invoking remove', async () => {
+    const git = vi.fn<GitExec>(async (args) => {
+      if (args[0] === 'rev-parse') {
+        return { stdout: '/repo/.git\n', stderr: '' }
+      }
+      if (args[0] === 'worktree' && args[1] === 'list') {
+        return {
+          stdout: `${worktreeList(
+            { path: '/repo', branch: 'main' },
+            { path: '/repo-feature', branch: 'feature/test' }
+          )}\nlocked remote agent`,
+          stderr: ''
+        }
+      }
+      return { stdout: '', stderr: '' }
+    })
+
+    await expect(removeWorktreeOp(git, { worktreePath: '/repo-feature' })).rejects.toThrow(
+      'Worktree is locked by Git. Lock reason: remote agent.'
+    )
+    expect(git).not.toHaveBeenCalledWith(
+      ['worktree', 'remove', '/repo-feature'],
+      expect.any(String)
+    )
+  })
+
   it('deletes the now-unused branch after removing an SSH worktree', async () => {
     const calls: string[] = []
     let listCount = 0
@@ -224,8 +250,39 @@ describe('removeWorktreeOp', () => {
       forceBranchDelete: true
     })
 
+    expect(git).toHaveBeenCalledWith(
+      ['worktree', 'remove', '--force', '/repo-feature'],
+      expect.any(String)
+    )
     expect(git).toHaveBeenCalledWith(['branch', '-D', '--', 'feature/test'], expect.any(String))
     expect(git).not.toHaveBeenCalledWith(['branch', '-d', '--', 'feature/test'], expect.any(String))
+  })
+
+  it('does not let force override a locked SSH worktree', async () => {
+    const git = vi.fn<GitExec>(async (args) => {
+      if (args[0] === 'rev-parse') {
+        return { stdout: '/repo/.git\n', stderr: '' }
+      }
+      if (args[0] === 'worktree' && args[1] === 'list') {
+        return {
+          stdout: `${worktreeList(
+            { path: '/repo', branch: 'main' },
+            { path: '/repo-feature', branch: 'feature/test' }
+          )}\nlocked remote agent`,
+          stderr: ''
+        }
+      }
+      return { stdout: '', stderr: '' }
+    })
+
+    await expect(
+      removeWorktreeOp(git, { worktreePath: '/repo-feature', force: true })
+    ).rejects.toThrow('Worktree is locked by Git. Lock reason: remote agent')
+
+    expect(git).not.toHaveBeenCalledWith(
+      ['worktree', 'remove', '--force', '/repo-feature'],
+      expect.any(String)
+    )
   })
 
   it('skips branch deletion entirely when deleteBranch is false', async () => {

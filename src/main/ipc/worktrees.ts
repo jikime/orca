@@ -29,6 +29,7 @@ import type {
   Worktree,
   WorktreeMeta
 } from '../../shared/types'
+import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
 import { getRepoExecutionHostId, type ExecutionHostId } from '../../shared/execution-host'
 import {
   buildKnownOrcaWorkspaceLayouts,
@@ -160,8 +161,8 @@ import {
   toLocalWorktreeRuntimePath
 } from '../local-worktree-filesystem'
 import {
-  pruneStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
-  recoverLocalWindowsLongPathWorktreeRemoval
+  removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
+  recoverLocalWindowsWorktreeRemoval
 } from '../local-worktree-removal-recovery'
 
 const WORKTREE_ARCHIVE_HOOK_TIMEOUT_MS = 120_000
@@ -1583,8 +1584,18 @@ export function registerWorktreeHandlers(
         const canonicalWorktreePath = registeredWorktree.path
         const deleteBranch = removedMeta?.preserveBranchOnDelete !== true
 
+        // Why: a Git lock must block before archive hooks or linked-path cleanup
+        // mutate the workspace; dirty-file force is a separate permission.
+        try {
+          assertWorktreeUnlockedForRemoval(registeredWorktree)
+        } catch (error) {
+          throw new Error(
+            formatWorktreeRemovalError(error, canonicalWorktreePath, args.force ?? false)
+          )
+        }
+
         // Why: a prior forced Windows recovery can delete the directory but leave
-        // Git's stale registration; retry by pruning instead of removing a missing path.
+        // Git's stale registration; recover and verify it before clearing metadata.
         if (
           !repo.connectionId &&
           args.force === true &&
@@ -1594,7 +1605,7 @@ export function registerWorktreeHandlers(
           removedMeta &&
           (await isAlreadyRemovedWorktreePath(repo, canonicalWorktreePath, localWorktreeGitOptions))
         ) {
-          const removalResult = await pruneStaleLocalWorktreeRegistrationAfterFilesystemRemoval({
+          const removalResult = await removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval({
             canonicalWorktreePath,
             repoPath: repo.path,
             localWorktreeGitOptions,
@@ -1655,9 +1666,10 @@ export function registerWorktreeHandlers(
             }
           }
 
-          const rawRemovalResult = await (deleteBranch
-            ? provider!.removeWorktree(canonicalWorktreePath, args.force)
-            : provider!.removeWorktree(canonicalWorktreePath, args.force, { deleteBranch }))
+          const remoteRemoveOptions = !deleteBranch ? { deleteBranch } : {}
+          const rawRemovalResult = await (Object.keys(remoteRemoveOptions).length > 0
+            ? provider!.removeWorktree(canonicalWorktreePath, args.force, remoteRemoveOptions)
+            : provider!.removeWorktree(canonicalWorktreePath, args.force))
           const removalResult = preserveBranchHeadFallback(
             rawRemovalResult,
             registeredWorktree.head
@@ -1679,6 +1691,29 @@ export function registerWorktreeHandlers(
           removeWorktreeMetadataAndTransientState(store, args.worktreeId)
           notifyWorktreesChanged(mainWindow, repoId)
           return removalResult ?? {}
+        }
+
+        const refreshedWorktrees = hasLocalWorktreeGitOptions
+          ? await listGitWorktreesStrict(repo.path, localWorktreeGitOptions)
+          : await listGitWorktreesStrict(repo.path)
+        const refreshedRegisteredWorktree = findRegisteredDeletableWorktree(
+          repo.path,
+          canonicalWorktreePath,
+          refreshedWorktrees
+        )
+        if (!refreshedRegisteredWorktree) {
+          throw new Error(
+            `Worktree registration changed during deletion: ${canonicalWorktreePath}. Retry deletion.`
+          )
+        }
+        try {
+          // Why: an archive hook can race another Git client that locks the row;
+          // recheck before linked-path, watcher, or terminal teardown side effects.
+          assertWorktreeUnlockedForRemoval(refreshedRegisteredWorktree)
+        } catch (error) {
+          throw new Error(
+            formatWorktreeRemovalError(error, canonicalWorktreePath, args.force ?? false)
+          )
         }
 
         // Why: `git worktree remove` (non-force) refuses to delete a worktree
@@ -1738,7 +1773,7 @@ export function registerWorktreeHandlers(
             // Why: this handler already paid for an authoritative worktree
             // list to validate the target; reuse it instead of rescanning
             // every sibling worktree during the hot delete path.
-            knownRemovedWorktree: registeredWorktree,
+            knownRemovedWorktree: refreshedRegisteredWorktree,
             ...(hasLocalWorktreeGitOptions ? localWorktreeGitOptions : {})
           }
           removalResult = preserveBranchHeadFallback(
@@ -1748,18 +1783,18 @@ export function registerWorktreeHandlers(
               args.force ?? false,
               removeOptions
             ),
-            registeredWorktree.head
+            refreshedRegisteredWorktree.head
           )
         } catch (error) {
-          // Why: Git for Windows can fail long-path directory deletion after
-          // Orca has already validated the target and explicit force delete.
-          const recoveredRemovalResult = await recoverLocalWindowsLongPathWorktreeRemoval({
+          // Why: Git for Windows can deregister a clean worktree before its
+          // recursive filesystem deletion fails transiently.
+          const recoveredRemovalResult = await recoverLocalWindowsWorktreeRemoval({
             error,
             force: args.force ?? false,
             canonicalWorktreePath,
             repoPath: repo.path,
             localWorktreeGitOptions,
-            registeredWorktree,
+            registeredWorktree: refreshedRegisteredWorktree,
             deleteBranch,
             closeWatcher: closeLocalWatcherForRemoval
           })
@@ -1825,7 +1860,7 @@ export function registerWorktreeHandlers(
         rememberPreservedBranchCleanupTarget(
           args.worktreeId,
           removalResult,
-          registeredWorktree.head,
+          refreshedRegisteredWorktree.head,
           removedPushTarget
         )
         runtime.clearOptimisticReconcileToken(args.worktreeId)

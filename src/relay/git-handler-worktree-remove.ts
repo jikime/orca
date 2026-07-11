@@ -1,5 +1,6 @@
 import * as path from 'node:path'
 import type { RemoveWorktreeResult } from '../shared/types'
+import { assertWorktreeUnlockedForRemoval } from '../shared/worktree-removal'
 import { deleteAlreadyMergedRelayBranchAfterSafeDeleteFailure } from './git-handler-branch-cleanup'
 import type { GitExec } from './git-handler-ops'
 import { isUnsupportedWorktreeListZError, parseWorktreeList } from './git-handler-utils'
@@ -8,6 +9,8 @@ type RelayWorktreeInfo = {
   path: string
   branch?: string
   head?: string
+  locked?: boolean
+  lockReason?: string
 }
 
 function getErrorText(error: unknown): string {
@@ -79,7 +82,9 @@ function normalizeRelayWorktrees(worktrees: Record<string, unknown>[]): RelayWor
     .map((worktree) => ({
       path: typeof worktree.path === 'string' ? worktree.path : '',
       head: typeof worktree.head === 'string' ? worktree.head : undefined,
-      branch: typeof worktree.branch === 'string' ? worktree.branch : undefined
+      branch: typeof worktree.branch === 'string' ? worktree.branch : undefined,
+      locked: worktree.locked === true ? true : undefined,
+      lockReason: typeof worktree.lockReason === 'string' ? worktree.lockReason : undefined
     }))
     .filter((worktree) => worktree.path.length > 0)
 }
@@ -172,6 +177,8 @@ export async function removeWorktreeOp(
   )
   const branchName = normalizeLocalBranchRef(removedWorktree?.branch ?? '')
   const branchHead = removedWorktree?.head ?? ''
+
+  assertWorktreeUnlockedForRemoval(removedWorktree)
 
   const args = ['worktree', 'remove']
   if (force) {
