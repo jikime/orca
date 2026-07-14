@@ -87,7 +87,12 @@ import type { RepoMethod } from '../../shared/telemetry-events'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { enrichMissingRepoGitRemoteIdentities } from '../repo-git-remote-identity-enrichment'
 import { getProjectHostSetupForRepo } from '../../shared/project-host-setup-projection'
-import { normalizeExecutionHostId, parseExecutionHostId } from '../../shared/execution-host'
+import {
+  getRepoExecutionHostId,
+  normalizeExecutionHostId,
+  parseExecutionHostId,
+  type ExecutionHostId
+} from '../../shared/execution-host'
 import { joinRemotePath } from '../ssh/ssh-remote-platform'
 import {
   assertFolderWorkspacePathUsable,
@@ -2430,8 +2435,11 @@ export function registerRepoHandlers(mainWindow: BrowserWindow, store: Store): v
 
   ipcMain.handle(
     'repos:getBaseRefDefault',
-    async (_event, args: { repoId: string }): Promise<BaseRefDefaultResult> => {
-      const repo = store.getRepo(args.repoId)
+    async (
+      _event,
+      args: { repoId: string; hostId?: ExecutionHostId }
+    ): Promise<BaseRefDefaultResult> => {
+      const repo = getRepoForExecutionHost(store, args.repoId, args.hostId)
       if (!repo || isFolderRepo(repo)) {
         // Why: folder-mode repos have no git state to resolve a base ref from.
         // Return null + 0 so the renderer can decline to use a fabricated default
@@ -2507,14 +2515,20 @@ export function registerRepoHandlers(mainWindow: BrowserWindow, store: Store): v
 
   ipcMain.handle(
     'repos:searchBaseRefs',
-    async (_event, args: { repoId: string; query: string; limit?: number }) => {
+    async (
+      _event,
+      args: { repoId: string; query: string; limit?: number; hostId?: ExecutionHostId }
+    ) => {
       return (await searchBaseRefDetailsForRepo(store, args)).map((entry) => entry.refName)
     }
   )
 
   ipcMain.handle(
     'repos:searchBaseRefDetails',
-    async (_event, args: { repoId: string; query: string; limit?: number }) => {
+    async (
+      _event,
+      args: { repoId: string; query: string; limit?: number; hostId?: ExecutionHostId }
+    ) => {
       return searchBaseRefDetailsForRepo(store, args)
     }
   )
@@ -2522,9 +2536,9 @@ export function registerRepoHandlers(mainWindow: BrowserWindow, store: Store): v
 
 async function searchBaseRefDetailsForRepo(
   store: Store,
-  args: { repoId: string; query: string; limit?: number }
+  args: { repoId: string; query: string; limit?: number; hostId?: ExecutionHostId }
 ): Promise<BaseRefSearchResult[]> {
-  const repo = store.getRepo(args.repoId)
+  const repo = getRepoForExecutionHost(store, args.repoId, args.hostId)
   if (!repo || isFolderRepo(repo)) {
     return []
   }
@@ -2600,6 +2614,23 @@ async function searchBaseRefDetailsForRepo(
     }
   }
   return searchBaseRefDetails(repo.path, args.query, limit)
+}
+
+function getRepoForExecutionHost(
+  store: Store,
+  repoId: string,
+  hostId?: ExecutionHostId
+): Repo | null {
+  if (!hostId) {
+    return store.getRepo(repoId) ?? null
+  }
+  // Why: repo ids can collide across local and SSH hosts; base-ref reads must
+  // use the same host selected by the Settings pane as the subsequent write.
+  return (
+    store
+      .getRepos()
+      .find((repo) => repo.id === repoId && getRepoExecutionHostId(repo) === hostId) ?? null
+  )
 }
 
 function notifyReposChanged(mainWindow: BrowserWindow): void {
