@@ -28,6 +28,7 @@ import { closeAllWatchers } from './ipc/filesystem-watcher'
 import { disposeWorktreeBaseDirectoryWatchers } from './ipc/worktree-base-directory-watcher'
 import { registerCoreHandlers } from './ipc/register-core-handlers'
 import { startPieRealtimeIfEnabled, stopPieRealtime } from './pie-realtime/realtime-service'
+import { startPieAuthMainIfEnabled, stopPieAuthService } from './pie-auth-main-wiring'
 import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
@@ -247,6 +248,7 @@ let starNag: StarNagService | null = null
 let agentAwakeService: AgentAwakeService | null = null
 let crashReports: CrashReportStore | null = null
 let pieRealtimeStarted = false
+let pieAuthStarted = false
 let unsubscribeAgentAwakeStatusChanges: (() => void) | null = null
 let unsubscribeSystemResumeBroadcast: (() => void) | null = null
 let watcherShutdownPromise: Promise<void> | null = null
@@ -1113,6 +1115,12 @@ function openMainWindow(): BrowserWindow {
   if (!pieRealtimeStarted) {
     pieRealtimeStarted = true
     startPieRealtimeIfEnabled()
+  }
+  // Why: dev-gated OIDC/PKCE login service. No-op unless PIE_AUTH_DISCOVERY_URL is
+  // set and safe mode has not disabled 'pie-auth'; login is triggered explicitly.
+  if (!pieAuthStarted) {
+    pieAuthStarted = true
+    startPieAuthMainIfEnabled()
   }
   automations.setWebContents(window.webContents)
   automations.start()
@@ -2511,6 +2519,8 @@ app.on('will-quit', (e) => {
     // dev parent dying means the temp/dev profile has no owner left to reattach.
     // Close the dev-gated Realtime client (no-op if it never connected).
     stopPieRealtime()
+    // Stop the dev-gated auth refresh loop (no-op if login never happened).
+    stopPieAuthService()
     const daemonTeardown = isDevParentShutdownRequested() ? shutdownDaemon() : disconnectDaemon()
     Promise.allSettled([daemonTeardown, rpcStopAndClear, watcherShutdown, emulatorShutdown])
       .then(() => shutdownTelemetry())
