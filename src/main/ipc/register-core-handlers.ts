@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, safeStorage } from 'electron'
 import { registerAppHandlers } from './app'
 import { registerCliHandlers } from './cli'
 import { registerPreflightHandlers } from './preflight'
@@ -39,6 +39,10 @@ import { registerPieRuntimeHandlers } from './pie-runtime'
 import { setTrustedPieRendererWebContentsId } from './pie-renderer-trust'
 import { registerSettingsHandlers } from './settings'
 import { registerDiagnosticsHandlers } from './diagnostics'
+import { setPieConnectionDiagnosticsProvider } from '../observability'
+import { collectPieConnectionDiagnostics } from '../observability/pie-connection-diagnostics'
+import { getDaemonLiveness } from '../daemon/daemon-init'
+import { getSafeModeState } from '../pie-safe-mode/safe-mode-state'
 import { registerSkillsHandlers } from './skills'
 import { registerWorkspaceSpaceHandlers } from './workspace-space'
 import { registerWorkspacePortHandlers } from './workspace-ports'
@@ -158,6 +162,23 @@ export function registerCoreHandlers(
   // lanes never share a code path — `ipc/diagnostics.ts` imports only from
   // `src/main/observability/`, never from `src/main/telemetry/`. Order is
   // not load-bearing; both register independent ipcMain channels.
+  // Why: register the connection/system section provider before the diagnostics
+  // handlers so a collected bundle carries safe-mode/session/secure-storage/
+  // daemon status; the collector reads status only and re-redacts server-side.
+  setPieConnectionDiagnosticsProvider(() =>
+    collectPieConnectionDiagnostics({
+      safeModeState: getSafeModeState(),
+      sessionBroker: desktopSessionBroker,
+      safeStorage,
+      getDaemonLiveness,
+      environment: {
+        appVersion: app.getVersion(),
+        electronVersion: process.versions.electron ?? '',
+        platform: process.platform
+      },
+      clock: { now: () => Date.now() }
+    })
+  )
   registerDiagnosticsHandlers()
   registerComputerUsePermissionHandlers()
   registerSettingsHandlers(store, agentAwakeService)

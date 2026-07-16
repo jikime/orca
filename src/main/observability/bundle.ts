@@ -49,6 +49,10 @@ export type CollectBundleOptions = {
   readonly arch: string
   readonly osRelease: string
   readonly orcaChannel: 'stable' | 'rc' | 'dev'
+  /** Optional connection/system diagnostics section (safe mode, session status,
+   *  secure-storage, daemon liveness). Emitted right after the header and run
+   *  through the same server-mode redaction pass as spans. */
+  readonly connectionDiagnostics?: unknown
 }
 
 export type CollectedBundle = {
@@ -121,6 +125,18 @@ export function collectBundle(opts: CollectBundleOptions): CollectedBundle {
   // Avoids re-running `lines.join('\n').length` every iteration — that's
   // O(N²) in span count and dominates collection time for large backlogs.
   let currentBytes = Buffer.byteLength(`${headerLine}\n`)
+
+  if (opts.connectionDiagnostics !== undefined) {
+    // Why: the connection/system section rides in the same payload as spans, so
+    // it gets the same server-mode redaction pass before the user previews it.
+    const sectionLine = JSON.stringify(redactValue(opts.connectionDiagnostics, 'server'))
+    const sectionBytes = Buffer.byteLength(`${sectionLine}\n`)
+    if (currentBytes + sectionBytes <= MAX_BUNDLE_BYTES) {
+      lines.push(sectionLine)
+      currentBytes += sectionBytes
+    }
+  }
+
   const maxRecordBytes = MAX_BUNDLE_BYTES - currentBytes
 
   // Files from listRotatedFiles are newest → oldest. Reading newest first

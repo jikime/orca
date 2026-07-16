@@ -199,6 +199,16 @@ export function getDiagnosticsStatus(): DiagnosticsStatus {
  *  and are baked into the bundle header. NEVER pass `install_id` here —
  *  the bundle's identity is the per-bundle submission ID, not the
  *  PostHog-lane install_id (Issue 8 in the security review). */
+// Why: the composition root registers a provider so the bundle can carry the
+// connection/system section without ipc/diagnostics.ts importing electron
+// safeStorage or the session broker directly (keeping the consent/preview/upload
+// flow unchanged). Cleared to null in tests and when no section is available.
+let connectionDiagnosticsProvider: (() => unknown) | null = null
+
+export function setPieConnectionDiagnosticsProvider(provider: (() => unknown) | null): void {
+  connectionDiagnosticsProvider = provider
+}
+
 export function collectDiagnosticBundle(
   meta: Pick<
     CollectBundleOptions,
@@ -212,6 +222,7 @@ export function collectDiagnosticBundle(
   if (sink) {
     sink.flush()
   }
+  const connectionDiagnostics = connectionDiagnosticsProvider?.()
   return _collectBundle({
     traceFilePath: getTraceFilePath(),
     maxFiles: DEFAULT_MAX_FILES,
@@ -220,6 +231,7 @@ export function collectDiagnosticBundle(
     // the logs directory.
     daemonLogFilePath: getDaemonLogFilePath(),
     daemonLogMaxFiles: DAEMON_LOG_MAX_FILES,
+    ...(connectionDiagnostics !== undefined ? { connectionDiagnostics } : {}),
     ...meta
   })
 }

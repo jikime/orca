@@ -83,6 +83,18 @@ import {
   isGpuFallbackCrashCandidate
 } from './crash-reporting/gpu-crash-fallback-decision'
 import {
+  beginSafeModeStartupAttempt,
+  markSafeModeStartupHealthy,
+  shouldEnterSafeModeFromBurst,
+  type SafeModeEnvironment
+} from './pie-safe-mode/safe-mode-marker'
+import {
+  decideSafeMode,
+  initSafeModeState,
+  isSafeModeRequestedByFlag
+} from './pie-safe-mode/safe-mode-state'
+import { guardStartupService } from './pie-safe-mode/safe-mode-startup-guard'
+import {
   shouldSuppressDevEducation,
   suppressDevEducationForStore
 } from './startup/dev-education-suppression'
@@ -705,6 +717,7 @@ if (hasSingleInstanceLock) {
   if (!gpuFallbackActiveThisLaunch) {
     enableMainProcessGpuFeatures()
   }
+  initSafeModeForThisLaunch()
   // Why: headless serve backs browser panes with offscreen BrowserWindows, which
   // need an X display on Linux. Ensure one (Xvfb) before whenReady; the result
   // gates whether the offscreen backend is installed so capability stays honest.
@@ -727,19 +740,69 @@ ipcMain.handle(
   }
 )
 
+// Why: safe mode clears its crash counter only after the app has reached a
+// stable startup — the first window is up and it survived this grace window
+// without crashing. A crash before the timer fires leaves the counter intact.
+const SAFE_MODE_STARTUP_HEALTHY_GRACE_MS = 10_000
+let safeModeHealthyClearScheduled = false
+
+function getSafeModeEnvironment(): SafeModeEnvironment {
+  return {
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron ?? '',
+    platform: process.platform
+  }
+}
+
+function initSafeModeForThisLaunch(): void {
+  const userDataPath = app.getPath('userData')
+  const priorFailedStartups = beginSafeModeStartupAttempt({
+    userDataPath,
+    environment: getSafeModeEnvironment(),
+    clock: { now: () => Date.now() }
+  })
+  const state = initSafeModeState(
+    decideSafeMode({
+      flagRequested: isSafeModeRequestedByFlag(process.argv, process.env),
+      burstDetected: shouldEnterSafeModeFromBurst(priorFailedStartups)
+    })
+  )
+  if (state.active) {
+    console.warn(
+      `[safe-mode] active (reason: ${state.reason}); disabled subsystems: ${state.disabledSubsystems.join(', ')}`
+    )
+  }
+}
+
+function scheduleSafeModeHealthyClear(): void {
+  if (safeModeHealthyClearScheduled) {
+    return
+  }
+  safeModeHealthyClearScheduled = true
+  const userDataPath = app.getPath('userData')
+  const timer = setTimeout(() => {
+    markSafeModeStartupHealthy(userDataPath)
+  }, SAFE_MODE_STARTUP_HEALTHY_GRACE_MS)
+  if (typeof timer === 'object' && 'unref' in timer) {
+    timer.unref()
+  }
+}
+
 function startTerminalRuntimeStartupServices(): Promise<void> {
   logStartupMilestone('first-window-startup-services-start')
   const startupServices = startFirstWindowStartupServices({
     // Why: desktop and headless serve must adopt the same persistent provider
-    // before either path is allowed to create terminals or a renderer.
-    startDaemonPtyProvider: async (signal) => {
+    // before either path is allowed to create terminals or a renderer. Safe mode
+    // skips the daemon so a crash-looping provider cannot re-run on recovery.
+    startDaemonPtyProvider: guardStartupService('terminal-daemon', async (signal) => {
       logStartupMilestone('startup-service-start', { service: 'daemon-pty-provider' })
       await initDaemonPtyProvider(signal)
       logStartupMilestone('startup-service-done', { service: 'daemon-pty-provider' })
-    },
+    }),
     // Why: PTY spawn env reads ORCA_AGENT_HOOK_* from the live server state, so
-    // the renderer awaits this barrier before restored terminals reconnect.
-    startAgentHookServer: async () => {
+    // the renderer awaits this barrier before restored terminals reconnect. Safe
+    // mode skips the agent hook server for the same crash-recovery reason.
+    startAgentHookServer: guardStartupService('agent-hooks', async () => {
       if (!isAgentStatusHooksEnabled(store?.getSettings())) {
         return
       }
@@ -753,7 +816,7 @@ function startTerminalRuntimeStartupServices(): Promise<void> {
         endpointNamespace: devAgentHookEndpointNamespace
       })
       logStartupMilestone('startup-service-done', { service: 'agent-hook-server' })
-    },
+    }),
     onDaemonError: (error) => {
       // Why: daemon startup failure silently dropped terminals onto the local
       // provider (killed on quit, no persistence) — the v1.4.129-rc.1 outage was
@@ -776,6 +839,7 @@ function startTerminalRuntimeStartupServices(): Promise<void> {
   localPtyStartupReady = startupServices.localPtyReady
   void firstWindowStartupServicesReady.then(() => {
     logStartupMilestone('first-window-startup-services-ready')
+    scheduleSafeModeHealthyClear()
   })
   void localPtyStartupReady.then(() => {
     logStartupMilestone('local-pty-startup-ready')
@@ -2328,6 +2392,10 @@ app.on('before-quit', () => {
       message: 'before-quit allowed for update install'
     })
   }
+  // Why: a user-initiated quit is not a crash. Without this, three quick
+  // launch-and-quit cycles (each shorter than the healthy-grace timer) would
+  // read as a crash burst and force the next launch into safe mode.
+  markSafeModeStartupHealthy(app.getPath('userData'))
   isQuitting = true
   desktopRelayService?.fenceAndCloseNow()
   runtimeRpc?.setMobileRelayPairingProvider(null)
