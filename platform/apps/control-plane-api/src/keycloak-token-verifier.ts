@@ -10,6 +10,9 @@ export type VerifiedPrincipal = {
   emailVerified: boolean
   displayName: string
   expiresAt: string
+  // The Keycloak session id (`sid` claim), keying the Pie session record used for
+  // revocation enforcement. Empty string when the token carries no sid.
+  sessionId: string
 }
 
 export type TokenVerifierConfig = {
@@ -55,7 +58,8 @@ export function createKeycloakTokenVerifier(config: TokenVerifierConfig): Keyclo
         email,
         emailVerified: payload.email_verified === true,
         displayName: name || preferredUsername || email || payload.sub,
-        expiresAt: new Date((payload.exp ?? 0) * 1000).toISOString()
+        expiresAt: new Date((payload.exp ?? 0) * 1000).toISOString(),
+        sessionId: typeof payload.sid === 'string' ? payload.sid : ''
       }
     }
   }

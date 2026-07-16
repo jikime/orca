@@ -1,5 +1,6 @@
-import type { Transaction } from 'kysely'
+import type { Kysely, Transaction } from 'kysely'
 import type { Database } from './database-schema'
+import { withoutTenantContext } from './tenant-transaction'
 
 export type UserAccountRow = {
   id: string
@@ -30,6 +31,19 @@ export async function findUserAccountBySubject(
     .where('subject', '=', subject)
     .executeTakeFirst()
   return row ? { id: row.id, email: row.email, displayName: row.display_name } : null
+}
+
+/** Resolves the Pie user id for a verified subject (privileged, subject-scoped),
+ *  or null if unprovisioned. */
+export async function getUserIdForSubject(
+  db: Kysely<Database>,
+  issuer: string,
+  subject: string
+): Promise<string | null> {
+  const account = await withoutTenantContext(db, (trx) =>
+    findUserAccountBySubject(trx, issuer, subject)
+  )
+  return account?.id ?? null
 }
 
 /** The user's active memberships, earliest first (the earliest is their primary

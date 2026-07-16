@@ -36,20 +36,41 @@ declare module 'fastify' {
  * probe cannot distinguish expired vs tampered vs wrong-issuer. Routes decide
  * whether that means signed_out (tryAuthenticate) or 401 (requireAuthenticated).
  */
+export type RequestAuthenticationOptions = {
+  // Consulted after a token verifies: a revoked session's token is rejected at the
+  // NEXT request even before it expires (AUT-005). Keyed on the token's sid.
+  isSessionRevoked?: (sessionId: string) => Promise<boolean>
+}
+
 export function registerRequestAuthentication(
   app: FastifyInstance,
-  verifier: KeycloakTokenVerifier
+  verifier: KeycloakTokenVerifier,
+  options: RequestAuthenticationOptions = {}
 ): void {
   const tryAuthenticate = async (request: FastifyRequest): Promise<VerifiedPrincipal | null> => {
     const token = bearerToken(request)
     if (!token) {
       return null
     }
+    let principal: VerifiedPrincipal
     try {
-      return await verifier.verify(token)
+      principal = await verifier.verify(token)
     } catch {
       return null
     }
+    // Revocation enforcement: a verified token whose session has been revoked is
+    // treated as unauthenticated from the next request on.
+    if (principal.sessionId && options.isSessionRevoked) {
+      try {
+        if (await options.isSessionRevoked(principal.sessionId)) {
+          return null
+        }
+      } catch {
+        // A revocation-store failure must not fail-open; deny.
+        return null
+      }
+    }
+    return principal
   }
 
   app.decorate('tryAuthenticate', tryAuthenticate)

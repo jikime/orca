@@ -1,6 +1,6 @@
 import fastifyWebsocket from '@fastify/websocket'
 import type { ObjectStorage } from '@pie/object-storage-adapter'
-import type { PieDatabase } from '@pie/persistence'
+import { isSessionRevoked, type PieDatabase } from '@pie/persistence'
 import Ajv2020 from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import Fastify, { type FastifyInstance } from 'fastify'
@@ -10,6 +10,8 @@ import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
+import { registerInvitationRoutes } from './invitation-routes'
+import { registerRevocationRoutes } from './revocation-routes'
 import type { KeycloakTokenVerifier } from './keycloak-token-verifier'
 import { extractBearerToken, registerRequestAuthentication } from './request-authentication'
 import { registerDiscoveryRoute } from './discovery-route'
@@ -116,7 +118,12 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
   // so the token-verification decorations register once, and the tenant routes are
   // gated on the verifier being present (no verifier → the routes are not exposed).
   if (deps.tokenVerifier) {
-    registerRequestAuthentication(app, deps.tokenVerifier)
+    const db = deps.db
+    registerRequestAuthentication(
+      app,
+      deps.tokenVerifier,
+      db ? { isSessionRevoked: (sessionId) => isSessionRevoked(db, sessionId) } : {}
+    )
   }
 
   if (deps.db && deps.registry && deps.tokenVerifier) {
@@ -126,6 +133,10 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       registry: deps.registry,
       instanceId: (deps.discoveryConfig ?? loadDiscoveryConfig()).instanceId
     })
+    registerInvitationRoutes(app, { db: deps.db })
+    if (deps.gateway) {
+      registerRevocationRoutes(app, { db: deps.db, gateway: deps.gateway })
+    }
   }
 
   if (deps.db && deps.registry && deps.objectStorage && deps.tokenVerifier) {

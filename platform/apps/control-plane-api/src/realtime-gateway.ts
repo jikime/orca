@@ -27,7 +27,7 @@ export type RealtimeSocket = {
   onClose: (handler: () => void) => void
 }
 
-export type ConnectionAuthorization = { authorized: boolean; reason?: string }
+export type ConnectionAuthorization = { authorized: boolean; reason?: string; userId?: string }
 
 export type RealtimeGatewayOptions = {
   db: PieDatabase
@@ -53,6 +53,9 @@ export type RealtimeGateway = {
   start: () => Promise<void>
   handleConnection: (socket: RealtimeSocket, authToken: string | null) => void
   broadcastClosing: (reason: string) => void
+  // Pushes session.revoked to a user's live connections (and closes them) so a
+  // revoked client learns immediately (doc 01 "역할·세션 폐기가 다음 요청부터 반영").
+  notifySessionRevoked: (userId: string, reason: string) => void
   catchUpAllAfterReconnect: () => Promise<void>
   connectionCount: () => number
   deliveredMessageCount: () => number
@@ -63,6 +66,7 @@ type GatewayConnection = {
   id: string
   socket: RealtimeSocket
   organizationId: string
+  userId: string | null
   lastDeliveredSequence: number
   heartbeatTimer: ReturnType<typeof setInterval> | null
 }
@@ -257,6 +261,7 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
             id: newConnectionId(),
             socket,
             organizationId: hello.organizationId,
+            userId: authorization.userId ?? null,
             lastDeliveredSequence: 0,
             heartbeatTimer: null
           }
@@ -286,6 +291,23 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
     }
   }
 
+  function notifySessionRevoked(userId: string, reason: string): void {
+    for (const set of orgConnections.values()) {
+      for (const connection of set) {
+        if (connection.userId !== userId) {
+          continue
+        }
+        send(connection, 'session.revoked', {
+          type: 'session.revoked',
+          schemaVersion: 1,
+          reason,
+          effectiveAt: new Date(now()).toISOString()
+        })
+        connection.socket.close(1008, 'session revoked')
+      }
+    }
+  }
+
   return {
     start: async () => {
       await listenSource.start((channel, payload) => {
@@ -300,6 +322,7 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
     },
     handleConnection,
     broadcastClosing,
+    notifySessionRevoked,
     catchUpAllAfterReconnect,
     connectionCount: () => {
       let total = 0

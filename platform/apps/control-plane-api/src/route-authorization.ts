@@ -10,8 +10,8 @@ import { buildProblemDetails, requestCorrelationId, sendProblem } from './proble
 /**
  * Shared org-scoped RBAC gate for REST routes (doc 01:215-231): resolves the
  * caller's membership in the org, checks the required permission, and on deny
- * records a reason-coded audit event and sends 403. Returns true only when the
- * caller may proceed.
+ * records a reason-coded audit event and sends 403. Returns the caller's Pie user
+ * id when allowed, or null when denied (403 already sent).
  */
 export async function authorizeOrgPermission(
   db: PieDatabase,
@@ -20,7 +20,7 @@ export async function authorizeOrgPermission(
   principal: VerifiedPrincipal,
   organizationId: string,
   permission: string
-): Promise<boolean> {
+): Promise<{ userId: string | null } | null> {
   const { decision, userId } = await authorizeSubjectForOrg(
     db,
     { issuer: principal.issuer, subject: principal.subject },
@@ -28,7 +28,7 @@ export async function authorizeOrgPermission(
     permission
   )
   if (decision.allowed) {
-    return true
+    return { userId }
   }
   await recordAuthorizationDenial(db, decision, {
     requestedOrganizationId: organizationId,
@@ -48,5 +48,5 @@ export async function authorizeOrgPermission(
       instance: request.url
     })
   )
-  return false
+  return null
 }

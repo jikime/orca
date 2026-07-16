@@ -22,7 +22,7 @@ import {
   createPkcePair,
   createStateValue
 } from './pkce-authorization-request'
-import { fetchSessionState, provisionOwner } from './platform-session-client'
+import { acceptInvite as acceptInviteRequest, resolveSessionState } from './platform-session-client'
 import { verifyIdToken } from './id-token-verifier'
 import { exchangeAuthorizationCode, refreshAccessToken } from './token-exchange'
 
@@ -57,6 +57,8 @@ export type PieAuthServiceDeps = {
 
 export type PieAuthService = {
   login: () => Promise<PieSessionState>
+  // Accepts a pie://invite token: logs in first if needed, then joins the org.
+  acceptInvite: (inviteToken: string) => Promise<{ organizationId: string }>
   logout: () => Promise<void>
   stop: () => void
   getStatus: () => PieAuthStatus
@@ -69,6 +71,7 @@ export type PieAuthService = {
 type ActiveSession = {
   scope: PieSessionSecretScope
   session: PieSessionState
+  apiBaseUrl: string
   tokenEndpoint: string
   clientId: string
   endSessionEndpoint: string | undefined
@@ -230,7 +233,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
         now
       })
 
-      const session = await resolveSession(discovery.apiBaseUrl, tokens.accessToken)
+      const session = await resolveSessionState(discovery.apiBaseUrl, tokens.accessToken, fetchImpl)
       if (session.status === 'signed_out') {
         throw new Error('session did not become signed in after provisioning')
       }
@@ -249,6 +252,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
       active = {
         scope,
         session,
+        apiBaseUrl: discovery.apiBaseUrl,
         tokenEndpoint: oidc.token_endpoint,
         clientId: discovery.auth.clientId,
         endSessionEndpoint: oidc.end_session_endpoint,
@@ -260,16 +264,6 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
     } finally {
       channel.close()
     }
-  }
-
-  async function resolveSession(apiBaseUrl: string, accessToken: string): Promise<PieSessionState> {
-    const first = await fetchSessionState(apiBaseUrl, accessToken, fetchImpl)
-    if (first.status !== 'signed_out') {
-      return first
-    }
-    // First login: provision the owner org, then re-read the session.
-    await provisionOwner(apiBaseUrl, accessToken, fetchImpl)
-    return fetchSessionState(apiBaseUrl, accessToken, fetchImpl)
   }
 
   async function logout(): Promise<void> {
@@ -304,8 +298,30 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
     active?.refreshTimer?.clear()
   }
 
+  async function acceptInvite(inviteToken: string): Promise<{ organizationId: string }> {
+    if (!active) {
+      await login()
+    }
+    const session = active
+    if (!session) {
+      throw new Error('login required to accept an invite')
+    }
+    const accessToken = deps.lifecycle.getAccessToken(session.scope)
+    if (!accessToken) {
+      throw new Error('no access token to accept an invite')
+    }
+    const result = await acceptInviteRequest(
+      session.apiBaseUrl,
+      accessToken,
+      inviteToken,
+      fetchImpl
+    )
+    return { organizationId: result.organizationId }
+  }
+
   return {
     login,
+    acceptInvite,
     logout,
     stop,
     getStatus: () => status,

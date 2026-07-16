@@ -313,6 +313,24 @@ composition). **operator: `/internal/*`는 `PIE_OPERATOR_TOKEN` bearer 게이트
 green, root lockfile 무변경. 남음: ResourceGrant narrowing·entitlement/UsageMeter(다음 authz slice), 초대·폐기
 (slice 4).
 
+2026-07-24 slice 4로 **초대 흐름 + 세션/토큰 폐기 전파**를 구현해 남은 R3 종료 조건을 닫았다(platform+root).
+**초대:** `identity.invitations`(원본 토큰이 아니라 **해시만** 저장, 역할 템플릿·대상 이메일·만료·단일 사용,
+org RLS). createInvitation(member.invite, 원본 토큰 1회 반환)·revokeInvitation·acceptInvitation(한 tx로
+해시+만료+미사용+**이메일 매칭**+org 확인→소비+**초대 고정 역할로 Membership**+audit+outbox). 단일 사용
+재수락·교차 이메일/org 재사용 구조적 차단(AUT-004). `pie://invite/<token>`는 auth broker **형제 파서**
+(unsolicited 토큰이라 state broker에 안 얹음—판단·보고), ROOT Main이 로그인 후 acceptInvite. **폐기 전파:**
+`identity.device_sessions`를 **Keycloak `sid`로 키잉**. **경계 결정: Keycloak이 credential·실제 refresh
+회전·자체 재사용 탐지 소유, Pie가 세션 메타데이터+폐기 결정+다음-요청 강제 소유(ADR-0009).** verifier가
+sid로 `isSessionRevoked` 조회→**폐기 세션 토큰 만료 전 다음 요청부터 거부**(AUT-005). membership 폐기=기존
+RBAC status로 다음 요청 자동 거부 + gateway가 user 연결에 `session.revoked` push. `rotateSessionFamily`
+stale 마커 재생→family 폐기(AUT-002). `revokeMembership` 마지막 owner 차단+FOR UPDATE 동시성 안전(TEN-005).
+**모든 초대·폐기 라우트는 OpenAPI 없음→to-be-contracted 내부 라우트+플래그.** 테스트: 4 gate suite 명명
+(invitation-replay-cross-tenant / refresh-token-family-reuse / last-owner-concurrency / revoke-propagation-
+offline) + API revoke-propagation(membership→403·session→401·last-owner 409·초대 HTTP 왕복)+root invite
+파서. platform 138 + root 78 tests green, root lockfile 무변경. **R3 종료 조건 충족: 권한별 로그인·조직 ID
+직접 요청 거부·역할/세션 폐기 다음 요청 반영·초대/refresh 재사용/마지막 소유자 공격 차단.** 남은 R3(후속):
+MFA/복구/step-up(AUT-006)·Passkey, entitlement/UsageMeter, ResourceGrant narrowing.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

@@ -21,7 +21,9 @@ export function createTestTokenVerifier(): KeycloakTokenVerifier {
         email: `${token}@test`,
         emailVerified: true,
         displayName: 'Test Subject',
-        expiresAt: new Date(Date.now() + 3_600_000).toISOString()
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        // Synthetic session id keyed on the token so revocation tests can target it.
+        sessionId: `sid-${token}`
       }
     }
   }
