@@ -129,6 +129,7 @@ import {
   timeRendererStartupSyncStep
 } from './startup/startup-diagnostics'
 import { reconnectSshTargetForRendererStartup } from './startup/ssh-startup-reconnect'
+import { bootstrapPieDesktopBoundary } from './pie/pie-desktop-bootstrap'
 import { shouldRenderPetOverlay } from './components/pet/pet-overlay-visibility'
 import { applyDocumentTheme } from './lib/document-theme'
 import { getSystemPrefersDark } from './lib/terminal-theme'
@@ -1091,6 +1092,18 @@ function App(): React.JSX.Element {
           await timeRendererStartupStep('first-window-services-await', () =>
             window.api.app.awaitFirstWindowStartupServices()
           )
+          void timeRendererStartupStep('pie-desktop-boundary', bootstrapPieDesktopBoundary)
+            .then(({ runtime, session }) => {
+              logRendererStartupDiagnostic('pie-desktop-boundary-ready', {
+                runtimeProtocolVersion: runtime.protocolVersion,
+                sessionStatus: session.status
+              })
+            })
+            .catch((error) => {
+              // Why: Pie central services are not required to restore an
+              // existing local Workspace during the R1 compatibility phase.
+              console.warn('Pie desktop boundary probe failed:', error)
+            })
           reconnectStarted = true
           await timeRendererStartupStep('reconnect-terminals', () =>
             actions.reconnectPersistedTerminals(abortController.signal)

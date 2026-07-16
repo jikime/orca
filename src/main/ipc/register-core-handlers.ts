@@ -34,6 +34,9 @@ import { registerDeveloperPermissionHandlers } from './developer-permissions'
 import { registerComputerUsePermissionHandlers } from './computer-use-permissions'
 import { setTrustedBrowserRendererWebContentsId, setAgentBrowserBridgeRef } from './browser'
 import { registerSessionHandlers } from './session'
+import { registerPieSessionHandlers } from './pie-session'
+import { registerPieRuntimeHandlers } from './pie-runtime'
+import { setTrustedPieRendererWebContentsId } from './pie-renderer-trust'
 import { registerSettingsHandlers } from './settings'
 import { registerDiagnosticsHandlers } from './diagnostics'
 import { registerSkillsHandlers } from './skills'
@@ -77,6 +80,7 @@ import {
   getSavedRuntimeAiVaultHostInfos,
   scanRuntimeAiVaultSessions
 } from '../ai-vault/runtime-session-scanner'
+import { desktopSessionBroker } from '../pie-session/desktop-session-broker'
 
 let registered = false
 
@@ -111,6 +115,7 @@ export function registerCoreHandlers(
   // just update the per-window web-contents ID on subsequent calls.
   setTrustedBrowserRendererWebContentsId(mainWindowWebContentsId)
   setTrustedClipboardRendererWebContentsId(mainWindowWebContentsId)
+  setTrustedPieRendererWebContentsId(mainWindowWebContentsId)
   setTrustedUIRendererWebContentsId(mainWindowWebContentsId)
   setAgentBrowserBridgeRef(runtime.getAgentBrowserBridge())
   if (registered) {
@@ -119,6 +124,8 @@ export function registerCoreHandlers(
   registered = true
 
   registerAppHandlers(store, { onBeforeRelaunch: lifecycleOptions.onBeforeRelaunch })
+  registerPieSessionHandlers(desktopSessionBroker)
+  registerPieRuntimeHandlers(runtime, desktopSessionBroker)
   registerCliHandlers()
   registerPreflightHandlers()
   registerClaudeUsageHandlers(claudeUsage)

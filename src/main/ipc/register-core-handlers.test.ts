@@ -24,6 +24,9 @@ const {
   registerShellHandlersMock,
   registerPetHandlersMock,
   registerSessionHandlersMock,
+  registerPieSessionHandlersMock,
+  registerPieRuntimeHandlersMock,
+  setTrustedPieRendererWebContentsIdMock,
   registerUIHandlersMock,
   setTrustedUIRendererWebContentsIdMock,
   registerFilesystemHandlersMock,
@@ -85,6 +88,9 @@ const {
   registerShellHandlersMock: vi.fn(),
   registerPetHandlersMock: vi.fn(),
   registerSessionHandlersMock: vi.fn(),
+  registerPieSessionHandlersMock: vi.fn(),
+  registerPieRuntimeHandlersMock: vi.fn(),
+  setTrustedPieRendererWebContentsIdMock: vi.fn(),
   registerUIHandlersMock: vi.fn(),
   setTrustedUIRendererWebContentsIdMock: vi.fn(),
   registerFilesystemHandlersMock: vi.fn(),
@@ -152,6 +158,18 @@ vi.mock('./cli', () => ({
 
 vi.mock('./preflight', () => ({
   registerPreflightHandlers: registerPreflightHandlersMock
+}))
+
+vi.mock('./pie-session', () => ({
+  registerPieSessionHandlers: registerPieSessionHandlersMock
+}))
+
+vi.mock('./pie-runtime', () => ({
+  registerPieRuntimeHandlers: registerPieRuntimeHandlersMock
+}))
+
+vi.mock('./pie-renderer-trust', () => ({
+  setTrustedPieRendererWebContentsId: setTrustedPieRendererWebContentsIdMock
 }))
 
 vi.mock('./claude-usage', () => ({
@@ -383,6 +401,9 @@ describe('registerCoreHandlers', () => {
     registerShellHandlersMock.mockReset()
     registerPetHandlersMock.mockReset()
     registerSessionHandlersMock.mockReset()
+    registerPieSessionHandlersMock.mockReset()
+    registerPieRuntimeHandlersMock.mockReset()
+    setTrustedPieRendererWebContentsIdMock.mockReset()
     registerUIHandlersMock.mockReset()
     setTrustedUIRendererWebContentsIdMock.mockReset()
     registerFilesystemHandlersMock.mockReset()
@@ -494,6 +515,8 @@ describe('registerCoreHandlers', () => {
     expect(registerTelemetryHandlersMock).toHaveBeenCalledWith(store)
     expect(registerOrcaProfileHandlersMock).toHaveBeenCalledWith(store, { onBeforeRelaunch })
     expect(registerSessionHandlersMock).toHaveBeenCalledWith(store)
+    expect(registerPieSessionHandlersMock).toHaveBeenCalledOnce()
+    expect(registerPieRuntimeHandlersMock).toHaveBeenCalledOnce()
     expect(registerUIHandlersMock).toHaveBeenCalledWith(store)
     expect(registerEmulatorFrameStreamHandlersMock).toHaveBeenCalled()
     expect(registerEmulatorVideoStreamHandlersMock).toHaveBeenCalled()
@@ -517,6 +540,7 @@ describe('registerCoreHandlers', () => {
     expect(registerUpdaterHandlersMock).toHaveBeenCalled()
     expect(setTrustedBrowserRendererWebContentsIdMock).toHaveBeenCalledWith(null)
     expect(setTrustedClipboardRendererWebContentsIdMock).toHaveBeenCalledWith(null)
+    expect(setTrustedPieRendererWebContentsIdMock).toHaveBeenCalledWith(null)
     expect(setTrustedUIRendererWebContentsIdMock).toHaveBeenCalledWith(null)
     expect(registerBrowserHandlersMock).toHaveBeenCalled()
     expect(registerFilesystemWatcherHandlersMock).toHaveBeenCalled()
@@ -586,6 +610,7 @@ describe('registerCoreHandlers', () => {
     // Web contents ID should always be updated
     expect(setTrustedBrowserRendererWebContentsIdMock).toHaveBeenCalledWith(42)
     expect(setTrustedClipboardRendererWebContentsIdMock).toHaveBeenCalledWith(42)
+    expect(setTrustedPieRendererWebContentsIdMock).toHaveBeenCalledWith(42)
     expect(setTrustedUIRendererWebContentsIdMock).toHaveBeenCalledWith(42)
     // IPC handlers should NOT be registered again
     expect(registerCliHandlersMock).not.toHaveBeenCalled()

@@ -224,6 +224,8 @@ import type {
   ReactErrorBoundaryReportResult
 } from '../shared/crash-reporting'
 import type { PreloadApi } from './api-types'
+import { createPieSessionPreloadApi } from './pie-session-api'
+import { createPieRuntimePreloadApi } from './pie-runtime-api'
 
 type NativeFileDropCallback = (data: NativeFileDropPayload) => void
 
@@ -504,6 +506,11 @@ const api = {
       ipcRenderer.invoke('app:pickFloatingMarkdownDocument'),
     pickFloatingWorkspaceDirectory: (): Promise<string | null> =>
       ipcRenderer.invoke('app:pickFloatingWorkspaceDirectory')
+  },
+
+  pie: {
+    session: createPieSessionPreloadApi(ipcRenderer),
+    runtime: createPieRuntimePreloadApi(ipcRenderer)
   },
 
   orcaProfiles: {

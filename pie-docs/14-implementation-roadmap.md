@@ -116,6 +116,18 @@ JSON Schema 59개, fixture 49개, OpenAPI 18 operation, AsyncAPI 7 message, MCP 
 이 단계에서는 실제 회원가입 서버를 만들지 않는다. 이후 인증 구현이 들어갈 자리를 범용 IPC나
 Renderer 토큰 저장 없이 고정한다.
 
+### 구현 상태
+
+2026-07-16 `feat/pie-r1-electron-foundation`에서 첫 얇은 계약을 구현했다. Renderer는
+`window.api.pie.session.getState()`로 Main의 signed-out Session Broker를 읽고,
+`window.api.pie.runtime.getHandshake()`로 Main이 내부 capability를 사용해 협상한 Runtime protocol,
+host와 제한값만 받는다. preload와 Main이 양쪽 payload를 검증하며 Main은 현재 BrowserWindow ID,
+window type과 main frame을 모두 확인한다. Runtime capability secret과 인증 token은 Renderer로 전달하지
+않는다.
+
+R1 전체가 완료된 것은 아니다. `pie://` 딥링크, OS 보안 저장소 adapter, Fuses·ASAR·서명 gate, 기존
+프로필 migration dry-run과 안전 모드는 후속 R1 slice로 남아 있다.
+
 ### 종료 조건
 
 - Renderer가 Node, 토큰, OS 비밀에 직접 접근하지 않는다.

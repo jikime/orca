@@ -48,6 +48,7 @@ import {
 import { getMainE2EConfig } from '../e2e-config'
 import { buildEditableContextMenuTemplate } from './editable-context-menu'
 import { clearTrustedUIRendererWebContentsId, setTrustedUIRendererWebContentsId } from '../ipc/ui'
+import { clearTrustedPieRendererWebContentsId } from '../ipc/pie-renderer-trust'
 import { resolveWindowCloseAction } from './window-close-decision'
 
 function forceRepaint(window: BrowserWindow): void {
@@ -1213,6 +1214,7 @@ export function createMainWindow(
     // Why: powerMonitor is app-global; without this the closed window's
     // resume relay would leak and fire against a destroyed webContents.
     powerMonitor.removeListener('resume', onSystemResume)
+    clearTrustedPieRendererWebContentsId(rendererWebContentsId)
     clearTrustedUIRendererWebContentsId(rendererWebContentsId)
     // Why: on updater-triggered shutdown, BrowserWindow can emit `closed`
     // after its webContents has already been destroyed. The destroyed
