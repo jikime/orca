@@ -681,6 +681,42 @@ R5 완료 조건을 모두 요구한다.
 - Intake accept가 WorkItem 생성·source binding과 함께 멱등 transaction으로 처리된다.
 - ProjectUpdate가 내부·고객 visibility와 revision을 보존한다.
 
+### 구현 상태
+
+R4 Core Gate를 3 slice로 나눈다: (1) delivery 기반 + Team + Project, (2) WorkItem aggregate + Team
+Workflow + Board move, (3) My Work + comment/Activity + Core Gate 자동화. Planning Gate(Cycle·Initiative·
+Intake·SavedView)는 이후.
+
+2026-07-26 slice 1 `feat/pie-r4-delivery-team-project`에서 delivery 기반 + Team + Project를 구현했다
+(platform 전용, root src 미변경). **contracts 확장(R4는 R3와 달리 계약 확장이 범위, doc 28:110-115):
+additive하게 `createTeam`/`getTeam` OpenAPI op + `team-create.v1` 스키마 + fixture 2개 추가, v1 스키마는
+기존 필드만 사용(project.v1/team.v1가 이미 충분), `check:contracts` green(20 op/60 schema/51 fixture).**
+이번 slice 필요 필드만 추가하고 WorkItem workflow/cycle·customer/contract/health는 후속 slice로 연기.
+**선행 배관:** (1) **resource-scoped 인가 헬퍼** `authorizeResourcePermission`(route-authorization.ts) —
+org-only `authorizeOrgPermission`의 형제로 `{resourceType, resourceId}`를 R3 slice 5가 만든 evaluator의
+resource-scope(narrow/widen) 단계에 넣는다; org-level 라우트는 그대로. **이것이 ResourceGrant의 첫 실
+소비자**(persistence `authorizeSubjectForResource`가 membership+resource_grants 조회→evaluator). (2)
+**core.projects entitlement** — core.members 패턴 복제(`projectEntitlementDecision`=core.projects 한계 대
+비 비-archived 프로젝트 라이브 카운트), createProject에서 검사→초과 시 distinct 감사 `entitlement.shortfall.
+core_projects`+HTTP **402**(project.create 403과 구별). **delivery migration `20260726090001`:** identity/
+operations와 동일 RLS(permissive isolation+restrictive guard+FORCE) + **복합 (organization_id, id) 키·복합
+FK**(doc 30:104-136) — `delivery.teams`(org+key unique, key ^[A-Z][A-Z0-9]{1,9}$), `delivery.team_counters`
+(팀별 WorkItem sequence, WorkItem은 slice 2지만 Team이 생성부터 counter 소유), `delivery.projects`(project.v1
+필드만), `delivery.project_teams`(같은 tenant 복합 FK로 타 org 팀 연결 불가). **Team provisioning 결정:
+merged `provisionOwner`를 확장해 org 생성 tx에서 기본 Team(key CORE) 동시 생성**(doc 28 R4-01; created
+분기에서만이라 멱등 재-provision은 2번째 팀 안 만듦, 기존 테스트 무회귀). createTeam(team.manage)·getTeam·
+listTeams. **Project 수직:** listProjects/createProject/getProject/updateProject. createProject=
+authorizeOrgPermission(project.create)+projectEntitlementDecision→한 tenant tx(project+project_teams 링크
+[생성 org의 기본 팀]+audit+outbox project.created)—outbox→worker→realtime가 이미 'project' 타입이라 새
+plumbing 0으로 realtime 전달(테스트로 확인). updateProject=PATCH merge-patch+**If-Match/ETag(version)→412**.
+**getProject=`authorizeResourcePermission`(project.read on the specific project) — ResourceGrant 첫 실
+production 소비자**(특정 project에 narrow grant→역할이 project.read 있어도 거부, 테스트로 증명). merge-patch+
+json content-type parser 추가(Fastify 기본 미지원). 테스트: delivery RLS 음성(cross-tenant team read 차단),
+Team(key unique·dup 거부·기본 팀 provisioning), Project(create+링크+audit+outbox+realtime, core.projects
+402≠project.create 403, If-Match 412, ResourceGrant narrow가 getProject 거부). platform 167 tests green(+11),
+lint 0, check:contracts green, root src 미변경. **slice 2가 다음:** WorkItem aggregate(team_counters 소비)+
+Team Workflow+Board move. **slice 3:** My Work+comment/Activity+Core Gate 자동화.
+
 ## R5: AI 실행 추적과 개발 Workspace
 
 ### 목표

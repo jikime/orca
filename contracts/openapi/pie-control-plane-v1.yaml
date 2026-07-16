@@ -174,6 +174,51 @@ paths:
                     type: [string, 'null']
         default:
           $ref: '#/components/responses/Problem'
+    post:
+      tags: [Teams]
+      operationId: createTeam
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/team-create.v1.schema.json
+      responses:
+        '201':
+          description: Team created.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/team.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/teams/{teamId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: teamId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Teams]
+      operationId: getTeam
+      responses:
+        '200':
+          description: Team representation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/team.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/projects/{projectId}:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

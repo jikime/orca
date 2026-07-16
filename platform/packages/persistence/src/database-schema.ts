@@ -309,6 +309,41 @@ export interface ArtifactUploadSessionsTable {
   created_at: TimestampColumn
 }
 
+export interface TeamsTable {
+  organization_id: string
+  id: Generated<string>
+  key: string
+  name: string
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface TeamCountersTable {
+  organization_id: string
+  team_id: string
+  next_sequence: DefaultedBigIntColumn
+}
+
+export interface ProjectsTable {
+  organization_id: string
+  id: Generated<string>
+  name: string
+  summary: string | null
+  status: Generated<string>
+  version: DefaultedBigIntColumn
+  archived_at: NullableTimestampColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface ProjectTeamsTable {
+  organization_id: string
+  project_id: string
+  team_id: string
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -334,6 +369,10 @@ export interface Database {
   'operations.artifact_upload_sessions': ArtifactUploadSessionsTable
   'audit.audit_events': AuditEventsTable
   'audit.authorization_denials': AuthorizationDenialsTable
+  'delivery.teams': TeamsTable
+  'delivery.team_counters': TeamCountersTable
+  'delivery.projects': ProjectsTable
+  'delivery.project_teams': ProjectTeamsTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable

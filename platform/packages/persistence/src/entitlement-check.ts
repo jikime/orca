@@ -4,6 +4,7 @@ import { evaluateEntitlement, type EntitlementDecision } from './entitlement-eva
 import { withoutTenantContext } from './tenant-transaction'
 
 const CORE_MEMBERS = 'core.members'
+const CORE_PROJECTS = 'core.projects'
 
 async function planGrantFor(
   trx: Transaction<Database>,
@@ -73,4 +74,31 @@ export async function checkMemberEntitlement(
   organizationId: string
 ): Promise<EntitlementDecision> {
   return withoutTenantContext(db, (trx) => memberEntitlementDecision(trx, organizationId))
+}
+
+/**
+ * Decides whether the org may add one project (core.projects) — same pattern as
+ * members, from a live count of non-archived projects. Runs inside the caller's
+ * transaction so the check and the project insert commit together.
+ */
+export async function projectEntitlementDecision(
+  trx: Transaction<Database>,
+  organizationId: string
+): Promise<EntitlementDecision> {
+  const grant = await planGrantFor(trx, organizationId, CORE_PROJECTS)
+  if (!grant) {
+    return { allowed: true, reason: 'allowed' }
+  }
+  const row = await trx
+    .selectFrom('delivery.projects')
+    .select(sql<string>`count(*)`.as('count'))
+    .where('organization_id', '=', organizationId)
+    .where('archived_at', 'is', null)
+    .executeTakeFirstOrThrow()
+  return evaluateEntitlement({
+    enforcement: grant.enforcement,
+    grantValue: grant.enforcement === 'boolean' ? grant.booleanValue : grant.limitValue,
+    currentUsage: Number(row.count),
+    increment: 1
+  })
 }

@@ -1,6 +1,10 @@
 import type { Kysely } from 'kysely'
 import type { Database } from './database-schema'
-import { evaluatePermission, type AuthorizationDecision } from './permission-evaluator'
+import {
+  evaluatePermission,
+  type AuthorizationDecision,
+  type ResourceGrantInput
+} from './permission-evaluator'
 import { loadRoleManifestCatalog, type RoleManifestCatalog } from './role-manifest-catalog'
 import { withoutTenantContext } from './tenant-transaction'
 import { findUserAccountBySubject } from './user-account-query'
@@ -55,6 +59,72 @@ export async function authorizeSubjectForOrg(
         membership: membership
           ? { organizationId, roleIds: membership.role_ids, status: membership.status }
           : null
+      },
+      catalog
+    )
+    return { decision, userId: account.id }
+  })
+}
+
+/**
+ * Resource-scoped authorization (doc 01:165-181): resolves the caller's membership
+ * AND their resource grants (narrow/widen) for the target resource, then runs the
+ * evaluator's resource-scope step. R4's resource-scoped operations (getProject, ...)
+ * are the ResourceGrant evaluator's first real consumers. Privileged/subject-scoped.
+ */
+export async function authorizeSubjectForResource(
+  db: Kysely<Database>,
+  principal: AuthorizationPrincipal,
+  organizationId: string,
+  resource: { resourceType: string; resourceId: string },
+  requiredPermission: string,
+  catalog: RoleManifestCatalog = loadRoleManifestCatalog()
+): Promise<AuthorizationResult> {
+  return withoutTenantContext(db, async (trx) => {
+    const account = await findUserAccountBySubject(trx, principal.issuer, principal.subject)
+    if (!account) {
+      return {
+        decision: evaluatePermission(
+          {
+            requiredPermission,
+            requestedOrganizationId: organizationId,
+            membership: null,
+            resource
+          },
+          catalog
+        ),
+        userId: null
+      }
+    }
+    const membership = await trx
+      .selectFrom('identity.memberships')
+      .select(['role_ids', 'status'])
+      .where('user_id', '=', account.id)
+      .where('organization_id', '=', organizationId)
+      .executeTakeFirst()
+    const grantRows = await trx
+      .selectFrom('identity.resource_grants')
+      .select(['grant_kind', 'resource_type', 'resource_id', 'permission'])
+      .where('organization_id', '=', organizationId)
+      .where('user_id', '=', account.id)
+      .where('resource_type', '=', resource.resourceType)
+      .where('resource_id', '=', resource.resourceId)
+      .execute()
+    const resourceGrants: ResourceGrantInput[] = grantRows.map((row) => ({
+      grantKind: row.grant_kind === 'widen' ? 'widen' : 'narrow',
+      resourceType: row.resource_type,
+      resourceId: row.resource_id,
+      permission: row.permission
+    }))
+    const decision = evaluatePermission(
+      {
+        requiredPermission,
+        requestedOrganizationId: organizationId,
+        membership: membership
+          ? { organizationId, roleIds: membership.role_ids, status: membership.status }
+          : null,
+        resource,
+        resourceGrants
       },
       catalog
     )

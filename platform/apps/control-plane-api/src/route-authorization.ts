@@ -1,5 +1,6 @@
 import {
   authorizeSubjectForOrg,
+  authorizeSubjectForResource,
   recordAuthorizationDenial,
   type PieDatabase
 } from '@pie/persistence'
@@ -25,6 +26,51 @@ export async function authorizeOrgPermission(
     db,
     { issuer: principal.issuer, subject: principal.subject },
     organizationId,
+    permission
+  )
+  if (decision.allowed) {
+    return { userId }
+  }
+  await recordAuthorizationDenial(db, decision, {
+    requestedOrganizationId: organizationId,
+    userId,
+    issuer: principal.issuer,
+    subject: principal.subject,
+    requiredPermission: permission,
+    requestId: requestCorrelationId(request)
+  })
+  sendProblem(
+    reply,
+    buildProblemDetails({
+      status: 403,
+      title: `authorization denied: ${decision.reason}`,
+      code: 'FORBIDDEN',
+      requestId: requestCorrelationId(request),
+      instance: request.url
+    })
+  )
+  return null
+}
+
+/**
+ * Resource-scoped RBAC gate — the sibling of authorizeOrgPermission that threads a
+ * specific resource through the evaluator's narrow/widen step (doc 01:165-181).
+ * Org-level routes keep using authorizeOrgPermission unchanged.
+ */
+export async function authorizeResourcePermission(
+  db: PieDatabase,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  principal: VerifiedPrincipal,
+  organizationId: string,
+  resource: { resourceType: string; resourceId: string },
+  permission: string
+): Promise<{ userId: string | null } | null> {
+  const { decision, userId } = await authorizeSubjectForResource(
+    db,
+    { issuer: principal.issuer, subject: principal.subject },
+    organizationId,
+    resource,
     permission
   )
   if (decision.allowed) {

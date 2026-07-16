@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { sql, type Kysely } from 'kysely'
 import type { Database } from './database-schema'
 import { buildResourceChangeCloudEvent } from './resource-change-event'
+import { DEFAULT_TEAM_KEY, insertTeamRow } from './team-store'
 import { withoutTenantContext } from './tenant-transaction'
 
 // The owner role is fixed manifest vocabulary (roles.json). Provisioning only ever
@@ -122,6 +123,14 @@ export async function provisionOwner(
       })
       .returning('id')
       .executeTakeFirstOrThrow()
+
+    // A newly created org gets a default Team (doc 28 R4-01), in the same tx. Only
+    // on org creation — an idempotent re-provision returns above without a 2nd team.
+    await insertTeamRow(trx, {
+      organizationId,
+      key: DEFAULT_TEAM_KEY,
+      name: '기본 팀'
+    })
 
     await trx
       .insertInto('audit.audit_events')
