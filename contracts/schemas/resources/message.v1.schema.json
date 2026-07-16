@@ -42,6 +42,21 @@
         },
         "additionalProperties": false
       }
+    },
+    "attachments": {
+      "description": "Attachment summaries (no raw storage key). The download URL is fetched via the member-gated download endpoint.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "filename", "contentType", "byteSize"],
+        "properties": {
+          "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+          "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "contentType": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "byteSize": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

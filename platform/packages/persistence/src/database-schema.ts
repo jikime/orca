@@ -447,6 +447,20 @@ export interface MessageMentionsTable {
   created_at: TimestampColumn
 }
 
+export interface MessageAttachmentsTable {
+  organization_id: string
+  id: Generated<string>
+  channel_id: string
+  message_id: string | null
+  object_id: string
+  storage_key: string
+  filename: string
+  content_type: string
+  byte_size: BigIntColumn
+  status: Generated<string>
+  created_at: TimestampColumn
+}
+
 export interface NotificationsTable {
   organization_id: string
   id: Generated<string>
@@ -497,6 +511,7 @@ export interface Database {
   'collaboration.message_reactions': MessageReactionsTable
   'collaboration.read_cursors': ReadCursorsTable
   'collaboration.message_mentions': MessageMentionsTable
+  'collaboration.message_attachments': MessageAttachmentsTable
   'collaboration.notifications': NotificationsTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/attachment-download.v1.schema.json",
+  "title": "Attachment download URL",
+  "description": "A short-lived presigned GET URL, re-issued through the member gate each time.",
+  "type": "object",
+  "required": ["url", "filename", "contentType", "expiresAt"],
+  "properties": {
+    "url": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "contentType": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "expiresAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

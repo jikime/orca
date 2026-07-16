@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { sql, type Kysely, type Transaction } from 'kysely'
+import {
+  attachmentSummariesForMessages,
+  linkAttachmentsTx,
+  type AttachmentSummary
+} from './attachment-store'
 import type { Database } from './database-schema'
 import { emitCollaborationChange, isChannelMemberTx } from './channel-store'
 import { withTenantTransaction } from './tenant-transaction'
@@ -19,6 +24,7 @@ export type MessageResource = {
   threadRootMessageId: string | null
   replyCount: number
   reactions: ReactionSummary[]
+  attachments: AttachmentSummary[]
   createdAt: string
 }
 
@@ -37,7 +43,8 @@ type MessageRow = {
 function mapMessage(
   row: MessageRow,
   replyCount: number,
-  reactions: ReactionSummary[]
+  reactions: ReactionSummary[],
+  attachments: AttachmentSummary[]
 ): MessageResource {
   return {
     id: row.id,
@@ -50,6 +57,7 @@ function mapMessage(
     threadRootMessageId: row.thread_root_message_id,
     replyCount,
     reactions,
+    attachments,
     createdAt: new Date(row.created_at).toISOString()
   }
 }
@@ -96,14 +104,23 @@ async function enrichMessages(
     list.push({ emoji: row.emoji, count: Number(row.count), reactedByMe: row.reacted_by_me })
     reactionsByMessage.set(row.message_id, list)
   }
+  const attachmentsByMessage = await attachmentSummariesForMessages(trx, ids)
   return rows.map((row) =>
-    mapMessage(row, replyCounts.get(row.id) ?? 0, reactionsByMessage.get(row.id) ?? [])
+    mapMessage(
+      row,
+      replyCounts.get(row.id) ?? 0,
+      reactionsByMessage.get(row.id) ?? [],
+      attachmentsByMessage.get(row.id) ?? []
+    )
   )
 }
 
 export type PostMessageResult =
   | { ok: true; message: MessageResource }
-  | { ok: false; reason: 'channel_not_found' | 'not_a_member' | 'invalid_thread_root' }
+  | {
+      ok: false
+      reason: 'channel_not_found' | 'not_a_member' | 'invalid_thread_root' | 'invalid_attachment'
+    }
 
 /**
 /**
@@ -169,6 +186,9 @@ export async function postMessage(
     visibility?: MessageVisibility
     threadRootMessageId?: string
     mentions?: readonly string[]
+    // Ids of PENDING attachment intents (already uploaded + HEAD-verified by the
+    // route) to link to this message. Each must be a pending attachment of THIS channel.
+    attachmentIds?: readonly string[]
   }
 ): Promise<PostMessageResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
@@ -182,6 +202,19 @@ export async function postMessage(
     }
     if (!(await isChannelMemberTx(trx, input.channelId, input.authorUserId))) {
       return { ok: false, reason: 'not_a_member' }
+    }
+    if (input.attachmentIds && input.attachmentIds.length > 0) {
+      // Pre-check (read) so a bad attachment is a clean 422 before the message row.
+      const pending = await trx
+        .selectFrom('collaboration.message_attachments')
+        .select('id')
+        .where('id', 'in', input.attachmentIds)
+        .where('channel_id', '=', input.channelId)
+        .where('status', '=', 'pending')
+        .execute()
+      if (pending.length !== new Set(input.attachmentIds).size) {
+        return { ok: false, reason: 'invalid_attachment' }
+      }
     }
     if (input.threadRootMessageId) {
       const root = await trx
@@ -210,6 +243,13 @@ export async function postMessage(
     if (input.mentions && input.mentions.length > 0) {
       await resolveMentions(trx, input.organizationId, input.channelId, message.id, input.mentions)
     }
+    if (input.attachmentIds && input.attachmentIds.length > 0) {
+      const linked = await linkAttachmentsTx(trx, input.channelId, message.id, input.attachmentIds)
+      if (!linked) {
+        // A concurrent post consumed one after our pre-check — roll back this tx.
+        throw new Error('attachment link race; retry')
+      }
+    }
     await trx
       .insertInto('audit.audit_events')
       .values({
@@ -221,8 +261,10 @@ export async function postMessage(
       })
       .execute()
     await emitCollaborationChange(trx, input.organizationId, 'message', message.id, 1, 'created')
-    // A brand-new message has no replies or reactions yet.
-    return { ok: true, message: mapMessage(message, 0, []) }
+    // A brand-new message has no replies/reactions; its just-linked attachments are read back.
+    const attachments =
+      (await attachmentSummariesForMessages(trx, [message.id])).get(message.id) ?? []
+    return { ok: true, message: mapMessage(message, 0, [], attachments) }
   })
 }
 

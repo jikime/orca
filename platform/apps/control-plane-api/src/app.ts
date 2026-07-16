@@ -6,6 +6,7 @@ import addFormats from 'ajv-formats'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
 import { registerArtifactRoutes } from './artifact-routes'
+import { registerAttachmentRoutes } from './attachment-routes'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
@@ -154,7 +155,11 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerInvitationRoutes(app, { db: deps.db })
     registerDeliveryRoutes(app, { db: deps.db, registry: deps.registry })
     registerWorkItemRoutes(app, { db: deps.db, registry: deps.registry })
-    registerChannelRoutes(app, { db: deps.db, registry: deps.registry })
+    registerChannelRoutes(app, {
+      db: deps.db,
+      registry: deps.registry,
+      ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {})
+    })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {
       registerRevocationRoutes(app, { db: deps.db, gateway: deps.gateway })
@@ -163,6 +168,11 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
 
   if (deps.db && deps.registry && deps.objectStorage && deps.tokenVerifier) {
     registerArtifactRoutes(app, {
+      db: deps.db,
+      registry: deps.registry,
+      objectStorage: deps.objectStorage
+    })
+    registerAttachmentRoutes(app, {
       db: deps.db,
       registry: deps.registry,
       objectStorage: deps.objectStorage

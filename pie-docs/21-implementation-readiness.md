@@ -493,6 +493,20 @@ WS): typing 멤버 도달/비멤버 미도달/durable row 0/rate cap; presence o
 pie-realtime-contract 테스트·root lint green, 두 lockfile clean. team-lead의 live typing+presence WS smoke 후 merge
 예정. 후속: 첨부→search→group DM→DND→@channel/@here→per-channel presence 또는 Planning Gate — team-lead 방향 대기.
 
+2026-07-17 chat slice 6 `feat/pie-chat-attachments` — 메시지 첨부. **R2 object-storage/artifact intent→PUT→finalize +
+tenant-key + presign 재사용(두 번째 업로더 안 만듦).** platform 전용, root src 미변경, design-reference-only. **결정
+((a) vs (b)): (b) — 공유 S3 머신(object-storage-adapter key-builder·presignPut·head)은 재사용, 도메인 row는
+collaboration.message_attachments로 분리**(artifact aggregate 오염 회피). object-storage-client에 presignGet 추가(재사용
+확장). migration `20260802090001`: message_attachments 한 테이블에 nullable message_id(pending intent→post가 linked로
+전환, 같은 tenant 복합 FK·channel_id member-gate). **결정(attach-at-post): postMessage가 attachmentIds를 라우트에서
+HEAD-verify 후 한 tx에서 링크.** 다운로드=짧은 presignGet(300s) member-gated(회수 전파). message.v1에 additive optional
+`attachments` 요약(raw key 노출 0, 다운로드는 별도 엔드포인트). bounds: 25MB·filename 255·≤10개·path filename 거부·클라
+경로 구조적 거부·HEAD 크기 불일치 422. 첨부는 message.created realtime 재사용→worker/gateway 변경 0, DM에서도 코드 0.
+테스트(real Postgres + real S3): intent→PUT→post→다운로드 바이트 왕복·비멤버 403·oversize/path 400·불일치 422·DM 동작.
+platform 248 tests green(+4), typecheck 4/4·lint 0·check:contracts green(77 schema/76 fixture/42 op), root src 미변경,
+worker/gateway/outbox 무변경, 두 lockfile clean. team-lead의 live upload→finalize→download S3 smoke 후 merge 예정.
+후속: search→group DM→DND→@channel/@here→per-channel presence 또는 Planning Gate — team-lead 방향 대기.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

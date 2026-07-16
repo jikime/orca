@@ -7,6 +7,7 @@ import {
   getChannelForMember,
   getChannelKind,
   getMessageWithReactions,
+  getPendingAttachment,
   getReadCursor,
   isOrgMember,
   listChannelMessages,
@@ -21,6 +22,7 @@ import {
   type PieDatabase,
   type ReadCursorResource
 } from '@pie/persistence'
+import type { ObjectStorage } from '@pie/object-storage-adapter'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { beginIdempotency } from './idempotent-mutation'
@@ -42,7 +44,13 @@ const CHANNEL_READ_ROUTE = '/v1/organizations/{organizationId}/channels/{channel
 const EMOJI_PATTERN = /^.{1,32}$/u
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export type ChannelRoutesDeps = { db: PieDatabase; registry: ContractSchemaRegistry }
+export type ChannelRoutesDeps = {
+  db: PieDatabase
+  registry: ContractSchemaRegistry
+  // Present when object storage is configured; required to HEAD-verify attachments a
+  // post links. A post WITHOUT attachments needs no object storage.
+  objectStorage?: ObjectStorage
+}
 
 function problem(
   reply: FastifyReply,
@@ -367,6 +375,46 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         visibility?: ChannelVisibility
         threadRootMessageId?: string
         mentions?: string[]
+        attachmentIds?: string[]
+      }
+      // attach-at-post: HEAD-verify each referenced attachment (exists + declared size)
+      // in THIS channel before it is linked in the message tx. The object storage HEAD
+      // stays at the route (S3); the store only links the verified ids.
+      if (body.attachmentIds && body.attachmentIds.length > 0) {
+        if (!deps.objectStorage) {
+          await gate.release()
+          return problem(
+            reply,
+            request,
+            503,
+            'OBJECT_STORAGE_UNAVAILABLE',
+            'attachments unavailable'
+          )
+        }
+        for (const attachmentId of body.attachmentIds) {
+          const pending = await getPendingAttachment(deps.db, organizationId, attachmentId)
+          if (!pending || pending.channelId !== channelId || pending.status !== 'pending') {
+            await gate.release()
+            return problem(
+              reply,
+              request,
+              422,
+              'INVALID_ATTACHMENT',
+              'attachment is not a pending upload in this channel'
+            )
+          }
+          const head = await deps.objectStorage.head(pending.storageKey)
+          if (!head.exists || head.sizeBytes !== pending.byteSize) {
+            await gate.release()
+            return problem(
+              reply,
+              request,
+              422,
+              'INVALID_ATTACHMENT',
+              'attachment object missing or size mismatch'
+            )
+          }
+        }
       }
       const result = await postMessage(deps.db, {
         organizationId,
@@ -375,7 +423,8 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         body: body.body,
         visibility: body.visibility,
         ...(body.threadRootMessageId ? { threadRootMessageId: body.threadRootMessageId } : {}),
-        ...(body.mentions ? { mentions: body.mentions } : {})
+        ...(body.mentions ? { mentions: body.mentions } : {}),
+        ...(body.attachmentIds ? { attachmentIds: body.attachmentIds } : {})
       })
       if (!result.ok) {
         await gate.release()
@@ -389,6 +438,8 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
             'INVALID_THREAD_ROOT',
             'thread root is not a root message in this channel'
           )
+        if (result.reason === 'invalid_attachment')
+          return problem(reply, request, 422, 'INVALID_ATTACHMENT', 'invalid attachment reference')
         return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
       }
       await gate.complete(result.message.id)

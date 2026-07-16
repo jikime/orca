@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/attachment-intent.v1.schema.json",
+  "title": "Attachment upload intent",
+  "description": "A pending attachment: PUT the bytes to uploadUrl, then reference id in a message post to link it.",
+  "type": "object",
+  "required": ["id", "objectId", "uploadUrl", "expiresAt"],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "objectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "uploadUrl": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "expiresAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

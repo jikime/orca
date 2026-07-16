@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/attachment-intent-create.v1.schema.json",
+  "title": "Create attachment upload intent request",
+  "description": "Reserves a tenant-scoped object key in the attachments zone and returns a presigned PUT. The server derives the storage key; the client NEVER supplies a path.",
+  "type": "object",
+  "required": ["filename", "contentType", "byteSize"],
+  "properties": {
+    "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "contentType": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "byteSize": { "type": "integer", "minimum": 0, "maximum": 26214400 }
+  },
+  "additionalProperties": false
+}
