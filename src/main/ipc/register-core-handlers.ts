@@ -43,6 +43,7 @@ import { setPieConnectionDiagnosticsProvider } from '../observability'
 import { collectPieConnectionDiagnostics } from '../observability/pie-connection-diagnostics'
 import { getDaemonLiveness } from '../daemon/daemon-init'
 import { getSafeModeState } from '../pie-safe-mode/safe-mode-state'
+import { getPieRealtimeStatus } from '../pie-realtime/realtime-service'
 import { registerSkillsHandlers } from './skills'
 import { registerWorkspaceSpaceHandlers } from './workspace-space'
 import { registerWorkspacePortHandlers } from './workspace-ports'
@@ -171,6 +172,7 @@ export function registerCoreHandlers(
       sessionBroker: desktopSessionBroker,
       safeStorage,
       getDaemonLiveness,
+      getRealtimeState: () => getPieRealtimeStatus().state,
       environment: {
         appVersion: app.getVersion(),
         electronVersion: process.versions.electron ?? '',

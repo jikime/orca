@@ -299,6 +299,26 @@ resource.changed 전달, cross-tenant 격리(org A 구독은 org B 이벤트를 
 못 읽음), 재연결 delta, 너무 뒤처짐→ResyncRequired→`/changes` 수렴을 검증한다. Electron 클라이언트 배선은
 slice 2b, WS 실제 authn은 R3, dead-letter table·SeaweedFS·백업·대시보드는 후속 R2 slice로 남는다.
 
+2026-07-18 slice 2b `feat/pie-r2-electron-realtime-client`에서 Electron(Main) 쪽 Realtime 클라이언트를
+구현해 "Worker 소비 → Electron에 Realtime 전달" 종료 조건을 닫았다. `src/shared/pie-realtime-contract.ts`가
+AsyncAPI 7개 메시지를 zod로 옮기고(inbound는 forward-compat 위해 passthrough, outbound는 strict) R0
+fixture(valid·unknown-optional 호환·version-zero invalid)를 기존 계약 테스트와 동일하게 검증한다.
+`src/main/pie-realtime/`는 Main 전용 클라이언트로, 기존 relay가 쓰던 `ws` 의존성을 재사용해 WebSocket
+lifecycle을 관리한다. ClientHello(재개 시 lastCursor 포함)를 보내고 ServerWelcome을 받고 Heartbeat에
+pong으로 답하며, 모든 inbound 메시지를 zod로 검증해 유효하지 않으면 dispatch 없이 연결을 끊고 재접속한다.
+재접속은 capped exponential backoff + jitter, heartbeat timeout 감지로 죽은 연결을 회수한다. 커서 기반
+dedupe(플랫폼 전달이 at-least-once이므로 lastAppliedSequence 이하 무시)로 중복을 한 번만 적용하고,
+ResyncRequired는 소비자에 `resync-needed` 상태를 알린 뒤 주입된 fetchChanges(REST `listResourceChanges`)로
+수렴한다. HTTP를 실제로 수행하는 얇은 어댑터는 별도 파일이며 플랫폼과 같은 `x-pie-organization-id` authn
+stand-in 헤더에 R3 trust-gap 주석을 단다. 연결은 dev-gated(`PIE_REALTIME_URL` + org)이고 production
+자동 연결은 없으며(instance discovery·connection profile은 후속), 안전 모드에서는 연결하지 않는다
+(`pie-realtime`을 `SAFE_MODE_GATED_SUBSYSTEMS`에 추가). renderer/preload에 raw 메시지를 노출하지 않고,
+유일한 외부 표면은 연결 상태를 `pie-connection-diagnostics`에 싣는 것으로 진단 섹션을 schemaVersion 2로
+올려 `realtime` subsection을 추가했다. 테스트는 in-process `ws` mock 서버로 handshake·커서 dedupe·heartbeat
+timeout 재접속·resync 수렴·session.revoked 종료·connection.closing 재접속·invalid 메시지 미dispatch·safe
+mode/dev-gate 미연결을 검증한다. renderer 노출, instance connection profile, 실제 authn은 이후 slice로 남고,
+커서의 재시작 간 영속화는 향후 최적화로 남긴다(현재는 재접속 resync로 복구).
+
 ## R3: 인증·RBAC·Entitlement
 
 ### 목표
