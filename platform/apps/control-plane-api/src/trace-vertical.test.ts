@@ -22,6 +22,7 @@ import {
   type ContractSchemaRegistry
 } from './contract-schema-registry'
 import { createRealtimeGateway, type RealtimeGateway } from './realtime-gateway'
+import { allowAllConnections } from './authorization-test-support'
 
 type CaptureLogger = {
   entries: Record<string, unknown>[]
@@ -71,6 +72,7 @@ beforeAll(async () => {
   registry = createContractSchemaRegistry()
   gatewayLog = captureLogger()
   gateway = createRealtimeGateway({
+    authorizeConnection: allowAllConnections(),
     db,
     registry,
     listenConnectionString: harness.connectionString,

@@ -1,10 +1,14 @@
 import { collectDeadLetterMetrics, collectOutboxMetrics, type PieDatabase } from '@pie/persistence'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { extractBearerToken } from './request-authentication'
 import type { RealtimeGateway } from './realtime-gateway'
 
 export type MetricsRoutesDeps = {
   db: PieDatabase
   gateway: RealtimeGateway
+  // When set, /internal/* requires this operator bearer. When absent (unit tests),
+  // the routes stay open — production always provisions it.
+  operatorToken?: string
 }
 
 // A single dependency-free ops page (no build step, no framework) that reads the
@@ -50,8 +54,23 @@ refresh();setInterval(refresh,5000);
 </body></html>`
 
 export function registerMetricsRoutes(app: FastifyInstance, deps: MetricsRoutesDeps): void {
-  // Internal, auth-free pre-R3 (documented). R3 puts these behind operator authz.
-  app.get('/internal/metrics', async () => {
+  // Operator authz for /internal/*: a config-provisioned bearer (documented interim
+  // before full operator admin). Returns true when the request may proceed.
+  const authorizeOperator = (request: FastifyRequest, reply: FastifyReply): boolean => {
+    if (!deps.operatorToken) {
+      return true
+    }
+    if (extractBearerToken(request.headers.authorization) === deps.operatorToken) {
+      return true
+    }
+    void reply.code(401).send({ code: 'UNAUTHENTICATED', status: 401 })
+    return false
+  }
+
+  app.get('/internal/metrics', async (request, reply) => {
+    if (!authorizeOperator(request, reply)) {
+      return reply
+    }
     const outbox = await collectOutboxMetrics(deps.db)
     const deadLetter = await collectDeadLetterMetrics(deps.db)
     return {
@@ -65,7 +84,10 @@ export function registerMetricsRoutes(app: FastifyInstance, deps: MetricsRoutesD
     }
   })
 
-  app.get('/internal/ops', async (_request, reply) => {
+  app.get('/internal/ops', async (request, reply) => {
+    if (!authorizeOperator(request, reply)) {
+      return reply
+    }
     return reply.type('text/html').send(OPS_HTML)
   })
 }

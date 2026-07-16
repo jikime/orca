@@ -6,6 +6,9 @@ import {
 export type RealtimeChangesFetcherOptions = {
   apiBaseUrl: string
   organizationId: string
+  // Supplies the current access token (from PieSessionTokenLifecycle via the Main
+  // composition root — NEVER from the renderer). Returns null when signed out.
+  getAccessToken: () => string | null
   fetchImpl?: typeof fetch
   limit?: number
 }
@@ -15,9 +18,9 @@ export type RealtimeChangesFetcherOptions = {
  * used during resync, keeping realtime-connection transport-pure. The response
  * is contract-validated before it is handed back.
  *
- * R3 trust gap: org identity is carried in the x-pie-organization-id header as an
- * authn stand-in — exactly like the platform REST side — and R3 replaces it with
- * the authenticated token subject + membership check.
+ * R3: the request now carries the verified bearer access token (the server derives
+ * the org from the token subject + membership). The org stays in the path per the
+ * contract, but the x-pie-organization-id authn stand-in is gone.
  */
 export function createRealtimeChangesFetcher(
   options: RealtimeChangesFetcherOptions
@@ -31,8 +34,9 @@ export function createRealtimeChangesFetcher(
     if (options.limit) {
       url.searchParams.set('limit', String(options.limit))
     }
+    const token = options.getAccessToken()
     const response = await fetchImpl(url.toString(), {
-      headers: { 'x-pie-organization-id': options.organizationId }
+      headers: token ? { authorization: `Bearer ${token}` } : {}
     })
     if (!response.ok) {
       throw new Error(`listResourceChanges failed with status ${response.status}`)

@@ -60,6 +60,10 @@ export type PieAuthService = {
   logout: () => Promise<void>
   stop: () => void
   getStatus: () => PieAuthStatus
+  // The active session's access token (Main-memory only), or null when signed
+  // out. Used by other Main subsystems (e.g. realtime) to authenticate — never
+  // exposed to the renderer.
+  getAccessToken: () => string | null
 }
 
 type ActiveSession = {
@@ -304,32 +308,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
     login,
     logout,
     stop,
-    getStatus: () => status
+    getStatus: () => status,
+    getAccessToken: () => (active ? deps.lifecycle.getAccessToken(active.scope) : null)
   }
-}
-
-// Module singleton for index.ts wiring: constructed when dev-gated ON and not
-// safe-mode-disabled. Login is EXPLICITLY triggered (no production auto-start).
-let currentService: PieAuthService | null = null
-
-export function getPieAuthService(): PieAuthService | null {
-  return currentService
-}
-
-export function initPieAuthServiceIfEnabled(
-  deps: Omit<PieAuthServiceDeps, 'config'> & { config?: PieAuthConfig }
-): PieAuthService | null {
-  const config = deps.config ?? loadPieAuthConfig()
-  const isDisabled = deps.isDisabled ?? (() => isSafeModeSubsystemDisabled('pie-auth'))
-  if (!config.enabled || isDisabled()) {
-    currentService = null
-    return null
-  }
-  currentService = createPieAuthService({ ...deps, config })
-  return currentService
-}
-
-export function stopPieAuthService(): void {
-  currentService?.stop()
-  currentService = null
 }

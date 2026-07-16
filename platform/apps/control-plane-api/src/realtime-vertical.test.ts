@@ -9,6 +9,7 @@ import {
   publishClaimedEvent,
   runMigrations,
   seedOrganizationFixture,
+  seedMembershipFixture,
   updateOrganizationDisplayName,
   type PieDatabase
 } from '@pie/persistence'
@@ -23,6 +24,11 @@ import {
   type ContractSchemaRegistry
 } from './contract-schema-registry'
 import { createRealtimeGateway, type RealtimeGateway } from './realtime-gateway'
+import {
+  allowAllConnections,
+  createTestTokenVerifier,
+  TEST_ISSUER
+} from './authorization-test-support'
 
 let harness: PostgresHarness | null = null
 let pool: Pool
@@ -121,6 +127,7 @@ beforeAll(async () => {
   await runMigrations(pool)
   registry = createContractSchemaRegistry()
   gateway = createRealtimeGateway({
+    authorizeConnection: allowAllConnections(),
     db,
     registry,
     listenConnectionString: harness.connectionString,
@@ -128,7 +135,13 @@ beforeAll(async () => {
     // Small window so the reconnect test can force a resync deterministically.
     resyncWindow: 1
   })
-  app = buildApp({ ping: async () => true, db, registry, gateway })
+  app = buildApp({
+    ping: async () => true,
+    db,
+    registry,
+    gateway,
+    tokenVerifier: createTestTokenVerifier()
+  })
   await app.ready()
   await gateway.start()
   await app.listen({ host: '127.0.0.1', port: 0 })
@@ -225,9 +238,11 @@ describe('realtime vertical', () => {
     expect(resync.reason).toBe('buffer_overflow')
     client.close()
 
-    // The client converges through the authoritative REST feed.
+    // The client converges through the authoritative REST feed (authenticated).
+    const subject = await memberToken(orgId)
     const response = await fetch(
-      `${baseUrl}/v1/organizations/${orgId}/changes?after=${encodeCursor(0)}`
+      `${baseUrl}/v1/organizations/${orgId}/changes?after=${encodeCursor(0)}`,
+      { headers: { authorization: `Bearer ${subject}` } }
     )
     expect(response.status).toBe(200)
     const page = (await response.json()) as { items: unknown[]; hasMore: boolean }
@@ -235,31 +250,38 @@ describe('realtime vertical', () => {
     expect(registry.validate('resource.changed', page.items[0])).toBe(true)
   })
 
-  it('serves the REST endpoints scoped to the org header', async (ctx) => {
+  it('serves the REST endpoints scoped to the authenticated subject', async (ctx) => {
     if (!harness) return ctx.skip()
     const orgId = await freshOrg()
     const operationId = await mutate(orgId, 'rest')
+    const subject = await memberToken(orgId)
+    const auth = { authorization: `Bearer ${subject}` }
 
-    const orgs = await fetch(`${baseUrl}/v1/organizations`, {
-      headers: { 'x-pie-organization-id': orgId }
-    })
+    const orgs = await fetch(`${baseUrl}/v1/organizations`, { headers: auth })
     expect(orgs.status).toBe(200)
     const orgsBody = (await orgs.json()) as { items: { id: string }[] }
-    expect(orgsBody.items[0]?.id).toBe(orgId)
+    // The membership-scoped list returns exactly the org this subject belongs to.
+    expect(orgsBody.items.map((item) => item.id)).toEqual([orgId])
 
-    const operation = await fetch(`${baseUrl}/v1/operations/${operationId}`, {
-      headers: { 'x-pie-organization-id': orgId }
-    })
+    const operation = await fetch(`${baseUrl}/v1/operations/${operationId}`, { headers: auth })
     expect(operation.status).toBe(200)
     expect(operation.headers.get('etag')).toMatch(/^"operation-/)
     const operationBody = (await operation.json()) as { id: string }
     expect(operationBody.id).toBe(operationId)
   })
 
-  it('rejects an organization list without the org header', async (ctx) => {
+  it('rejects an organization list without a bearer token (401)', async (ctx) => {
     if (!harness) return ctx.skip()
     const response = await fetch(`${baseUrl}/v1/organizations`)
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(401)
     expect(response.headers.get('content-type')).toContain('application/problem+json')
   })
 })
+
+// A per-test subject with an active owner membership in the org, returned as its
+// bearer token (the test verifier treats the token string as the subject).
+async function memberToken(orgId: string): Promise<string> {
+  const subject = `sub-${orgId.slice(0, 8)}`
+  await seedMembershipFixture(db, { organizationId: orgId, issuer: TEST_ISSUER, subject })
+  return subject
+}

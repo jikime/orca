@@ -66,6 +66,12 @@ describe('native-client-secret-absence-scan (AUT-003)', () => {
         if (file === selfPath) {
           continue
         }
+        // Test files are not shipped client artifacts; a test that ASSERTS the
+        // public client sends no client_secret is evidence FOR the gate, not
+        // secret material. The scan targets source/deploy/realm that ships.
+        if (/\.test\.[cm]?[jt]s$/.test(file)) {
+          continue
+        }
         const content = readFileSync(file, 'utf-8')
         // A secret is a finding only when it is tied to the desktop client — a
         // confidential service client elsewhere legitimately has one.

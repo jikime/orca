@@ -10,6 +10,7 @@ import { loadApiConfig } from './config'
 import { loadAuthConfig } from './auth-config'
 import { createContractSchemaRegistry } from './contract-schema-registry'
 import { loadDiscoveryConfig } from './discovery-config'
+import { createGatewayConnectionAuthorizer } from './gateway-connection-authorizer'
 import { createKeycloakTokenVerifier } from './keycloak-token-verifier'
 import { loadObjectStorageFromEnv } from './object-storage-config'
 import { createRealtimeGateway } from './realtime-gateway'
@@ -19,11 +20,18 @@ async function main(): Promise<void> {
   const pool = createDatabasePool({ connectionString: config.databaseUrl })
   const db = createDatabase(pool)
   const registry = createContractSchemaRegistry()
+  const discoveryConfig = loadDiscoveryConfig()
+  const tokenVerifier = createKeycloakTokenVerifier(
+    loadAuthConfig(process.env, discoveryConfig.issuer)
+  )
   const gateway = createRealtimeGateway({
     db,
     registry,
     // A dedicated LISTEN connection, separate from the Kysely pool.
     listenConnectionString: config.databaseUrl,
+    // WS connections carry a bearer token; only a verified subject with membership
+    // in the requested org may subscribe.
+    authorizeConnection: createGatewayConnectionAuthorizer(db, tokenVerifier),
     logger: pino({ base: { service: config.serviceName } })
   })
   const objectStorage = loadObjectStorageFromEnv()
@@ -33,10 +41,6 @@ async function main(): Promise<void> {
   // Materialize the role/permission vocabulary so the DB is self-contained and
   // manifest drift is detectable (idempotent — no-op when already current).
   await seedRoleManifest(db)
-  const discoveryConfig = loadDiscoveryConfig()
-  const tokenVerifier = createKeycloakTokenVerifier(
-    loadAuthConfig(process.env, discoveryConfig.issuer)
-  )
   const app = buildApp({
     ping: () => pingDatabase(pool),
     logger: true,
@@ -45,6 +49,8 @@ async function main(): Promise<void> {
     gateway,
     discoveryConfig,
     tokenVerifier,
+    // Operator bearer for /internal/*; when unset those routes stay open (dev).
+    ...(process.env.PIE_OPERATOR_TOKEN ? { operatorToken: process.env.PIE_OPERATOR_TOKEN } : {}),
     ...(objectStorage ? { objectStorage } : {})
   })
 

@@ -529,6 +529,40 @@ refresh만 보고 access는 못 봄(canary)**·broker 이벤트에 토큰 문자
 리뷰 후 실 Keycloak 교차 스모크를 돌린다. **아직 남음:** stand-in 대체·RBAC 강제(slice 3), 초대·폐기 전파
 (slice 4).
 
+2026-07-23 slice 3 `feat/pie-r3-rbac-standin-replacement`에서 **네 개의 org stand-in을 모두 검증 토큰
+subject+membership으로 교체하고 RBAC 강제를 구현**했다(platform + root src/main). **RBAC 코어(먼저 구축,
+나머지가 소비):** `permission-evaluator.ts`(순수)가 doc 01:215-231 판정 순서를 구현한다 — (1) membership
+active, (2) 요청 org가 membership org와 일치, (3) 명시적 거부·정책 우선, (4) 역할이 permission 보유
+(slice-1 role→permission catalog로 해석), default-deny·명시적 거부가 allow에 우선. **resource-grant 좁힘
+(5단계+)은 다음 authorization slice로 명시 연기(가짜 구현 안 함).** 판정은 결과+**reason**을 내며
+(doc 01:231), reason은 distinct 코드라 permission-denial과 (후속) entitlement-shortfall을 절대 혼동하지
+않는다(doc 11). `authorize-request.ts`가 subject→membership 조회+평가+거부 감사를 묶는다. **거부 감사는
+tenant-scoped `audit_events`가 아니라 org FK가 없는 보안 스트림 `audit.authorization_denials`에 기록한다** —
+존재하지 않는/무관한 org id에 대한 거부(다른 조직 ID 직접 요청 공격)는 org FK를 만족할 수 없어 audit insert가
+FK 위반(23503)→깨끗한 403이 500으로 바뀌고 보안 이벤트도 유실되기 때문. 이 write는 privileged·FK-free·
+best-effort(실패해도 403을 500으로 승격 금지)라, 존재하지 않는 org 거부도 항상 clean 403+감사다(403이
+"없음"과 "멤버십 없음"을 구분하지 않아 org-존재 oracle도 없음). **TEN-006 matrix 테스트**(`permission-evaluator.test.ts`, evidence
+`permission-entitlement-combination-matrix`): 7개 고정 역할 × 대표 permission, default-deny·cross-org·
+비활성 멤버십·명시적 거부; entitlement 축은 문서화된 stub 열(구조에 슬롯 확보). **stand-in 4곳 교체:**
+(1) `control-plane-routes.ts` — `x-pie-organization-id` 제거, `requireAuthenticatedSubject`+op별 permission
+(listOrganizations는 membership-scoped org.read, changes/operations는 org.read); 비회원·cross-org는 403+
+reason+감사, 무토큰은 401. (2) `artifact-routes.ts` — principal이 검증 subject, upload-intent/finalize에
+`artifact.publish` 필요, idempotency principal도 실제 subject. (3) `realtime-gateway.ts` — ClientHello org를
+더는 신뢰하지 않음; **WS 연결이 bearer 토큰을 upgrade Authorization 헤더로 운반(ClientHello wire 계약 미확장 —
+Pie realtime은 Main 전용 `ws`라 헤더가 자연스러움; 브라우저 클라이언트가 생기면 ClientHello auth 필드/서브
+프로토콜이 contracts 고려사항)**, 검증+membership+org.read 확인 후에만 구독, 멤버십 없으면 연결 거부. (4)
+ROOT `pie-realtime/realtime-changes-fetch.ts`+`realtime-connection.ts` — stand-in 헤더 제거, **auth
+lifecycle의 실제 access token을 주입 provider로 받아 WS upgrade와 REST resync에 bearer로 전송(renderer
+아님, Main 전용); `pie-auth-service`에 `getAccessToken` 추가하고 composition root(index.ts)가 realtime에
+연결.** **operator 표면:** `/internal/*`(metrics/ops)는 config provisioned operator bearer(`PIE_OPERATOR_TOKEN`,
+full-admin 전 interim)로 게이트; `/public/*`는 의도적으로 공개(민감 데이터 없음) 유지. **CONTRACT GAP(재플래그):**
+provisioning operation 여전히 미계약; ClientHello에 auth 필드 없음(현재 헤더로 우회). **테스트:** RBAC matrix
+(TEN-006), 각 교체 라우트 authorized 성공·무토큰 401·insufficient-role 403+감사·cross-org 403+감사,
+realtime WS 유효토큰+membership 구독·멤버십 없음 거부·무토큰 거부·org 격리, `/internal` operator 게이트,
+root pie-realtime changes-fetch가 bearer 전송·stand-in 헤더 부재·토큰이 lifecycle 출처. platform 118 tests +
+root 100 tests(pie-realtime/auth/session/safe-mode) green, root lockfile 무변경. **남음:** ResourceGrant
+narrowing·entitlement/UsageMeter·resource-scoped grant(다음 authorization slice), 초대·폐기 전파(slice 4).
+
 ## R4: 프로젝트·업무 포털
 
 ### 목표

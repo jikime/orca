@@ -23,6 +23,7 @@ import {
   type ContractSchemaRegistry
 } from './contract-schema-registry'
 import { createKeycloakTokenVerifier } from './keycloak-token-verifier'
+import { createGatewayConnectionAuthorizer } from './gateway-connection-authorizer'
 import { createRealtimeGateway, type RealtimeGateway } from './realtime-gateway'
 import { startKeycloakHarness, type KeycloakHarness } from './keycloak-test-harness'
 
@@ -97,16 +98,18 @@ beforeAll(async () => {
   await runMigrations(pool)
   await seedRoleManifest(db)
   registry = createContractSchemaRegistry()
-  gateway = createRealtimeGateway({
-    db,
-    registry,
-    listenConnectionString: pg.connectionString,
-    heartbeatIntervalMs: 60_000
-  })
   const verifier = createKeycloakTokenVerifier({
     issuer: kc.issuer,
     audience: kc.audience,
     jwksUri: kc.jwksUri
+  })
+  gateway = createRealtimeGateway({
+    db,
+    registry,
+    listenConnectionString: pg.connectionString,
+    heartbeatIntervalMs: 60_000,
+    // Real WS auth: the subscriber's bearer token + membership are verified.
+    authorizeConnection: createGatewayConnectionAuthorizer(db, verifier)
   })
   app = buildApp({
     ping: async () => true,
@@ -245,7 +248,9 @@ describe('provisioning', () => {
     const org = await jsonBody<ProvisionBody>(await provision(token))
 
     const changes: unknown[] = []
-    const socket = new WebSocket(wsUrl)
+    // The WS upgrade carries the provisioned user's bearer; the gateway verifies
+    // the token and their membership in the org before subscribing.
+    const socket = new WebSocket(wsUrl, { headers: { authorization: `Bearer ${token}` } })
     await new Promise<void>((resolve, reject) => {
       socket.on('open', () => resolve())
       socket.on('error', reject)

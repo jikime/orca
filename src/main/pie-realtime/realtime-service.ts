@@ -22,6 +22,11 @@ export type StartPieRealtimeOptions = {
   env?: NodeJS.ProcessEnv
   isDisabled?: () => boolean
   onChange?: (message: PieRealtimeResourceChanged) => void
+  // Supplies the current access token (from the auth lifecycle via the composition
+  // root). Both the WS upgrade and the REST resync fetch use it. Defaults to null
+  // (unauthenticated) so dev-gated realtime without login degrades to the server's
+  // auth response rather than crashing.
+  getAccessToken?: () => string | null
   // Test seam for the socket/fetch transport.
   connectionOverrides?: Partial<RealtimeConnectionOptions>
 }
@@ -41,14 +46,17 @@ export function startPieRealtimeIfEnabled(
     return null
   }
 
+  const getAccessToken = options.getAccessToken ?? (() => null)
   const connection = createRealtimeConnection({
     url: config.wsUrl,
     instanceId: config.instanceId,
     organizationId: config.organizationId,
     isDisabled,
+    getAccessToken,
     fetchChanges: createRealtimeChangesFetcher({
       apiBaseUrl: deriveApiBaseUrl(config.wsUrl),
-      organizationId: config.organizationId
+      organizationId: config.organizationId,
+      getAccessToken
     }),
     onStatus: (status) => {
       currentStatus = status

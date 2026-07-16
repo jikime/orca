@@ -27,10 +27,19 @@ export type RealtimeSocket = {
   onClose: (handler: () => void) => void
 }
 
+export type ConnectionAuthorization = { authorized: boolean; reason?: string }
+
 export type RealtimeGatewayOptions = {
   db: PieDatabase
   registry: ContractSchemaRegistry
   listenConnectionString: string
+  // Verifies the connection's bearer token and confirms the subject has an active
+  // membership (with organization.read) in the requested org. The org is no longer
+  // trusted from ClientHello — it is only honored after this authorizes it.
+  authorizeConnection: (
+    token: string | null,
+    organizationId: string
+  ) => Promise<ConnectionAuthorization>
   now?: () => number
   heartbeatIntervalMs?: number
   // Max changes a reconnecting client may be behind before we send resync.required
@@ -42,7 +51,7 @@ export type RealtimeGatewayOptions = {
 
 export type RealtimeGateway = {
   start: () => Promise<void>
-  handleConnection: (socket: RealtimeSocket) => void
+  handleConnection: (socket: RealtimeSocket, authToken: string | null) => void
   broadcastClosing: (reason: string) => void
   catchUpAllAfterReconnect: () => Promise<void>
   connectionCount: () => number
@@ -207,7 +216,7 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
     connection.heartbeatTimer = timer
   }
 
-  function handleConnection(socket: RealtimeSocket): void {
+  function handleConnection(socket: RealtimeSocket, authToken: string | null): void {
     let connection: GatewayConnection | null = null
     let handshakeComplete = false
 
@@ -227,8 +236,6 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
           return
         }
         if (!handshakeComplete) {
-          // The first message MUST be a valid client.hello; the org comes from it
-          // (authn stand-in — R3 replaces this with the token subject + membership).
           if (!options.registry.validate('client.hello', parsed)) {
             socket.send(
               JSON.stringify(closingMessage('protocol_unsupported', 'invalid client.hello', false))
@@ -236,8 +243,16 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
             socket.close(1002, 'invalid client.hello')
             return
           }
-          handshakeComplete = true
           const hello = parsed as { organizationId: string; lastCursor?: string | null }
+          // The requested org is honored only after the bearer token is verified and
+          // its subject is confirmed a member — the org is no longer trusted blindly.
+          const authorization = await options.authorizeConnection(authToken, hello.organizationId)
+          if (!authorization.authorized) {
+            socket.send(JSON.stringify(closingMessage('session_revoked', 'unauthorized', false)))
+            socket.close(1008, 'unauthorized')
+            return
+          }
+          handshakeComplete = true
           connection = {
             id: newConnectionId(),
             socket,

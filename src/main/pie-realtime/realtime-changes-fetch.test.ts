@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'vitest'
+import { createRealtimeChangesFetcher } from './realtime-changes-fetch'
+
+function captureFetch(): {
+  fetchImpl: typeof fetch
+  calls: { url: string; headers: Record<string, string> }[]
+} {
+  const calls: { url: string; headers: Record<string, string> }[] = []
+  const fetchImpl = (async (url: string, init: RequestInit) => {
+    calls.push({ url: String(url), headers: (init.headers ?? {}) as Record<string, string> })
+    return {
+      ok: true,
+      json: async () => ({ items: [], nextCursor: null, hasMore: false })
+    } as Response
+  }) as unknown as typeof fetch
+  return { fetchImpl, calls }
+}
+
+const ORG = '11111111-1111-1111-1111-111111111111'
+
+describe('realtime changes fetch (R3 auth)', () => {
+  it('sends the bearer access token and NOT the x-pie-organization-id stand-in', async () => {
+    const { fetchImpl, calls } = captureFetch()
+    const fetcher = createRealtimeChangesFetcher({
+      apiBaseUrl: 'http://127.0.0.1:8080',
+      organizationId: ORG,
+      getAccessToken: () => 'access-token-xyz',
+      fetchImpl
+    })
+    await fetcher(null)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.headers.authorization).toBe('Bearer access-token-xyz')
+    expect(calls[0]!.headers).not.toHaveProperty('x-pie-organization-id')
+    // The org stays in the path per the contract.
+    expect(calls[0]!.url).toContain(`/v1/organizations/${ORG}/changes`)
+  })
+
+  it('omits the authorization header when signed out (no token)', async () => {
+    const { fetchImpl, calls } = captureFetch()
+    const fetcher = createRealtimeChangesFetcher({
+      apiBaseUrl: 'http://127.0.0.1:8080',
+      organizationId: ORG,
+      getAccessToken: () => null,
+      fetchImpl
+    })
+    await fetcher('cursor-00000001')
+    expect(calls[0]!.headers).not.toHaveProperty('authorization')
+    expect(calls[0]!.headers).not.toHaveProperty('x-pie-organization-id')
+  })
+})
