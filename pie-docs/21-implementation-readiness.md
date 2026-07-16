@@ -132,6 +132,19 @@ renderer가 의존하는 `grantFileProtocolExtraPrivileges`는 유지한다. ASA
 `fuse-asar-signature-gate` 증거를 만든다. fuse·CSP 결정 로직은 단위 테스트로 검증하고, 실제 서명
 인증서 gate와 프로필 migration dry-run·안전 모드는 후속 slice로 남는다.
 
+다섯 번째 slice에서는 기존 Orca 프로필 감지·백업·마이그레이션 dry-run을 Main 전용으로 추가했다.
+감지는 주입된 userData 경로를 읽기 전용으로 조사해 새 설치·legacy 단일 프로필·multi-profile을
+분류하고 프로필별 파일 인벤토리와 손상 index의 `.bak` 복구, schemaVersion을 기록한다. 백업은
+프로필 데이터만 `pie/migration-backups/{runId}`에 복사하고 암호화 자격증명 저장소와
+`orchestration.db`는 excluded로만 manifest에 남기며 manifest를 마지막에 써 중단된 스냅샷을 폐기
+가능하게 한다. dry-run은 provisional target projection 대비 create·merge·conflict·missing·
+sensitive-device-only를 계획하되 데이터를 이동하지 않고, report는 경로·개수만 담아
+`writeSecureJsonFile`로 저장하며 idempotent하다. 테스트는 감지 분기, 시크릿 미복사(session-secrets
+bytes 부재), 경로 탈출 방어, 항목별 개수, 두 실행의 report 동일성, canary token이 report·manifest에
+남지 않음을 검증한다. 표시명이 아닌 안정 id에서 경로를 파생하는 중앙 `pie-product-identity` 계약이
+매핑을 고정한다. 아직 renderer·IPC 노출이 없고, 실제 cutover·안전 모드와 마이그레이션 데이터 노출
+전용 threat-model gate(위협 모델 P1 Backup 행에 매핑)는 후속 작업으로 남는다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

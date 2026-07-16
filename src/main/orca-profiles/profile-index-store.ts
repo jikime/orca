@@ -26,6 +26,7 @@ import {
   getOrcaProfileDirectory,
   getOrcaProfileIndexPath,
   getProfileUserDataPath,
+  isValidOrcaProfileId,
   LEGACY_BACKUP_COUNT,
   legacyBackupPath,
   legacyBrowserSessionMetaPath,
@@ -61,9 +62,7 @@ function isProfileSummary(value: unknown): value is OrcaProfileSummary {
   const cloud = value.cloud
   return (
     typeof value.id === 'string' &&
-    // Why: IDs from the on-disk index become filesystem path segments; a
-    // tampered index must not be able to escape the profiles directory.
-    /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value.id) &&
+    isValidOrcaProfileId(value.id) &&
     typeof value.name === 'string' &&
     value.name.length > 0 &&
     (value.kind === 'local' || value.kind === 'cloud-linked') &&
@@ -103,7 +102,7 @@ function sanitizeProfileName(value: unknown): string {
   return trimmed.length > 0 ? trimmed.slice(0, 80) : 'New Profile'
 }
 
-function readProfileIndexFile(indexPath: string): OrcaProfileIndex | null {
+export function readProfileIndexFile(indexPath: string): OrcaProfileIndex | null {
   try {
     return normalizeProfileIndex(JSON.parse(readFileSync(indexPath, 'utf-8')))
   } catch {
