@@ -2,6 +2,9 @@ import { Kysely, PostgresDialect } from 'kysely'
 import pg from 'pg'
 import type { Database } from './database-schema'
 
+// Alias so consumers type against the Pie schema without importing kysely directly.
+export type PieDatabase = Kysely<Database>
+
 export type PersistenceConfig = {
   connectionString: string
   maxPoolSize?: number

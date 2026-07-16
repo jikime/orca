@@ -276,6 +276,29 @@ DTO 생성기는 openapi-typescript를 고정했고, OpenAPI가 스키마를 원
 만든다. slice 2는 조직 mutation을 한 transaction 안에서 audit+outbox로 쓰고 Worker의 SKIP LOCKED
 claim과 Realtime `resource.changed`까지 잇는 수직 흐름이다.
 
+2026-07-18 `feat/pie-r2-outbox-vertical`에서 두 번째 slice인 outbox 수직 흐름을 구현했다.
+`updateOrganizationDisplayName`이 한 transaction에서 org row version 증가 + 감사 이벤트 + outbox 이벤트
++ operation record를 함께 쓴다(aggregate row `FOR UPDATE` lock, `expectedVersion` 광학적 동시성). 네
+row는 모두 커밋되거나 모두 롤백되며 commit 전 side effect가 없다. outbox payload는 CloudEvents 1.0
+envelope(pieorgid·piestream 확장)이고, publish 시점에 org별 단조 sequence를 부여한다. sequence는
+`operations.stream_cursors`의 원자적 upsert로 매기며 published_at·NOTIFY와 한 transaction이라 롤백 시
+gap이 없다. Worker claim 루프는 `FOR UPDATE SKIP LOCKED`로 배치 claim하고 lease(claim_expires_at)를
+걸며, publish는 row lock 아래 published_at 재확인으로 idempotent하다(동시 두 worker가 같은 row를 한 번만
+publish, publish 중 재시작해도 이중 전달 없음, 전달은 at-least-once + client의 cursor 기반 idempotent
+apply). 실패는 exponential backoff로 재시도하고 재시도 예산을 넘긴 poison row는 `parked_at` +
+`last_error_code`로 dead-letter parking한다. Realtime gateway는 별도 process가 아니라 control-plane-api
+안의 module로, `pie://` WebSocket에서 ClientHello→ServerWelcome 핸드셰이크(스키마 검증)와 org 구독(현재
+org는 hello에서 옴 — 실제 authn은 R3, trust gap 문서화), Heartbeat, ResourceChanged push, 너무 뒤처진
+클라이언트에 ResyncRequired를 처리한다. Worker→gateway 전송은 Postgres-only LISTEN/NOTIFY이며 payload는
+작은 pointer(org + sequence)이고 gateway가 DB에서 envelope를 다시 읽는다(NOTIFY는 크기 제한·연결 끊김에
+lossy하므로 재연결 후 cursor 기반 catch-up). `listResourceChanges`(REST `/v1/organizations/{id}/changes`)가
+Realtime 문서가 요구하는 복구 권위자로, org 문맥(RLS)으로 sequence 이후 delta를 낸다. `getOperation`과
+`listOrganizations`도 구현했고 응답을 contracts 스키마로 런타임 검증한다. 통합 테스트는 실제 PostgreSQL과
+WS 테스트 클라이언트로 mutation 원자성(실패 시 부분 row 없음), 동시 두 worker exactly-once,
+resource.changed 전달, cross-tenant 격리(org A 구독은 org B 이벤트를 못 받고, org A 문맥은 org B changes를
+못 읽음), 재연결 delta, 너무 뒤처짐→ResyncRequired→`/changes` 수렴을 검증한다. Electron 클라이언트 배선은
+slice 2b, WS 실제 authn은 R3, dead-letter table·SeaweedFS·백업·대시보드는 후속 R2 slice로 남는다.
+
 ## R3: 인증·RBAC·Entitlement
 
 ### 목표

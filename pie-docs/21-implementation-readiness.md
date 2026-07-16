@@ -174,6 +174,20 @@ RLS 부정(테넌트 격리·문맥 부재 default deny·worker 권한 경계), 
 DB→outbox→Worker→Realtime 수직 흐름, Object Storage, dead-letter, 백업 restore는 후속 slice로 남는다.
 `platform` 경로가 doc 30 :429의 stale `services/control-plane` 경로를 대체한다.
 
+2026-07-18 두 번째 slice로 outbox 수직 흐름을 구현했다. `updateOrganizationDisplayName`이 한 transaction에
+org version·audit·outbox·operation을 함께 쓰고(원자성, 실패 시 부분 row 없음), outbox는 CloudEvents 1.0
+envelope다. publish 시 `operations.stream_cursors` 원자적 upsert로 org별 단조 sequence를 매기고
+published_at·NOTIFY와 한 transaction이라 gap이 없다. Worker 루프는 `FOR UPDATE SKIP LOCKED` + lease로
+claim하고 published_at 재확인으로 exactly-once publish, backoff 재시도, 예산 초과 시 `parked_at` dead-letter
+parking을 한다(전달은 at-least-once + client cursor idempotent apply). Realtime gateway는 control-plane-api
+module로 ClientHello/Welcome/Heartbeat/ResourceChanged/ResyncRequired를 처리하고 Worker→gateway는
+Postgres LISTEN/NOTIFY pointer + DB envelope fetch + 재연결 catch-up이다. `listResourceChanges`(REST)가
+cursor 기반 복구 권위자이고 `getOperation`·`listOrganizations`도 구현했다. 테스트는 실 PostgreSQL + WS
+클라이언트로 원자성·동시 exactly-once·전달·cross-tenant 격리·재연결 delta·resync→`/changes` 수렴을
+검증한다. WS org 식별은 아직 hello/헤더 authn stand-in(R3에서 token subject로 대체), Electron 배선(slice 2b),
+dead-letter table·Object Storage·백업은 후속으로 남는다. DTO 생성기의 원격 `$id` dereference prepass는
+그대로 open risk다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
