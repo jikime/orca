@@ -40,6 +40,14 @@ channels:
         name: ConnectionClosing
         payload:
           $ref: ../schemas/events/realtime-connection-closing.v1.schema.json
+      TypingChanged:
+        name: TypingChanged
+        payload:
+          $ref: ../schemas/events/realtime-typing-changed.v1.schema.json
+      PresenceChanged:
+        name: PresenceChanged
+        payload:
+          $ref: ../schemas/events/realtime-presence-changed.v1.schema.json
 operations:
   sendClientMessages:
     action: send
@@ -59,3 +67,5 @@ operations:
       - $ref: '#/channels/realtime/messages/ResyncRequired'
       - $ref: '#/channels/realtime/messages/Heartbeat'
       - $ref: '#/channels/realtime/messages/ConnectionClosing'
+      - $ref: '#/channels/realtime/messages/TypingChanged'
+      - $ref: '#/channels/realtime/messages/PresenceChanged'

@@ -478,6 +478,21 @@ DM에서 post/react/mention 동작. platform 239 tests green(+12), typecheck 4/4
 fixture/39 op), root src 미변경, 두 lockfile clean. team-lead의 live DM find-or-create+privacy smoke 후 merge 예정.
 후속: presence/typing→첨부→search→group DM→DND 또는 Planning Gate — team-lead 방향 대기.
 
+2026-07-17 chat slice 5 `feat/pie-chat-presence-typing` — presence + typing. **Pie 최초의 non-durable(휘발성) realtime
+경로.** durable outbox를 우회하는 별도 NOTIFY 채널 `pie_ephemeral`: mutation-free pg_notify를 API 핸들러/gateway에서
+직접 발사(트랜잭션·outbox·worker 미경유), gateway LISTEN이 구독해 fan-out(페이로드가 곧 상태, row fetch 없음). **이
+slice에서만 realtime-gateway.ts와 root 계약(src/shared/pie-realtime-contract.ts zod + AsyncAPI) 접촉 — 예상된 정상.**
+새 WS 타입 typing.changed·presence.changed(resource.changed 아님, version·replay 없음). **타이핑:** POST .../typing
+(member-gated·fire-and-forget·row 0), gateway가 채널 멤버에게만 fan-out(비멤버 미도달), 유저·채널당 1초 coalesce.
+**presence(gateway-in-memory):** orgConnections에서 도출, 첫 연결 online·마지막 종료 offline(모든 gateway가 broadcast
+하도록 pg_notify), 멀티탭 유지, org-level scope. **데이터>presence 우선순위: 별도 채널+타입이라 backed-up presence가
+resource.changed 안 굶김, ephemeral은 catch-up/replay 없이 드롭.** durable 경로·outbox-publish·worker 무변경(확인).
+root는 계약 2파일만(realtime-connection.ts에 presence/typing 케이스=validate 후 무시, renderer UI 후속). 테스트(라이브
+WS): typing 멤버 도달/비멤버 미도달/durable row 0/rate cap; presence online/offline/멀티탭; durable 독립 전달. platform
+244 tests green(+5), typecheck 4/4·lint 0·check:contracts green(74 schema/40 op/9 realtime msg), root typecheck:node·
+pie-realtime-contract 테스트·root lint green, 두 lockfile clean. team-lead의 live typing+presence WS smoke 후 merge
+예정. 후속: 첨부→search→group DM→DND→@channel/@here→per-channel presence 또는 Planning Gate — team-lead 방향 대기.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

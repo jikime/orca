@@ -819,6 +819,28 @@ paths:
           description: Reaction removed (or was already absent).
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/typing:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Collaboration]
+      operationId: signalTyping
+      description: >-
+        Fire-and-forget typing signal (member-gated). Writes no row and never
+        touches the durable outbox — it relays an ephemeral typing.changed to the
+        channel's other members over the realtime gateway. Rate-capped per user.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Signal accepted (or coalesced by the rate cap).
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/channels/{channelId}/read:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

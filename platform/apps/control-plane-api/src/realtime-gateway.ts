@@ -1,12 +1,17 @@
 import {
   decodeCursor,
+  decodeEphemeralNotification,
   decodeResourceChangedNotification,
   encodeCursor,
+  EPHEMERAL_CHANNEL,
+  fireEphemeralNotification,
   getLatestPublishedSequence,
   getResourceChangeAtSequence,
+  listChannelMemberUserIds,
   listResourceChanges,
   RESOURCE_CHANGED_CHANNEL,
   traceIdFromTraceparent,
+  type EphemeralNotification,
   type PieDatabase
 } from '@pie/persistence'
 import { randomUUID } from 'node:crypto'
@@ -84,7 +89,10 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
 
   const listenSource: ListenSource = createPostgresListenSource({
     connectionString: options.listenConnectionString,
-    channels: [RESOURCE_CHANGED_CHANNEL],
+    // The durable resource channel AND the non-durable ephemeral channel. Ephemeral
+    // is NOT caught up on reconnect (it is lossy by design) — only the durable path
+    // runs catchUpAllAfterReconnect, so a presence/typing gap never triggers replay.
+    channels: [RESOURCE_CHANGED_CHANNEL, EPHEMERAL_CHANNEL],
     onReconnect: () => {
       void catchUpAllAfterReconnect()
     }
@@ -205,6 +213,89 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
     }
   }
 
+  function userConnectionCount(organizationId: string, userId: string): number {
+    const set = orgConnections.get(organizationId)
+    if (!set) {
+      return 0
+    }
+    let count = 0
+    for (const connection of set) {
+      if (connection.userId === userId) {
+        count += 1
+      }
+    }
+    return count
+  }
+
+  /** Fires a presence transition on the ephemeral channel so EVERY gateway (incl.
+   *  this one) broadcasts it — presence works across horizontally-scaled gateways
+   *  without a durable table. Best-effort; a dropped ping self-heals. */
+  function firePresence(organizationId: string, userId: string, state: 'online' | 'offline'): void {
+    void fireEphemeralNotification(options.db, {
+      kind: 'presence',
+      organizationId,
+      userId,
+      state,
+      at: new Date(now()).toISOString()
+    })
+  }
+
+  /** Org-level presence fan-out: online/offline to every connection in the org. No
+   *  membership filter (presence is "who is online in the org"). */
+  function deliverPresence(
+    notification: Extract<EphemeralNotification, { kind: 'presence' }>
+  ): void {
+    const set = orgConnections.get(notification.organizationId)
+    if (!set) {
+      return
+    }
+    for (const connection of set) {
+      send(connection, 'presence.changed', {
+        type: 'presence.changed',
+        schemaVersion: 1,
+        organizationId: notification.organizationId,
+        userId: notification.userId,
+        state: notification.state,
+        at: notification.at
+      })
+    }
+  }
+
+  /** Typing fan-out: only to the channel's OTHER members (a non-member must never
+   *  learn who is typing). One membership read per typing event, bounded by the
+   *  route's per-user rate cap. */
+  async function deliverTyping(
+    notification: Extract<EphemeralNotification, { kind: 'typing' }>
+  ): Promise<void> {
+    const set = orgConnections.get(notification.organizationId)
+    if (!set || set.size === 0) {
+      return
+    }
+    const members = new Set(
+      await listChannelMemberUserIds(
+        options.db,
+        notification.organizationId,
+        notification.channelId
+      )
+    )
+    for (const connection of set) {
+      if (!connection.userId || connection.userId === notification.userId) {
+        continue
+      }
+      if (!members.has(connection.userId)) {
+        continue
+      }
+      send(connection, 'typing.changed', {
+        type: 'typing.changed',
+        schemaVersion: 1,
+        organizationId: notification.organizationId,
+        channelId: notification.channelId,
+        userId: notification.userId,
+        at: notification.at
+      })
+    }
+  }
+
   function startHeartbeat(connection: GatewayConnection): void {
     const timer = setInterval(() => {
       send(connection, 'heartbeat', {
@@ -226,7 +317,13 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
 
     socket.onClose(() => {
       if (connection) {
+        const { organizationId, userId } = connection
         removeConnection(connection)
+        // Presence offline only when this was the user's LAST live connection (closing
+        // one of several tabs keeps them online).
+        if (userId && userConnectionCount(organizationId, userId) === 0) {
+          firePresence(organizationId, userId, 'offline')
+        }
       }
     })
 
@@ -257,15 +354,23 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
             return
           }
           handshakeComplete = true
+          const connectionUserId = authorization.userId ?? null
+          // First live connection for this user → they just came online.
+          const wasOffline =
+            connectionUserId !== null &&
+            userConnectionCount(hello.organizationId, connectionUserId) === 0
           connection = {
             id: newConnectionId(),
             socket,
             organizationId: hello.organizationId,
-            userId: authorization.userId ?? null,
+            userId: connectionUserId,
             lastDeliveredSequence: 0,
             heartbeatTimer: null
           }
           addConnection(connection)
+          if (wasOffline && connectionUserId) {
+            firePresence(hello.organizationId, connectionUserId, 'online')
+          }
           const currentMax = await getLatestPublishedSequence(options.db, hello.organizationId)
           send(connection, 'server.welcome', {
             type: 'server.welcome',
@@ -311,12 +416,20 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
   return {
     start: async () => {
       await listenSource.start((channel, payload) => {
-        if (channel !== RESOURCE_CHANGED_CHANNEL) {
+        if (channel === RESOURCE_CHANGED_CHANNEL) {
+          const notification = decodeResourceChangedNotification(payload)
+          if (notification) {
+            void deliver(notification.organizationId, notification.sequence)
+          }
           return
         }
-        const notification = decodeResourceChangedNotification(payload)
-        if (notification) {
-          void deliver(notification.organizationId, notification.sequence)
+        if (channel === EPHEMERAL_CHANNEL) {
+          const notification = decodeEphemeralNotification(payload)
+          if (notification?.kind === 'presence') {
+            deliverPresence(notification)
+          } else if (notification?.kind === 'typing') {
+            void deliverTyping(notification)
+          }
         }
       })
     },

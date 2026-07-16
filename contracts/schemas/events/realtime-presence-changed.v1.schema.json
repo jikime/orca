@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-presence-changed.v1.schema.json",
+  "title": "Realtime presence change (ephemeral)",
+  "description": "Org-level online/offline for a user, inferred from live connections. Ephemeral: no version, no replay; on reconnect the client re-derives state.",
+  "type": "object",
+  "required": ["type", "schemaVersion", "organizationId", "userId", "state", "at"],
+  "properties": {
+    "type": { "const": "presence.changed" },
+    "schemaVersion": { "const": 1 },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "state": { "enum": ["online", "offline"] },
+    "at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

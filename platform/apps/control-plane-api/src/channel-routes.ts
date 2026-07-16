@@ -3,6 +3,7 @@ import {
   addReaction,
   createChannel,
   createDm,
+  fireEphemeralNotification,
   getChannelForMember,
   getChannelKind,
   getMessageWithReactions,
@@ -76,6 +77,12 @@ function assertResponse(registry: ContractSchemaRegistry, schemaId: string, body
 }
 
 export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesDeps): void {
+  // Per-(user,channel) typing coalesce: at most one ephemeral typing ping per second
+  // so a client can't flood the presence path (data-over-presence). In-memory for the
+  // app instance; a bounded/LRU eviction is a later refinement.
+  const typingLastFired = new Map<string, number>()
+  const TYPING_COALESCE_MS = 1000
+
   app.get('/v1/organizations/:organizationId/channels', async (request, reply) => {
     const principal = await app.requireAuthenticatedSubject(request, reply)
     if (!principal) return reply
@@ -497,6 +504,56 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
     await gate.complete(channelId)
     return respondCursor(result.cursor)
   })
+
+  // Typing: ephemeral fire-and-forget. It writes NO row and NEVER touches the outbox
+  // — it fires a bare pg_notify that the gateway relays to the channel's other members.
+  // No idempotency (a repeat IS the point); rate-capped per user to prevent a flood.
+  app.post(
+    '/v1/organizations/:organizationId/channels/:channelId/typing',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId } = request.params as {
+        organizationId: string
+        channelId: string
+      }
+      if (!UUID_PATTERN.test(organizationId) || !UUID_PATTERN.test(channelId))
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.post'
+      )
+      if (!authz) return reply
+      const userId = authz.userId ?? organizationId
+      // Member gate: only a channel member may signal typing in it.
+      const channel = await getChannelForMember(deps.db, organizationId, channelId, userId)
+      if (!channel.ok) {
+        if (channel.reason === 'not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
+        return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+      }
+      // Coalesce: drop (still 204) if this user pinged this channel within the window.
+      const rateKey = `${userId}:${channelId}`
+      const nowMs = Date.now()
+      const last = typingLastFired.get(rateKey) ?? 0
+      if (nowMs - last >= TYPING_COALESCE_MS) {
+        typingLastFired.set(rateKey, nowMs)
+        await fireEphemeralNotification(deps.db, {
+          kind: 'typing',
+          organizationId,
+          channelId,
+          userId,
+          at: new Date(nowMs).toISOString()
+        })
+      }
+      void reply.code(204).send()
+      return reply
+    }
+  )
 
   // Reactions: durable add/remove facts on a message. add=idempotent (PK), member-gated;
   // both ride the message.updated invalidation (no new realtime). removeReaction is a

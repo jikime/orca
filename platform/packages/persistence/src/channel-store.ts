@@ -113,6 +113,23 @@ export async function isChannelMemberTx(
   return row !== undefined
 }
 
+/** The user-ids on a channel's roster. The gateway uses this to fan out ephemeral
+ *  typing only to a channel's members (a non-member must not learn who is typing). */
+export async function listChannelMemberUserIds(
+  db: Kysely<Database>,
+  organizationId: string,
+  channelId: string
+): Promise<string[]> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const rows = await trx
+      .selectFrom('collaboration.channel_members')
+      .select('user_id')
+      .where('channel_id', '=', channelId)
+      .execute()
+    return rows.map((row) => row.user_id)
+  })
+}
+
 /** Adds a user to a channel's roster (idempotent). Used by createChannel for the
  *  creator; a join/invite endpoint is a later increment. */
 export async function addChannelMember(
