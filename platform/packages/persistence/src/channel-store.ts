@@ -50,8 +50,8 @@ function mapChannel(row: {
 }
 
 /** The deterministic DM key: sorted participant user-ids joined, so createDm(A,B) and
- *  createDm(B,A) map to the same key (idempotent find-or-create). Group DM (N>2) uses
- *  the same sorted-join; this slice creates 2-party DMs. */
+ *  createDm(B,A) map to the same key (idempotent find-or-create). A group DM (N>2) uses
+ *  the SAME sorted-join over ALL participants, so {A,B,C} keys distinctly from {A,B}. */
 export function computeDmKey(userIds: readonly string[]): string {
   return [...new Set(userIds)].sort().join(':')
 }
@@ -347,6 +347,113 @@ export async function createDm(
       return { channel: mapChannel(winner), created: false }
     }
     for (const userId of new Set([input.actorUserId, input.otherUserId])) {
+      await trx
+        .insertInto('collaboration.channel_members')
+        .values({
+          organization_id: input.organizationId,
+          channel_id: inserted.id,
+          user_id: userId,
+          role: 'member'
+        })
+        .onConflict((oc) => oc.columns(['organization_id', 'channel_id', 'user_id']).doNothing())
+        .execute()
+    }
+    await trx
+      .insertInto('audit.audit_events')
+      .values({
+        organization_id: input.organizationId,
+        actor_id: input.actorUserId,
+        action: 'channel.created',
+        target_type: 'channel',
+        target_id: inserted.id
+      })
+      .execute()
+    await emitCollaborationChange(trx, input.organizationId, 'channel', inserted.id, 1, 'created')
+    return { channel: mapChannel(inserted), created: true }
+  })
+}
+
+// Group DM participant bounds (distinct set, including the creator). Min 3 keeps
+// /group-dms unambiguous from the 2-party /dms endpoint (a 2-distinct set IS a 1:1 DM).
+// Max caps roster/notification blast radius; exceeding it is a create-time rejection,
+// never a silent truncation.
+export const GROUP_DM_MIN_PARTICIPANTS = 3
+export const GROUP_DM_MAX_PARTICIPANTS = 50
+
+export type CreateGroupDmResult =
+  | CreateDmResult
+  | { error: 'invalid_target' | 'too_few_participants' | 'too_many_participants' }
+
+/**
+ * Finds or creates the N-party group DM among the caller and the given org members,
+ * idempotently via the deterministic dm_key over the DISTINCT participant set. Because
+ * the key includes every participant, {A,B,C} resolves to a different channel than the
+ * 1:1 {A,B} — no collision. Same find-or-create race handling as createDm (partial
+ * unique index; the loser re-reads the winner). Every participant becomes a member and
+ * MUST be an active member of the SAME org. Reuses computeDmKey and the createDm race
+ * pattern so the two endpoints never diverge.
+ */
+export async function createGroupDm(
+  db: Kysely<Database>,
+  input: { organizationId: string; actorUserId: string; participantUserIds: string[] }
+): Promise<CreateGroupDmResult> {
+  const distinct = [...new Set([input.actorUserId, ...input.participantUserIds])]
+  if (distinct.length < GROUP_DM_MIN_PARTICIPANTS) {
+    return { error: 'too_few_participants' as const }
+  }
+  if (distinct.length > GROUP_DM_MAX_PARTICIPANTS) {
+    return { error: 'too_many_participants' as const }
+  }
+  const dmKey = computeDmKey(distinct)
+  return withTenantTransaction(db, input.organizationId, async (trx) => {
+    // Every non-actor participant must be an active member of this org — no cross-org
+    // group DMs. Reject the whole roster if any is invalid (do not leak which one).
+    const others = distinct.filter((id) => id !== input.actorUserId)
+    const activeRows = await trx
+      .selectFrom('identity.memberships')
+      .select('user_id')
+      .where('user_id', 'in', others)
+      .where('organization_id', '=', input.organizationId)
+      .where('status', '=', 'active')
+      .execute()
+    const activeUserIds = new Set(activeRows.map((row) => row.user_id))
+    if (others.some((id) => !activeUserIds.has(id))) {
+      return { error: 'invalid_target' as const }
+    }
+    const existing = await trx
+      .selectFrom('collaboration.channels')
+      .selectAll()
+      .where('kind', '=', 'dm')
+      .where('dm_key', '=', dmKey)
+      .executeTakeFirst()
+    if (existing) {
+      return { channel: mapChannel(existing), created: false }
+    }
+    const inserted = await trx
+      .insertInto('collaboration.channels')
+      .values({
+        organization_id: input.organizationId,
+        name: 'Group Message',
+        kind: 'dm',
+        dm_key: dmKey,
+        visibility: 'internal'
+      })
+      .onConflict((oc) =>
+        oc.columns(['organization_id', 'dm_key']).where('kind', '=', 'dm').doNothing()
+      )
+      .returningAll()
+      .executeTakeFirst()
+    if (!inserted) {
+      // Lost a concurrent create — the winner's row now exists; return it.
+      const winner = await trx
+        .selectFrom('collaboration.channels')
+        .selectAll()
+        .where('kind', '=', 'dm')
+        .where('dm_key', '=', dmKey)
+        .executeTakeFirstOrThrow()
+      return { channel: mapChannel(winner), created: false }
+    }
+    for (const userId of distinct) {
       await trx
         .insertInto('collaboration.channel_members')
         .values({

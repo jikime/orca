@@ -3,6 +3,7 @@ import {
   addReaction,
   createChannel,
   createDm,
+  createGroupDm,
   fireEphemeralNotification,
   getChannelForMember,
   getChannelKind,
@@ -33,11 +34,14 @@ import { authorizeOrgPermission } from './route-authorization'
 const CHANNEL_SCHEMA_ID = 'https://schemas.pielab.ai/resources/channel.v1.schema.json'
 const CHANNEL_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/channel-create.v1.schema.json'
 const DM_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/dm-create.v1.schema.json'
+const GROUP_DM_CREATE_SCHEMA_ID =
+  'https://schemas.pielab.ai/resources/group-dm-create.v1.schema.json'
 const MESSAGE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message.v1.schema.json'
 const MESSAGE_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-create.v1.schema.json'
 const READ_CURSOR_SCHEMA_ID = 'https://schemas.pielab.ai/resources/read-cursor.v1.schema.json'
 const CHANNELS_ROUTE = '/v1/organizations/{organizationId}/channels'
 const DMS_ROUTE = '/v1/organizations/{organizationId}/dms'
+const GROUP_DMS_ROUTE = '/v1/organizations/{organizationId}/group-dms'
 const CHANNEL_MESSAGES_ROUTE = '/v1/organizations/{organizationId}/channels/{channelId}/messages'
 const CHANNEL_REACTIONS_ROUTE =
   '/v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/reactions'
@@ -273,6 +277,90 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
     return respondDm(result.channel, result.created)
   })
 
+  // Find-or-create an N-party group DM among the caller and the listed org members
+  // (idempotent via dm_key over the full participant set). A group DM is a channel with
+  // kind='dm', so its roster is fixed at creation — adding someone means a new group DM
+  // with a new dm_key (see the member route's DM_ROSTER_FIXED guard). The caller is
+  // implicit and need not be listed.
+  app.post('/v1/organizations/:organizationId/group-dms', async (request, reply) => {
+    const principal = await app.requireAuthenticatedSubject(request, reply)
+    if (!principal) return reply
+    const { organizationId } = request.params as { organizationId: string }
+    if (!UUID_PATTERN.test(organizationId))
+      return problem(reply, request, 400, 'BAD_REQUEST', 'invalid organizationId')
+    const authz = await authorizeOrgPermission(
+      deps.db,
+      request,
+      reply,
+      principal,
+      organizationId,
+      'channel.create'
+    )
+    if (!authz || !authz.userId) return authz ? reply.code(403).send() : reply
+    if (!validates(deps.registry, GROUP_DM_CREATE_SCHEMA_ID, request.body))
+      return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid group dm create request')
+    const gate = await beginIdempotency(
+      deps.db,
+      request,
+      reply,
+      { organizationId, principalId: principal.subject, method: 'POST', route: GROUP_DMS_ROUTE },
+      request.body
+    )
+    if (!gate) return reply
+    const respondDm = (channel: ChannelResource, created: boolean): ChannelResource => {
+      assertResponse(deps.registry, CHANNEL_SCHEMA_ID, channel)
+      void reply
+        .code(created ? 201 : 200)
+        .header('location', `/v1/organizations/${organizationId}/channels/${channel.id}`)
+      return channel
+    }
+    if (gate.priorResourceId) {
+      const existing = await getChannelForMember(
+        deps.db,
+        organizationId,
+        gate.priorResourceId,
+        authz.userId
+      )
+      if (existing.ok) return respondDm(existing.channel, false)
+    }
+    const { participantUserIds } = request.body as { participantUserIds: string[] }
+    const result = await createGroupDm(deps.db, {
+      organizationId,
+      actorUserId: authz.userId,
+      participantUserIds
+    })
+    if ('error' in result) {
+      await gate.release()
+      // Roster-shape violations are request-validation (400); a non-org participant is a
+      // semantic conflict with org membership (422), matching the 1:1 DM convention.
+      if (result.error === 'too_few_participants')
+        return problem(
+          reply,
+          request,
+          400,
+          'VALIDATION_FAILED',
+          'a group DM needs at least 3 distinct participants (use /dms for a 1:1)'
+        )
+      if (result.error === 'too_many_participants')
+        return problem(
+          reply,
+          request,
+          400,
+          'VALIDATION_FAILED',
+          'a group DM exceeds the participant limit'
+        )
+      return problem(
+        reply,
+        request,
+        422,
+        'INVALID_DM_TARGET',
+        'a participant is not a member of this org'
+      )
+    }
+    await gate.complete(result.channel.id)
+    return respondDm(result.channel, result.created)
+  })
+
   // Add an org member to a NORMAL channel (channel.manage). Denied on a DM (409) — a
   // DM's roster is fixed. Idempotent (204); no key reserved.
   app.post(
@@ -301,7 +389,8 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       const kind = await getChannelKind(deps.db, organizationId, channelId)
       if (kind === null) return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
       // Moderation deny-list: channel.manage-type ops are rejected on a DM regardless
-      // of role (a DM's roster is fixed at its participants). Group DM is later.
+      // of role. This covers group DMs too (also kind='dm') — their roster is fixed at
+      // creation, so adding someone means creating a new group DM with a new dm_key.
       if (kind === 'dm')
         return problem(
           reply,

@@ -452,6 +452,18 @@
       "expectedValid": true
     },
     {
+      "name": "start group dm request",
+      "schemaId": "https://schemas.pielab.ai/resources/group-dm-create.v1.schema.json",
+      "document": "valid/group-dm-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "group dm requires participants",
+      "schemaId": "https://schemas.pielab.ai/resources/group-dm-create.v1.schema.json",
+      "document": "invalid/group-dm-create-empty.json",
+      "expectedValid": false
+    },
+    {
       "name": "attachment intent create",
       "schemaId": "https://schemas.pielab.ai/resources/attachment-intent-create.v1.schema.json",
       "document": "valid/attachment-intent-create.json",
