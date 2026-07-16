@@ -141,8 +141,26 @@ Electron `safeStorage` adapter를 구현했다. refresh token만 instance·profi
 Broker와 연결하며 조직 전환은 secret store를 읽지 않아 다른 계정 token을 재사용할 수 없다. preload와
 Renderer에는 어떤 token API도 노출하지 않았다.
 
-R1 전체가 완료된 것은 아니다. Fuses·ASAR·서명 gate, 기존 프로필 migration
-dry-run과 안전 모드는 후속 R1 slice로 남아 있다.
+같은 날 네 번째 slice `feat/pie-r1-electron-hardening`에서 ELC-005(DevTools·Node 옵션·ASAR
+변조를 통한 권한 상승)를 겨냥해 패키지 강화를 구현했다. electron-builder의 `electronFuses`로
+사용하지 않는 Electron Fuses를 비활성화한다. `NODE_OPTIONS`·`NODE_EXTRA_CA_CERTS` 환경변수와
+`--inspect` 계열 인자를 무시하고, cookie 암호화·ASAR integrity 검증·`onlyLoadAppFromAsar`를 켠다.
+단 `runAsNode`는 유지한다. 패키지된 CLI 런처가 `ELECTRON_RUN_AS_NODE=1`로 실행되고 terminal
+daemon이 plain Node로 `child_process.fork`되기 때문이며, 이 fuse를 끄면 fork 자체가 깨진다.
+`grantFileProtocolExtraPrivileges`도 유지(deferred)한다. production renderer가 `file://`로 로드되고
+onig.wasm과 Monaco worker를 `file://`에서 가져오기 때문이며, renderer를 custom protocol로 옮긴 뒤
+비활성화한다. ASAR integrity는 macOS·Windows에서만 강제되고 Linux는 fuse만 설정될 뿐 강제되지
+않는다(수용된 gap). renderer `index.html`에는 strict Content-Security-Policy를 추가했다. production
+정책은 `default-src 'self'`·`object-src 'none'`·`base-uri 'none'` 기준이며 `'unsafe-eval'`을 절대
+포함하지 않는다. dev HMR origin(http·ws localhost)과 dev inline/eval은 serve 전용 Vite 플러그인이
+주입해 prod와 분리한다. 메인 BrowserWindow는 `contextIsolation: true`·`nodeIntegration: false`를
+명시적으로 고정해 Electron 기본값 변화에 의존하지 않는다. `verify:packaged-security` 스크립트가
+패키지된 앱에서 flipped fuse wire, macOS Info.plist의 `ElectronAsarIntegrity`와 `codesign --verify
+--strict`, app.asar 레이아웃을 검사하며, 이것이 ELC-005의 `fuse-asar-signature-gate` 증거다. fuse
+읽기와 결정 로직은 pure 함수로 단위 테스트한다.
+
+R1 전체가 완료된 것은 아니다. 실제 서명 인증서를 사용하는 릴리스 서명·notarization gate와 기존
+프로필 migration dry-run·안전 모드는 후속 R1 slice로 남아 있다.
 
 ### 종료 조건
 

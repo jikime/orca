@@ -285,7 +285,12 @@ export function createMainWindow(
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
-      webviewTag: true
+      webviewTag: true,
+      // Why: pin the renderer trust boundary explicitly instead of relying on
+      // Electron's shifting defaults — the renderer runs untrusted-adjacent web
+      // content and must stay isolated from Node (ELC-005 hardening).
+      contextIsolation: true,
+      nodeIntegration: false
     }
   })
   const rendererWebContentsId = mainWindow.webContents.id
