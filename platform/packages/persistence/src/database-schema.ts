@@ -111,6 +111,53 @@ export interface RoleManifestSeedTable {
   seeded_at: TimestampColumn
 }
 
+export interface EntitlementPlansTable {
+  id: string
+}
+
+export interface PlanEntitlementsTable {
+  plan_id: string
+  entitlement_id: string
+  enforcement: string
+  limit_value: NullableBigIntColumn
+  boolean_value: boolean | null
+}
+
+export interface EntitlementManifestSeedTable {
+  id: Generated<boolean>
+  checksum: string
+  seeded_at: TimestampColumn
+}
+
+export interface SubscriptionsTable {
+  organization_id: string
+  plan_id: string
+  deployment_type: Generated<string>
+  status: Generated<string>
+  current_period_start: TimestampColumn
+  current_period_end: NullableTimestampColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface UsageMetersTable {
+  organization_id: string
+  entitlement_id: string
+  current_value: DefaultedBigIntColumn
+  updated_at: TimestampColumn
+}
+
+export interface ResourceGrantsTable {
+  id: Generated<string>
+  organization_id: string
+  user_id: string
+  resource_type: string
+  resource_id: string
+  grant_kind: string
+  permission: string
+  created_at: TimestampColumn
+}
+
 export interface OutboxEventsTable {
   id: string
   organization_id: string
@@ -273,6 +320,12 @@ export interface Database {
   'identity.permissions': PermissionsTable
   'identity.role_permissions': RolePermissionsTable
   'identity.role_manifest_seed': RoleManifestSeedTable
+  'identity.entitlement_plans': EntitlementPlansTable
+  'identity.plan_entitlements': PlanEntitlementsTable
+  'identity.entitlement_manifest_seed': EntitlementManifestSeedTable
+  'identity.subscriptions': SubscriptionsTable
+  'identity.usage_meters': UsageMetersTable
+  'identity.resource_grants': ResourceGrantsTable
   'operations.outbox_events': OutboxEventsTable
   'operations.dead_letter_events': DeadLetterEventsTable
   'operations.idempotency_records': IdempotencyRecordsTable

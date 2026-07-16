@@ -19,10 +19,21 @@ export type AuthorizationDenialReason =
   | 'org_mismatch'
   | 'explicit_deny'
   | 'permission_denied'
+  // A resource-scoped NARROW grant removed a permission the role otherwise grants.
+  | 'resource_narrowed'
 
 export type AuthorizationDecision =
   | { allowed: true; reason: 'allowed' }
   | { allowed: false; reason: AuthorizationDenialReason }
+
+// A ResourceGrant that narrows (removes) or widens (exceptionally adds) a
+// permission on ONE specific resource (doc 01:165-181).
+export type ResourceGrantInput = {
+  grantKind: 'narrow' | 'widen'
+  resourceType: string
+  resourceId: string
+  permission: string
+}
 
 export type AuthorizationInput = {
   requiredPermission: string
@@ -32,14 +43,19 @@ export type AuthorizationInput = {
   // Permissions explicitly denied by a security policy (doc 01 step 3). No policy
   // table exists yet; the parameter keeps the step wired so a policy slice slots in.
   explicitDenies?: readonly string[]
+  // The specific resource the operation targets, if any. When absent the decision
+  // is org-level (role + permission only). When present, resourceGrants apply.
+  resource?: { resourceType: string; resourceId: string }
+  resourceGrants?: readonly ResourceGrantInput[]
 }
 
 /**
  * Judges one protected operation. Order (doc 01:215-231): (1) membership/session
  * active; (2) requested org matches the membership's org; (3) explicit deny +
- * policy first; (4) role grants the permission (resolved from the role manifest).
- * Resource-scope narrowing (step 5+) is deferred to the ResourceGrant slice and is
- * intentionally NOT faked here.
+ * policy first; (4) role grants the permission (role manifest); (5) resource scope
+ * (doc 01:177): a NARROW grant removes the permission on the target resource even
+ * if the role grants it; a WIDEN grant exceptionally adds it even if the role does
+ * not. Default-deny throughout; explicit deny (step 3) beats a widen.
  */
 export function evaluatePermission(
   input: AuthorizationInput,
@@ -55,10 +71,35 @@ export function evaluatePermission(
   if (input.explicitDenies?.includes(input.requiredPermission)) {
     return { allowed: false, reason: 'explicit_deny' }
   }
-  if (!catalog.permissionsForRoles(membership.roleIds).includes(input.requiredPermission)) {
-    return { allowed: false, reason: 'permission_denied' }
+
+  const roleGrants = catalog
+    .permissionsForRoles(membership.roleIds)
+    .includes(input.requiredPermission)
+
+  // Org-level (no specific resource): role decides.
+  if (!input.resource) {
+    return roleGrants
+      ? { allowed: true, reason: 'allowed' }
+      : { allowed: false, reason: 'permission_denied' }
   }
-  return { allowed: true, reason: 'allowed' }
+
+  // Resource-scoped: consult narrow/widen grants for THIS resource + permission.
+  const relevant = (input.resourceGrants ?? []).filter(
+    (grant) =>
+      grant.resourceType === input.resource!.resourceType &&
+      grant.resourceId === input.resource!.resourceId &&
+      grant.permission === input.requiredPermission
+  )
+  if (relevant.some((grant) => grant.grantKind === 'narrow')) {
+    return { allowed: false, reason: 'resource_narrowed' }
+  }
+  if (roleGrants) {
+    return { allowed: true, reason: 'allowed' }
+  }
+  if (relevant.some((grant) => grant.grantKind === 'widen')) {
+    return { allowed: true, reason: 'allowed' }
+  }
+  return { allowed: false, reason: 'permission_denied' }
 }
 
 // The audit action code for a denial. Distinct per reason so permission-denial and

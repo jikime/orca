@@ -331,6 +331,19 @@ offline) + API revoke-propagation(membership→403·session→401·last-owner 40
 직접 요청 거부·역할/세션 폐기 다음 요청 반영·초대/refresh 재사용/마지막 소유자 공격 차단.** 남은 R3(후속):
 MFA/복구/step-up(AUT-006)·Passkey, entitlement/UsageMeter, ResourceGrant narrowing.
 
+2026-07-25 slice 5로 **entitlement 강제 + ResourceGrant**를 구현해 **마지막 미충족 R3 종료 조건(entitlement
+부족 ≠ permission 거부, doc 14:459)을 닫았다**(platform 전용, root 미변경). **entitlement:** manifest에서
+checksum 시드되는 plan 카탈로그+org subscriptions+usage_meters. 순수 evaluateEntitlement(limit/boolean,
+enterprise null=무제한). **wire: core.members** — invite 수락 시 활성 멤버 라이브 카운트 대비 plan 한계 검사,
+초과 시 **entitlement_shortfall**(distinct 감사 `entitlement.shortfall.core_members`, HTTP 402≠permission 403).
+구독 없는 org는 unmetered. **ResourceGrant:** `identity.resource_grants`(narrow|widen). 순수 evaluator에
+resource-scope 단계 추가(narrow 제거·widen 예외 허용, default-deny, 명시적 거부>widen; org-level 경로 불변).
+**실 리소스 op 없음(R4)→ 순수+합성 op로 증명, R4가 첫 소비자 문서화(가짜 op 금지).** **TEN-006 완결:** matrix가
+**entitlement_shortfall/permission_denied/resource_narrowed/allowed 4개 구별 결과+4개 이유 코드** 검증.
+platform 156 tests green(+18), lint 0, contracts OK, root src 미변경. **R3 authz 코어 완결(MFA/step-up 제외).**
+남은 R3: MFA/복구/step-up(AUT-006)·Passkey. R4 대기: projects/storage metering·resource-scoped op·subscription
+생성. 상시 gap: provisioning/invite/revoke/entitlement op OpenAPI 미계약, ClientHello auth 필드 없음.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

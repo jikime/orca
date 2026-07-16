@@ -38,7 +38,9 @@ const ACCEPT_REJECTION: Record<string, { status: number; code: string }> = {
   expired: { status: 410, code: 'INVITE_EXPIRED' },
   not_pending: { status: 409, code: 'INVITE_ALREADY_USED' },
   email_mismatch: { status: 403, code: 'INVITE_EMAIL_MISMATCH' },
-  email_unverified: { status: 403, code: 'EMAIL_NOT_VERIFIED' }
+  email_unverified: { status: 403, code: 'EMAIL_NOT_VERIFIED' },
+  // 402 (distinct from a 403 permission denial): the org is at its member limit.
+  entitlement_shortfall: { status: 402, code: 'ENTITLEMENT_SHORTFALL' }
 }
 
 /**
