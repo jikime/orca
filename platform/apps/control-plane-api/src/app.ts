@@ -12,6 +12,7 @@ import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
 import { registerChannelRoutes } from './channel-routes'
+import { registerMessageSearchRoutes } from './message-search-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerDeliveryRoutes } from './delivery-routes'
 import { registerWorkItemRoutes } from './work-item-routes'
@@ -161,6 +162,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {})
     })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
+    registerMessageSearchRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {
       registerRevocationRoutes(app, { db: deps.db, gateway: deps.gateway })
     }

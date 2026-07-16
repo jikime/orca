@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/message-search-result.v1.schema.json",
+  "title": "Message search result page",
+  "description": "A keyset-paginated page of message summaries matching a full-text query, most recent first. Member-scoped: every item is from a channel the caller is on (doc 08 chat slice 7).",
+  "type": "object",
+  "required": ["items", "nextCursor"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/message.v1.schema.json"
+      }
+    },
+    "nextCursor": {
+      "description": "Opaque keyset cursor (the last item's message id) to fetch the next page; null on the final page.",
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
