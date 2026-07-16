@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/dm-create.v1.schema.json",
+  "title": "Start direct message request",
+  "description": "Find-or-create the DM between the caller and one other org member. Idempotent via a deterministic dm_key.",
+  "type": "object",
+  "required": ["otherUserId"],
+  "properties": {
+    "otherUserId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

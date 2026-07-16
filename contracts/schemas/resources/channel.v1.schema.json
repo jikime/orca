@@ -18,6 +18,7 @@
     "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
     "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
     "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "kind": { "enum": ["channel", "dm"] },
     "scopeType": { "enum": ["organization", "team", "project", "customer", "ticket"] },
     "scopeId": {
       "oneOf": [

@@ -393,9 +393,11 @@ export interface ChannelsTable {
   organization_id: string
   id: Generated<string>
   name: string
+  kind: Generated<string>
   scope_type: Generated<string>
   scope_id: string | null
   visibility: Generated<string>
+  dm_key: string | null
   version: DefaultedBigIntColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn

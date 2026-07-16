@@ -7,5 +7,6 @@
   "visibility": "internal",
   "version": 1,
   "createdAt": "2026-07-17T09:00:00Z",
-  "updatedAt": "2026-07-17T09:00:00Z"
+  "updatedAt": "2026-07-17T09:00:00Z",
+  "kind": "channel"
 }

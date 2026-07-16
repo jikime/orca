@@ -8,11 +8,13 @@ import {
 import { withTenantTransaction } from './tenant-transaction'
 
 export type ChannelVisibility = 'internal' | 'project' | 'customer'
+export type ChannelKind = 'channel' | 'dm'
 
 export type ChannelResource = {
   id: string
   organizationId: string
   name: string
+  kind: ChannelKind
   scopeType: string
   scopeId: string | null
   visibility: ChannelVisibility
@@ -25,6 +27,7 @@ function mapChannel(row: {
   id: string
   organization_id: string
   name: string
+  kind: string
   scope_type: string
   scope_id: string | null
   visibility: string
@@ -36,6 +39,7 @@ function mapChannel(row: {
     id: row.id,
     organizationId: row.organization_id,
     name: row.name,
+    kind: row.kind as ChannelKind,
     scopeType: row.scope_type,
     scopeId: row.scope_id,
     visibility: row.visibility as ChannelVisibility,
@@ -43,6 +47,13 @@ function mapChannel(row: {
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
   }
+}
+
+/** The deterministic DM key: sorted participant user-ids joined, so createDm(A,B) and
+ *  createDm(B,A) map to the same key (idempotent find-or-create). Group DM (N>2) uses
+ *  the same sorted-join; this slice creates 2-party DMs. */
+export function computeDmKey(userIds: readonly string[]): string {
+  return [...new Set(userIds)].sort().join(':')
 }
 
 /**
@@ -197,14 +208,17 @@ export async function getChannelForMember(
   })
 }
 
-/** The channels the caller is a member of. */
+/** The channels the caller is a member of. A DM is just a channel with kind='dm', so
+ *  it appears here too; the optional kind filter (?kind=dm) narrows to DMs or normal
+ *  channels without a separate resource. */
 export async function listChannels(
   db: Kysely<Database>,
   organizationId: string,
-  userId: string
+  userId: string,
+  filter: { kind?: ChannelKind } = {}
 ): Promise<ChannelResource[]> {
   return withTenantTransaction(db, organizationId, async (trx) => {
-    const rows = await trx
+    let query = trx
       .selectFrom('collaboration.channels')
       .innerJoin('collaboration.channel_members', (join) =>
         join
@@ -212,8 +226,132 @@ export async function listChannels(
           .on('collaboration.channel_members.user_id', '=', userId)
       )
       .selectAll('collaboration.channels')
-      .orderBy('collaboration.channels.created_at')
-      .execute()
+    if (filter.kind) {
+      query = query.where('collaboration.channels.kind', '=', filter.kind)
+    }
+    const rows = await query.orderBy('collaboration.channels.created_at').execute()
     return rows.map((row) => mapChannel({ ...row, version: row.version as string | number }))
+  })
+}
+
+/** Reads a channel's kind for a management gate (channel.manage ops are denied on a
+ *  DM regardless of role). Returns null if the channel doesn't exist. */
+export async function getChannelKind(
+  db: Kysely<Database>,
+  organizationId: string,
+  channelId: string
+): Promise<ChannelKind | null> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const row = await trx
+      .selectFrom('collaboration.channels')
+      .select('kind')
+      .where('id', '=', channelId)
+      .executeTakeFirst()
+    return row ? (row.kind as ChannelKind) : null
+  })
+}
+
+/** True when the user holds an active membership in the org (used to reject adding a
+ *  non-org-member to a channel, and DMing someone outside your org). */
+export async function isOrgMember(
+  db: Kysely<Database>,
+  organizationId: string,
+  userId: string
+): Promise<boolean> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const row = await trx
+      .selectFrom('identity.memberships')
+      .select('user_id')
+      .where('user_id', '=', userId)
+      .where('organization_id', '=', organizationId)
+      .where('status', '=', 'active')
+      .executeTakeFirst()
+    return row !== undefined
+  })
+}
+
+export type CreateDmResult = { channel: ChannelResource; created: boolean }
+
+/**
+ * Finds or creates the 2-party DM between the caller and another org member,
+ * idempotently via the deterministic dm_key. createDm(A,B) and createDm(B,A) resolve
+ * to the same channel; a concurrent double-create resolves to one via the partial
+ * unique index (the loser re-reads the winner's row). Both participants become
+ * members. The other user MUST be an active member of the SAME org.
+ */
+export async function createDm(
+  db: Kysely<Database>,
+  input: { organizationId: string; actorUserId: string; otherUserId: string }
+): Promise<CreateDmResult | { error: 'invalid_target' }> {
+  const dmKey = computeDmKey([input.actorUserId, input.otherUserId])
+  return withTenantTransaction(db, input.organizationId, async (trx) => {
+    // The other participant must be a real member of this org — no cross-org DMs.
+    const target = await trx
+      .selectFrom('identity.memberships')
+      .select('user_id')
+      .where('user_id', '=', input.otherUserId)
+      .where('organization_id', '=', input.organizationId)
+      .where('status', '=', 'active')
+      .executeTakeFirst()
+    if (!target && input.otherUserId !== input.actorUserId) {
+      return { error: 'invalid_target' as const }
+    }
+    const existing = await trx
+      .selectFrom('collaboration.channels')
+      .selectAll()
+      .where('kind', '=', 'dm')
+      .where('dm_key', '=', dmKey)
+      .executeTakeFirst()
+    if (existing) {
+      return { channel: mapChannel(existing), created: false }
+    }
+    const inserted = await trx
+      .insertInto('collaboration.channels')
+      .values({
+        organization_id: input.organizationId,
+        name: 'Direct Message',
+        kind: 'dm',
+        dm_key: dmKey,
+        visibility: 'internal'
+      })
+      .onConflict((oc) =>
+        oc.columns(['organization_id', 'dm_key']).where('kind', '=', 'dm').doNothing()
+      )
+      .returningAll()
+      .executeTakeFirst()
+    if (!inserted) {
+      // Lost a concurrent create — the winner's row now exists; return it.
+      const winner = await trx
+        .selectFrom('collaboration.channels')
+        .selectAll()
+        .where('kind', '=', 'dm')
+        .where('dm_key', '=', dmKey)
+        .executeTakeFirstOrThrow()
+      return { channel: mapChannel(winner), created: false }
+    }
+    for (const userId of new Set([input.actorUserId, input.otherUserId])) {
+      await trx
+        .insertInto('collaboration.channel_members')
+        .values({
+          organization_id: input.organizationId,
+          channel_id: inserted.id,
+          user_id: userId,
+          role: 'member'
+        })
+        .onConflict((oc) => oc.columns(['organization_id', 'channel_id', 'user_id']).doNothing())
+        .execute()
+    }
+    await trx
+      .insertInto('audit.audit_events')
+      .values({
+        organization_id: input.organizationId,
+        actor_id: input.actorUserId,
+        action: 'channel.created',
+        target_type: 'channel',
+        target_id: inserted.id
+      })
+      .execute()
+    await emitCollaborationChange(trx, input.organizationId, 'channel', inserted.id, 1, 'created')
+    return { channel: mapChannel(inserted), created: true }
   })
 }

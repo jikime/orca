@@ -465,6 +465,19 @@ postMessage 감싸 중복 mention-post→알림 무중복. 테스트: **per-user
 (71 schema/71 fixture/37 op), root src 미변경, 두 lockfile clean. team-lead의 live mention+notification+isolation smoke
 후 merge 예정. 후속: DM→presence/typing→첨부→search→채널 invite→DND 또는 Planning Gate — team-lead 방향 대기.
 
+2026-07-17 chat slice 4 `feat/pie-chat-dm` — direct messages. platform 전용, root src 미변경, design-reference-only.
+**핵심 결정: DM은 `kind='dm'` 플래그가 붙은 평범한 channel(별도 테이블 아님), 프라이버시는 channel_members roster에서
+나옴(전용 dm permission 없음).** migration `20260801090001`: channels에 kind + partial-unique dm_key(kind='dm'만) additive.
+**결정(dm_key): 정렬 user-id 조인**(createDm(A,B)=createDm(B,A)→같은 채널, 동시 double-create는 partial unique index로
+1채널). **결정(라우트): 전용 `POST .../dms`{otherUserId} find-or-create(201/200), listChannels `?kind=dm` 필터.**
+**DM 메시징은 slice 1-3 전부 코드 0 재사용(DM=channel).** **결정(moderation): kind='dm'에서 channel.manage류 op 4xx
+거부(roster 고정) — 대표 op `POST .../channels/{id}/members`(정상 채널 204, DM 409), 2-party만·group DM 후속.** NO
+dm.view/dm.post permission(멤버십+message.post/read, createDm=channel.create). 조직밖 DM 금지(422). beginIdempotency로도
+감쌈. 테스트: 양방향 동일 채널·동시 1채널·DM 프라이버시(제3자 못 봄/못 읽음 403)·조직밖 422·moderation 204 vs 409·
+DM에서 post/react/mention 동작. platform 239 tests green(+12), typecheck 4/4·lint 0·check:contracts green(72 schema/72
+fixture/39 op), root src 미변경, 두 lockfile clean. team-lead의 live DM find-or-create+privacy smoke 후 merge 예정.
+후속: presence/typing→첨부→search→group DM→DND 또는 Planning Gate — team-lead 방향 대기.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
