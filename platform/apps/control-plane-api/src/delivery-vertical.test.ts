@@ -100,6 +100,7 @@ beforeAll(async () => {
   // Give the org a team to own projects.
   await authFetch(`/v1/organizations/${orgId}/teams`, {
     method: 'POST',
+    headers: { 'idempotency-key': randomUUID() },
     body: JSON.stringify({ key: 'CORE', name: 'Core' })
   })
 }, 180_000)
@@ -115,6 +116,7 @@ describe('Team + Project vertical', () => {
     if (!harness) return ctx.skip()
     const dup = await authFetch(`/v1/organizations/${orgId}/teams`, {
       method: 'POST',
+      headers: { 'idempotency-key': randomUUID() },
       body: JSON.stringify({ key: 'CORE', name: 'Dup' })
     })
     expect(dup.status).toBe(409)
@@ -246,6 +248,7 @@ describe('Team + Project vertical', () => {
     // Needs a team to own the project.
     await authFetch(`/v1/organizations/${limitedOrg}/teams`, {
       method: 'POST',
+      headers: { 'idempotency-key': randomUUID() },
       body: JSON.stringify({ key: 'CORE', name: 'C' })
     })
     const over = await authFetch(`/v1/organizations/${limitedOrg}/projects`, {

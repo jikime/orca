@@ -776,7 +776,27 @@ platform 188 tests green(병렬 컨테이너 포트 고갈로 일부 파일 tran
 typecheck 4/4·lint 0(121 files)·check:contracts green, root src 미변경, 두 lockfile clean. **R4 Core Gate 종결
 → R5 AI Workspace 착수 가능.** **남은 R4 = Planning Gate**(Cycle/Initiative/Milestone/ProjectUpdate/Intake/
 SavedView/offline-cache/search/external-refs). **플래그: delivery 라우트 런타임 idempotency dedup 미배선**(헤더는
-계약 필수, 저장 dedup 후속).
+계약 필수, 저장 dedup 후속 → slice 3b에서 닫음).
+
+2026-07-17 slice 3b `feat/pie-r4-idempotency-dedup`에서 delivery create mutation에 런타임 idempotency dedup을
+배선해 **R4 Core Gate를 완전히 종결**했다(위 플래그 = doc 28:328 "duplicate request" 게이트 조건을 닫음).
+platform 전용, root src 미변경, contracts 변경 0(계약은 이미 Idempotency-Key를 required로 표시). 기존
+`operations.idempotency_records`(artifact intent가 쓰던 것)를 **재사용**(새 메커니즘 안 만듦) — API 헬퍼
+`idempotent-mutation.ts` `beginIdempotency`가 reserve→replay/conflict/in-progress 판정과 complete/release
+클로저를 반환하고, **createTeam·createProject·createWorkItem·createWorkItemComment** 4종을 감싼다. 같은
+key+payload 재시도→저장 결과 재생(단일 행, 201 원본), 같은 key+다른 payload→**409 IDEMPOTENCY_KEY_REUSED**,
+동시 중복→unique 제약이 두 번째를 IDEMPOTENCY_IN_PROGRESS 409로 막아 정확히 1행. **결정: If-Match로 이미 보호되는
+mutation(updateProject·updateWorkItem·:move-state·:assign)은 key-dedup 안 함** — 중복은 optimistic concurrency로
+412가 되어 중복 행 위험이 없고, team-lead의 "create mutations" 스코프와 일치(스펙 #3의 "wire which, report which"를
+이렇게 판단). **함정 1: 비즈니스 실패(entitlement 402·key_taken 409) 후 in_progress 예약을 `releaseIdempotencyKey`
+(DELETE)로 풀어야 재시도가 IDEMPOTENCY_IN_PROGRESS에 영구 갇히지 않는데, `idempotency_records`에 pie_app DELETE
+grant가 없어 500 → migration `20260728090002 grant delete` 추가.** **함정 2: Idempotency-Key 런타임 필수 강제(400
+if missing; artifact 라우트·계약 required:true와 동일)로 기존 vertical 3종(delivery/work-item/mywork)의 createTeam
+setup 호출이 헤더 누락→400 cascade → 해당 setup에 idempotency-key 추가(테스트가 계약 비준수였던 것).** r4-core-gate
+테스트에 duplicate-request 단언(같은 key+payload→동일 id·행 불변, 다른 payload→409) 추가. platform 196 tests
+green, typecheck 4/4·lint 0(123 files)·check:contracts green, root src 미변경, 두 lockfile clean. **R4 Core Gate =
+doc 28:323-331 조건 전부 충족(중복 요청 포함) → 진짜 종결. R5 AI Workspace 착수 가능.** 이후 Planning Gate이나,
+team-lead가 사용자 요청(채팅 R7·협업 터미널 R8)으로 우선순위 재검토 중이라 hold.
 
 ## R5: AI 실행 추적과 개발 Workspace
 

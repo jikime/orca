@@ -6,10 +6,13 @@ import {
   listProjects,
   listTeams,
   updateProject,
-  type PieDatabase
+  type PieDatabase,
+  type ProjectResource,
+  type TeamResource
 } from '@pie/persistence'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
+import { beginIdempotency } from './idempotent-mutation'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
 import { authorizeOrgPermission, authorizeResourcePermission } from './route-authorization'
 
@@ -18,6 +21,10 @@ const PROJECT_SCHEMA_ID = 'https://schemas.pielab.ai/resources/project.v1.schema
 const PROJECT_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/project-create.v1.schema.json'
 const PROJECT_UPDATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/project-update.v1.schema.json'
 const TEAM_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/team-create.v1.schema.json'
+// Canonical route templates scope an Idempotency-Key so different mutations never
+// collide on the same key (doc 23:89-99).
+const TEAMS_ROUTE = '/v1/organizations/{organizationId}/teams'
+const PROJECTS_ROUTE = '/v1/organizations/{organizationId}/projects'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type DeliveryRoutesDeps = { db: PieDatabase; registry: ContractSchemaRegistry }
@@ -106,6 +113,25 @@ export function registerDeliveryRoutes(app: FastifyInstance, deps: DeliveryRoute
     if (!validates(deps.registry, TEAM_CREATE_SCHEMA_ID, request.body)) {
       return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid team create request')
     }
+    const gate = await beginIdempotency(
+      deps.db,
+      request,
+      reply,
+      { organizationId, principalId: principal.subject, method: 'POST', route: TEAMS_ROUTE },
+      request.body
+    )
+    if (!gate) return reply
+    const respondTeam = (team: TeamResource): TeamResource => {
+      assertResponse(deps.registry, TEAM_SCHEMA_ID, team)
+      void reply
+        .code(201)
+        .header('location', `/v1/organizations/${organizationId}/teams/${team.id}`)
+      return team
+    }
+    if (gate.priorResourceId) {
+      const existing = await getTeam(deps.db, organizationId, gate.priorResourceId)
+      if (existing) return respondTeam(existing)
+    }
     const body = request.body as { key: string; name: string }
     const result = await createTeam(deps.db, {
       organizationId,
@@ -113,12 +139,12 @@ export function registerDeliveryRoutes(app: FastifyInstance, deps: DeliveryRoute
       key: body.key,
       name: body.name
     })
-    if (!result.ok) return problem(reply, request, 409, 'TEAM_KEY_TAKEN', 'team key already exists')
-    assertResponse(deps.registry, TEAM_SCHEMA_ID, result.team)
-    void reply
-      .code(201)
-      .header('location', `/v1/organizations/${organizationId}/teams/${result.team.id}`)
-    return result.team
+    if (!result.ok) {
+      await gate.release()
+      return problem(reply, request, 409, 'TEAM_KEY_TAKEN', 'team key already exists')
+    }
+    await gate.complete(result.team.id)
+    return respondTeam(result.team)
   })
 
   app.get('/v1/organizations/:organizationId/teams/:teamId', async (request, reply) => {
@@ -184,11 +210,34 @@ export function registerDeliveryRoutes(app: FastifyInstance, deps: DeliveryRoute
     if (!validates(deps.registry, PROJECT_CREATE_SCHEMA_ID, request.body)) {
       return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid project create request')
     }
+    const gate = await beginIdempotency(
+      deps.db,
+      request,
+      reply,
+      { organizationId, principalId: principal.subject, method: 'POST', route: PROJECTS_ROUTE },
+      request.body
+    )
+    if (!gate) return reply
+    const respondProject = (project: ProjectResource): ProjectResource => {
+      assertResponse(deps.registry, PROJECT_SCHEMA_ID, project)
+      void reply
+        .code(201)
+        .header('etag', projectEtag(project.version))
+        .header('location', `/v1/organizations/${organizationId}/projects/${project.id}`)
+      return project
+    }
+    if (gate.priorResourceId) {
+      const existing = await getProject(deps.db, organizationId, gate.priorResourceId)
+      if (existing) return respondProject(existing)
+    }
     // Link the org's default team (the creating team). A teamId request param can
     // be added when the desktop has explicit team context.
     const teams = await listTeams(deps.db, organizationId)
     const team = teams.find((t) => t.key === 'CORE') ?? teams[0]
-    if (!team) return problem(reply, request, 409, 'NO_TEAM', 'org has no team to own the project')
+    if (!team) {
+      await gate.release()
+      return problem(reply, request, 409, 'NO_TEAM', 'org has no team to own the project')
+    }
     const body = request.body as {
       name: string
       summary?: string | null
@@ -203,6 +252,7 @@ export function registerDeliveryRoutes(app: FastifyInstance, deps: DeliveryRoute
       status: body.status
     })
     if (!result.ok) {
+      await gate.release()
       // Distinct from a project.create 403 permission denial.
       return problem(
         reply,
@@ -212,12 +262,8 @@ export function registerDeliveryRoutes(app: FastifyInstance, deps: DeliveryRoute
         'organization is at its project limit'
       )
     }
-    assertResponse(deps.registry, PROJECT_SCHEMA_ID, result.project)
-    void reply
-      .code(201)
-      .header('etag', projectEtag(result.project.version))
-      .header('location', `/v1/organizations/${organizationId}/projects/${result.project.id}`)
-    return result.project
+    await gate.complete(result.project.id)
+    return respondProject(result.project)
   })
 
   app.get('/v1/organizations/:organizationId/projects/:projectId', async (request, reply) => {
