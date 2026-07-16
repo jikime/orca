@@ -928,6 +928,33 @@ object-storage(첨부는 후속)·beginIdempotency. 신규: collaboration 스키
 4/4·lint 0(129 files)·check:contracts green(70 schema/67 fixture/32 op), root src 미변경, 두 lockfile clean.
 **worker/gateway 변경 0 확인.** 후속 slice: 스레드→리액션→멘션→DM→presence/typing→첨부→search.
 
+2026-07-17 chat slice 2 `feat/pie-chat-threads-reactions`에서 스레드 + 리액션(새 realtime 배관이 필요 없는 두
+increment)을 구현했다(platform 전용, root src 미변경, design-reference-only). **둘 다 기존 message.created/
+message.updated invalidation을 타서 worker/gateway 변경 0(재확인).** **스레드 = 별도 aggregate 아님:** migration
+`20260730090001`이 messages에 **nullable `thread_root_message_id`**(같은 tenant 복합 FK) 컬럼만 추가 — 답글은
+채널 타임라인의 평범한 메시지이고 root를 가리킬 뿐(새 테이블 없음). **결정(thread-list URL): query filter
+`GET .../messages?threadRoot=<rootId>`**(별도 /replies nested URL 아님) — canonical-resource 규칙(doc 23:148-150:
+messages는 한 resource, thread는 filter)에 따름. 답글의 root는 **같은 채널의 root 메시지여야** 하고(교차 채널·
+답글-대상 → 422 invalid_thread_root, 스레드는 1단계 평면 유지), 답글도 동일 message.created invalidation 발생.
+**reply count는 read-model**(list 쿼리에서 root별 답글 수 집계, denormalized 카운터는 hot해지면 후속). **리액션 =
+durable add/remove fact:** migration이 `collaboration.message_reactions`(PK (org,message_id,user_id,emoji)로 같은
+유저 같은 emoji 중복 방지, 같은 tenant 복합 FK, RLS·member-gated). addReaction(message.react 권한, member-gated,
+1 tx: reaction + audit message.reacted + outbox **message.updated** invalidation; PK 충돌 시 no-op), removeReaction
+(idempotent no-op → 204). **결정(reactions 표현): 별도 list 엔드포인트 아니라 message.v1에 additive optional
+`reactions` 요약 배열 {emoji,count,reactedByMe}** + `replyCount` + `threadRootMessageId`(모두 optional·하위호환) —
+UI에 정직한 최소. reactedByMe는 read의 caller userId로 집계(`bool_or(user_id = caller)`). **결정(idempotency):
+addReaction(POST)은 beginIdempotency 재사용(같은 key+다른 emoji→409), removeReaction(DELETE)은 자연 no-op이라
+키 예약 안 함(계약은 DELETE에 Idempotency-Key 헤더를 표시하지만 런타임 미강제·보고). emoji는 길이만 bound(1-32),
+"진짜 emoji" 검증 안 함(client 관심사).** **함정: removeReaction 204에서 reply.code(204)만 하고 send() 안 해
+Fastify가 hang(테스트 timeout) → reply.code(204).send(). 함정: 리액션 realtime 테스트에서 이전 테스트가 남긴
+미-drain outbox 이벤트가 많아 runOnce(batch 20) 한 번으론 최신 message.updated에 안 닿음 → 반복 drain.** contracts
+additive: message.v1/message-create.v1 필드 추가 + addReaction/removeReaction op(34 op) + message.react permission,
+새 스키마 0. 테스트: thread-reaction-store(답글 포인터·스레드 필터·reply count·교차채널/답글-대상 거부·리액션 집계
+count/reactedByMe·remove no-op·비멤버 거부·cross-tenant), chat-threads-reactions-vertical(답글 201+스레드 필터+
+reply count·422·리액션 200+요약+message.updated realtime·remove 204 idempotent·비멤버 403·idempotency 중복 1). platform
+219 tests green, typecheck 4/4·lint 0(132 files)·check:contracts green(70 schema/69 fixture/34 op), root src 미변경,
+두 lockfile clean. **worker/gateway 변경 0 재확인.** 후속: 멘션→DM→presence/typing→첨부→search→채널 invite.
+
 ## R8: 서비스 데스크·원격지원·자산
 
 ### 범위

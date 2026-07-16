@@ -417,8 +417,17 @@ export interface MessagesTable {
   body: string
   visibility: Generated<string>
   version: DefaultedBigIntColumn
+  thread_root_message_id: string | null
   created_at: TimestampColumn
   updated_at: TimestampColumn
+}
+
+export interface MessageReactionsTable {
+  organization_id: string
+  message_id: string
+  user_id: string
+  emoji: string
+  created_at: TimestampColumn
 }
 
 export interface ReadCursorsTable {
@@ -464,6 +473,7 @@ export interface Database {
   'collaboration.channels': ChannelsTable
   'collaboration.channel_members': ChannelMembersTable
   'collaboration.messages': MessagesTable
+  'collaboration.message_reactions': MessageReactionsTable
   'collaboration.read_cursors': ReadCursorsTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable

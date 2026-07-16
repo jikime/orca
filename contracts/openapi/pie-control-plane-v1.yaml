@@ -630,6 +630,15 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - name: threadRoot
+          in: query
+          required: false
+          description: >-
+            Thread filter. When set to a root message id, returns only that thread's
+            replies (messages is one resource; a thread is a query filter, doc
+            23:148-150). Omitted returns the whole channel timeline.
+          schema:
+            $ref: ../schemas/common/opaque-id.v1.schema.json
       responses:
         '200':
           description: Messages in the channel, oldest first, keyset-paginated by message id.
@@ -668,6 +677,69 @@ paths:
             application/json:
               schema:
                 $ref: ../schemas/resources/message.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/reactions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Collaboration]
+      operationId: addReaction
+      description: >-
+        Adds the caller's reaction to a message. Idempotent on the (message, user,
+        emoji) key; returns the message with its updated reactions summary.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emoji]
+              additionalProperties: false
+              properties:
+                emoji:
+                  type: string
+                  minLength: 1
+                  maxLength: 32
+      responses:
+        '200':
+          description: The message with its updated reactions summary.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/message.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [Collaboration]
+      operationId: removeReaction
+      description: >-
+        Removes the caller's reaction. Idempotent — removing a reaction that is not
+        present is a no-op 204, not an error.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: emoji
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 32
+      responses:
+        '204':
+          description: Reaction removed (or was already absent).
         default:
           $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/channels/{channelId}/read:

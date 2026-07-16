@@ -1,9 +1,11 @@
-import { sql, type Kysely } from 'kysely'
+import { sql, type Kysely, type Transaction } from 'kysely'
 import type { Database } from './database-schema'
 import { emitCollaborationChange, isChannelMemberTx } from './channel-store'
 import { withTenantTransaction } from './tenant-transaction'
 
 export type MessageVisibility = 'internal' | 'project' | 'customer'
+
+export type ReactionSummary = { emoji: string; count: number; reactedByMe: boolean }
 
 export type MessageResource = {
   id: string
@@ -13,10 +15,13 @@ export type MessageResource = {
   body: string
   visibility: MessageVisibility
   version: number
+  threadRootMessageId: string | null
+  replyCount: number
+  reactions: ReactionSummary[]
   createdAt: string
 }
 
-function mapMessage(row: {
+type MessageRow = {
   id: string
   organization_id: string
   channel_id: string
@@ -24,8 +29,15 @@ function mapMessage(row: {
   body: string
   visibility: string
   version: string | number
+  thread_root_message_id: string | null
   created_at: Date | string
-}): MessageResource {
+}
+
+function mapMessage(
+  row: MessageRow,
+  replyCount: number,
+  reactions: ReactionSummary[]
+): MessageResource {
   return {
     id: row.id,
     organizationId: row.organization_id,
@@ -34,18 +46,69 @@ function mapMessage(row: {
     body: row.body,
     visibility: row.visibility as MessageVisibility,
     version: Number(row.version),
+    threadRootMessageId: row.thread_root_message_id,
+    replyCount,
+    reactions,
     createdAt: new Date(row.created_at).toISOString()
   }
 }
 
+/**
+ * Attaches the read-model extras (reply count per root, reactions summary with
+ * reactedByMe) to a page of messages. Both are computed per read rather than
+ * denormalized — a hot-path counter is a later optimization.
+ */
+async function enrichMessages(
+  trx: Transaction<Database>,
+  rows: MessageRow[],
+  userId: string
+): Promise<MessageResource[]> {
+  if (rows.length === 0) {
+    return []
+  }
+  const ids = rows.map((row) => row.id)
+  const replyRows = await trx
+    .selectFrom('collaboration.messages')
+    .select(['thread_root_message_id', sql<string>`count(*)`.as('count')])
+    .where('thread_root_message_id', 'in', ids)
+    .groupBy('thread_root_message_id')
+    .execute()
+  const replyCounts = new Map<string, number>()
+  for (const row of replyRows) {
+    if (row.thread_root_message_id) replyCounts.set(row.thread_root_message_id, Number(row.count))
+  }
+  const reactionRows = await trx
+    .selectFrom('collaboration.message_reactions')
+    .select([
+      'message_id',
+      'emoji',
+      sql<string>`count(*)`.as('count'),
+      sql<boolean>`bool_or(user_id = ${userId})`.as('reacted_by_me')
+    ])
+    .where('message_id', 'in', ids)
+    .groupBy(['message_id', 'emoji'])
+    .orderBy('emoji')
+    .execute()
+  const reactionsByMessage = new Map<string, ReactionSummary[]>()
+  for (const row of reactionRows) {
+    const list = reactionsByMessage.get(row.message_id) ?? []
+    list.push({ emoji: row.emoji, count: Number(row.count), reactedByMe: row.reacted_by_me })
+    reactionsByMessage.set(row.message_id, list)
+  }
+  return rows.map((row) =>
+    mapMessage(row, replyCounts.get(row.id) ?? 0, reactionsByMessage.get(row.id) ?? [])
+  )
+}
+
 export type PostMessageResult =
   | { ok: true; message: MessageResource }
-  | { ok: false; reason: 'channel_not_found' | 'not_a_member' }
+  | { ok: false; reason: 'channel_not_found' | 'not_a_member' | 'invalid_thread_root' }
 
 /**
- * Posts a message. The channel-roster gate runs INSIDE the transaction (atomic with
- * the insert — no TOCTOU): a non-member is rejected before any write. One tenant tx:
- * message row + audit + outbox message.created → the thin realtime invalidation.
+ * Posts a message (optionally a thread reply). A reply's threadRootMessageId must be
+ * a ROOT message in the SAME channel (kept flat — one level); the roster gate runs
+ * inside the tx (no TOCTOU). One tenant tx: message row + audit + outbox
+ * message.created → the same thin realtime invalidation, threads and all.
  */
 export async function postMessage(
   db: Kysely<Database>,
@@ -55,6 +118,7 @@ export async function postMessage(
     authorUserId: string
     body: string
     visibility?: MessageVisibility
+    threadRootMessageId?: string
   }
 ): Promise<PostMessageResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
@@ -69,6 +133,18 @@ export async function postMessage(
     if (!(await isChannelMemberTx(trx, input.channelId, input.authorUserId))) {
       return { ok: false, reason: 'not_a_member' }
     }
+    if (input.threadRootMessageId) {
+      const root = await trx
+        .selectFrom('collaboration.messages')
+        .select(['id', 'thread_root_message_id'])
+        .where('id', '=', input.threadRootMessageId)
+        .where('channel_id', '=', input.channelId)
+        .executeTakeFirst()
+      // The root must exist in THIS channel and itself be a root (not a reply).
+      if (!root || root.thread_root_message_id !== null) {
+        return { ok: false, reason: 'invalid_thread_root' }
+      }
+    }
     const message = await trx
       .insertInto('collaboration.messages')
       .values({
@@ -76,7 +152,8 @@ export async function postMessage(
         channel_id: input.channelId,
         author_user_id: input.authorUserId,
         body: input.body,
-        visibility: input.visibility ?? 'internal'
+        visibility: input.visibility ?? 'internal',
+        thread_root_message_id: input.threadRootMessageId ?? null
       })
       .returningAll()
       .executeTakeFirstOrThrow()
@@ -91,15 +168,18 @@ export async function postMessage(
       })
       .execute()
     await emitCollaborationChange(trx, input.organizationId, 'message', message.id, 1, 'created')
-    return { ok: true, message: mapMessage(message) }
+    // A brand-new message has no replies or reactions yet.
+    return { ok: true, message: mapMessage(message, 0, []) }
   })
 }
 
-/** Fetches one message by id (used for idempotent-replay of postMessage). */
-export async function getMessage(
+/** Fetches one message enriched with its reactions summary + reply count (used for
+ *  idempotent-replay of postMessage and the reaction responses). */
+export async function getMessageWithReactions(
   db: Kysely<Database>,
   organizationId: string,
-  messageId: string
+  messageId: string,
+  userId: string
 ): Promise<MessageResource | null> {
   return withTenantTransaction(db, organizationId, async (trx) => {
     const row = await trx
@@ -107,7 +187,11 @@ export async function getMessage(
       .selectAll()
       .where('id', '=', messageId)
       .executeTakeFirst()
-    return row ? mapMessage(row) : null
+    if (!row) {
+      return null
+    }
+    const [enriched] = await enrichMessages(trx, [row], userId)
+    return enriched ?? null
   })
 }
 
@@ -116,15 +200,17 @@ export type ListMessagesResult =
   | { ok: false; reason: 'channel_not_found' | 'not_a_member' }
 
 /**
- * Lists a channel's messages oldest first, keyset-paginated by (created_at, id) —
- * the cursor is the last message id (NOT a stream sequence). Member-gated.
+ * Lists a channel's messages oldest first, keyset-paginated by (created_at, id).
+ * With threadRootMessageId set it returns only that thread's replies; otherwise the
+ * whole channel timeline. Member-gated; each message carries its reply count +
+ * reactions summary.
  */
 export async function listChannelMessages(
   db: Kysely<Database>,
   organizationId: string,
   channelId: string,
   userId: string,
-  options: { limit?: number; afterMessageId?: string } = {}
+  options: { limit?: number; afterMessageId?: string; threadRootMessageId?: string } = {}
 ): Promise<ListMessagesResult> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 200)
   return withTenantTransaction(db, organizationId, async (trx) => {
@@ -143,16 +229,19 @@ export async function listChannelMessages(
       .selectFrom('collaboration.messages')
       .selectAll()
       .where('channel_id', '=', channelId)
+    query =
+      options.threadRootMessageId === undefined
+        ? query
+        : query.where('thread_root_message_id', '=', options.threadRootMessageId)
     if (options.afterMessageId) {
-      // Keyset: rows after the cursor message, comparing (created_at, id) tuples
-      // entirely in SQL so the cursor's microsecond timestamp keeps full precision
-      // (a JS Date round-trip truncates to ms and re-includes the cursor row).
+      // Keyset comparison entirely in SQL so the cursor's microsecond timestamp
+      // keeps full precision (a JS Date round-trip truncates to ms and re-includes it).
       query = query.where(
         sql<boolean>`(created_at, id) > (select created_at, id from collaboration.messages where id = ${options.afterMessageId})`
       )
     }
     const rows = await query.orderBy('created_at').orderBy('id').limit(limit).execute()
-    const messages = rows.map(mapMessage)
+    const messages = await enrichMessages(trx, rows, userId)
     const nextCursor =
       messages.length === limit ? (messages[messages.length - 1]?.id ?? null) : null
     return { ok: true, messages, nextCursor }
