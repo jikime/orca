@@ -438,6 +438,19 @@ markRead는 3b beginIdempotency 재사용. slice 1 미포함(후속 increment): 
 fixture/32 op), root src 미변경, 두 lockfile clean. team-lead의 live channel+message+realtime smoke 후 merge 예정.
 후속: 채팅 slice 2(스레드/리액션 등) 또는 Planning Gate — team-lead 방향 대기.
 
+2026-07-17 chat slice 2 `feat/pie-chat-threads-reactions` — 스레드 + 리액션(새 realtime 배관 불필요한 두 increment).
+platform 전용, root src 미변경, design-reference-only. **둘 다 기존 message.created/message.updated invalidation을
+타서 worker/gateway 변경 0(재확인).** **스레드=별도 aggregate 아님:** migration `20260730090001`이 messages에
+nullable `thread_root_message_id`(같은 tenant 복합 FK)만 추가; 답글은 평범한 채널 메시지. thread-list=query filter
+`?threadRoot=`(canonical-resource: messages 한 resource, thread는 filter). root는 같은 채널의 root여야 함(교차채널·
+답글-대상→422, 1단계 평면). reply count=list read-model 집계. **리액션=durable fact:** `message_reactions`(PK
+(org,message_id,user_id,emoji) 중복방지, RLS·member-gated), add(message.react·beginIdempotency)·remove(no-op 204).
+**reactions는 message.v1 additive optional 요약 {emoji,count,reactedByMe}+replyCount+threadRootMessageId**(별도
+엔드포인트 아님, 새 스키마 0). emoji는 길이만 bound. 함정: 204에 send() 누락→Fastify hang; 리액션 realtime 테스트에서
+미-drain outbox 누적→반복 drain. platform 219 tests green(+11), typecheck 4/4·lint 0·check:contracts green(70 schema/
+69 fixture/34 op), root src 미변경, 두 lockfile clean. team-lead의 live threads+reactions smoke 후 merge 예정. 후속:
+멘션→DM→presence/typing→첨부→search→채널 invite 또는 Planning Gate — team-lead 방향 대기.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

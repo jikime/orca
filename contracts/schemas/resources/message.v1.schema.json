@@ -22,7 +22,27 @@
     "body": { "type": "string", "minLength": 1, "maxLength": 40000 },
     "visibility": { "enum": ["internal", "project", "customer"] },
     "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
-    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "threadRootMessageId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "replyCount": { "type": "integer", "minimum": 0 },
+    "reactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["emoji", "count", "reactedByMe"],
+        "properties": {
+          "emoji": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "count": { "type": "integer", "minimum": 1 },
+          "reactedByMe": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
   },
   "additionalProperties": false
 }

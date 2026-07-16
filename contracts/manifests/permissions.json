@@ -282,6 +282,12 @@
       "resource": "message",
       "action": "read",
       "risk": "standard"
+    },
+    {
+      "id": "message.react",
+      "resource": "message",
+      "action": "react",
+      "risk": "standard"
     }
   ]
 }

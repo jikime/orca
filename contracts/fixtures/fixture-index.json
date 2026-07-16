@@ -402,6 +402,18 @@
       "schemaId": "https://schemas.pielab.ai/resources/read-cursor.v1.schema.json",
       "document": "valid/read-cursor.json",
       "expectedValid": true
+    },
+    {
+      "name": "message with thread + reactions",
+      "schemaId": "https://schemas.pielab.ai/resources/message.v1.schema.json",
+      "document": "valid/message-threaded-reacted.json",
+      "expectedValid": true
+    },
+    {
+      "name": "message create as a thread reply",
+      "schemaId": "https://schemas.pielab.ai/resources/message-create.v1.schema.json",
+      "document": "valid/message-create-reply.json",
+      "expectedValid": true
     }
   ]
 }

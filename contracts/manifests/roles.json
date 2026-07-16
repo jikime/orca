@@ -53,7 +53,8 @@
         "channel.read",
         "channel.manage",
         "message.post",
-        "message.read"
+        "message.read",
+        "message.react"
       ]
     },
     {
@@ -104,7 +105,8 @@
         "channel.read",
         "channel.manage",
         "message.post",
-        "message.read"
+        "message.read",
+        "message.react"
       ]
     },
     {
@@ -140,7 +142,8 @@
         "channel.create",
         "channel.read",
         "message.post",
-        "message.read"
+        "message.read",
+        "message.react"
       ]
     },
     {
@@ -170,7 +173,8 @@
         "channel.create",
         "channel.read",
         "message.post",
-        "message.read"
+        "message.read",
+        "message.react"
       ]
     },
     {
@@ -186,7 +190,8 @@
         "artifact.read",
         "channel.read",
         "message.post",
-        "message.read"
+        "message.read",
+        "message.react"
       ]
     },
     {
@@ -206,7 +211,8 @@
         "artifact.publish",
         "channel.read",
         "message.post",
-        "message.read"
+        "message.read",
+        "message.react"
       ]
     },
     {

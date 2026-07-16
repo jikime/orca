@@ -1,12 +1,14 @@
 import {
+  addReaction,
   createChannel,
   getChannelForMember,
-  getMessage,
+  getMessageWithReactions,
   getReadCursor,
   listChannelMessages,
   listChannels,
   markChannelRead,
   postMessage,
+  removeReaction,
   type ChannelResource,
   type ChannelVisibility,
   type MessageResource,
@@ -26,7 +28,10 @@ const MESSAGE_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-cr
 const READ_CURSOR_SCHEMA_ID = 'https://schemas.pielab.ai/resources/read-cursor.v1.schema.json'
 const CHANNELS_ROUTE = '/v1/organizations/{organizationId}/channels'
 const CHANNEL_MESSAGES_ROUTE = '/v1/organizations/{organizationId}/channels/{channelId}/messages'
+const CHANNEL_REACTIONS_ROUTE =
+  '/v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/reactions'
 const CHANNEL_READ_ROUTE = '/v1/organizations/{organizationId}/channels/{channelId}/read'
+const EMOJI_PATTERN = /^.{1,32}$/u
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type ChannelRoutesDeps = { db: PieDatabase; registry: ContractSchemaRegistry }
@@ -214,22 +219,41 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
           )
         return message
       }
+      const userId = authz.userId ?? organizationId
       if (gate.priorResourceId) {
-        const existing = await getMessage(deps.db, organizationId, gate.priorResourceId)
+        const existing = await getMessageWithReactions(
+          deps.db,
+          organizationId,
+          gate.priorResourceId,
+          userId
+        )
         if (existing) return respondMessage(existing)
       }
-      const body = request.body as { body: string; visibility?: ChannelVisibility }
+      const body = request.body as {
+        body: string
+        visibility?: ChannelVisibility
+        threadRootMessageId?: string
+      }
       const result = await postMessage(deps.db, {
         organizationId,
         channelId,
-        authorUserId: authz.userId ?? organizationId,
+        authorUserId: userId,
         body: body.body,
-        visibility: body.visibility
+        visibility: body.visibility,
+        ...(body.threadRootMessageId ? { threadRootMessageId: body.threadRootMessageId } : {})
       })
       if (!result.ok) {
         await gate.release()
         if (result.reason === 'channel_not_found')
           return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
+        if (result.reason === 'invalid_thread_root')
+          return problem(
+            reply,
+            request,
+            422,
+            'INVALID_THREAD_ROOT',
+            'thread root is not a root message in this channel'
+          )
         return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
       }
       await gate.complete(result.message.id)
@@ -257,9 +281,11 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         'message.read'
       )
       if (!authz) return reply
-      const query = request.query as { cursor?: string; limit?: string }
+      const query = request.query as { cursor?: string; limit?: string; threadRoot?: string }
       if (query.cursor !== undefined && !UUID_PATTERN.test(query.cursor))
         return problem(reply, request, 400, 'BAD_REQUEST', 'invalid cursor')
+      if (query.threadRoot !== undefined && !UUID_PATTERN.test(query.threadRoot))
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid threadRoot')
       const result = await listChannelMessages(
         deps.db,
         organizationId,
@@ -267,7 +293,8 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         authz.userId ?? organizationId,
         {
           ...(query.limit ? { limit: Number(query.limit) } : {}),
-          ...(query.cursor ? { afterMessageId: query.cursor } : {})
+          ...(query.cursor ? { afterMessageId: query.cursor } : {}),
+          ...(query.threadRoot ? { threadRootMessageId: query.threadRoot } : {})
         }
       )
       if (!result.ok) {
@@ -342,4 +369,123 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
     await gate.complete(channelId)
     return respondCursor(result.cursor)
   })
+
+  // Reactions: durable add/remove facts on a message. add=idempotent (PK), member-gated;
+  // both ride the message.updated invalidation (no new realtime). removeReaction is a
+  // natural no-op idempotent (204 whether or not the reaction was present).
+  app.post(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId/reactions',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.react'
+      )
+      if (!authz) return reply
+      const body = request.body as { emoji?: string }
+      if (!body || typeof body.emoji !== 'string' || !EMOJI_PATTERN.test(body.emoji))
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'emoji is required (1-32 chars)')
+      const gate = await beginIdempotency(
+        deps.db,
+        request,
+        reply,
+        {
+          organizationId,
+          principalId: principal.subject,
+          method: 'POST',
+          route: CHANNEL_REACTIONS_ROUTE
+        },
+        request.body
+      )
+      if (!gate) return reply
+      const userId = authz.userId ?? organizationId
+      const respondMessage = async (): Promise<MessageResource | FastifyReply> => {
+        const message = await getMessageWithReactions(deps.db, organizationId, messageId, userId)
+        if (!message) return problem(reply, request, 404, 'NOT_FOUND', 'message not found')
+        assertResponse(deps.registry, MESSAGE_SCHEMA_ID, message)
+        return message
+      }
+      if (gate.priorResourceId) {
+        return respondMessage()
+      }
+      const result = await addReaction(deps.db, {
+        organizationId,
+        channelId,
+        messageId,
+        userId,
+        emoji: body.emoji
+      })
+      if (!result.ok) {
+        await gate.release()
+        if (result.reason === 'message_not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'message not found')
+        return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+      }
+      await gate.complete(messageId)
+      return respondMessage()
+    }
+  )
+
+  // removeReaction is idempotent by nature (no-op → 204), so it does NOT reserve an
+  // idempotency key even though the contract declares the header on the DELETE.
+  app.delete(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId/reactions',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.react'
+      )
+      if (!authz) return reply
+      const { emoji } = request.query as { emoji?: string }
+      if (typeof emoji !== 'string' || !EMOJI_PATTERN.test(emoji))
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'emoji query param is required')
+      const result = await removeReaction(deps.db, {
+        organizationId,
+        channelId,
+        messageId,
+        userId: authz.userId ?? organizationId,
+        emoji
+      })
+      if (!result.ok) {
+        if (result.reason === 'message_not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'message not found')
+        return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+      }
+      void reply.code(204).send()
+      return reply
+    }
+  )
 }
