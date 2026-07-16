@@ -114,6 +114,13 @@ route 정규화, 중복·미등록·만료·재사용 state, 여러 Pie URL, tok
 거부하며 callback URL 자체는 진단 로그에 남기지 않는다. broker는 아직 실제 IdP와 연결하지 않았고
 R3의 Authorization Code + PKCE 흐름이 pending state와 code 교환 handler를 등록한다.
 
+세 번째 slice에서는 Main 전용 OS 보안 저장소를 추가했다. `SessionSecretStore`가
+instance·profile·account scope로 refresh token만 암호화 저장하고, 가용성 정책이 macOS
+Keychain·Windows DPAPI·Linux Secret Service만 허용하며 `basic_text`는 거부한다. 테스트는 평문
+token이 디스크·broker 이벤트·console에 남지 않음, ciphertext 손상 폐기, scope 격리(대소문자·경로
+탈출 포함), backend별 degrade를 검증한다. R3 인증 흐름이 `PieSessionTokenLifecycle`의 로그인·rotation
+·로그아웃 handler에 code 교환 결과를 연결한다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
