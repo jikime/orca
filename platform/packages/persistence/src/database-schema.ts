@@ -389,6 +389,46 @@ export interface ProjectTeamsTable {
   created_at: TimestampColumn
 }
 
+export interface ChannelsTable {
+  organization_id: string
+  id: Generated<string>
+  name: string
+  scope_type: Generated<string>
+  scope_id: string | null
+  visibility: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface ChannelMembersTable {
+  organization_id: string
+  channel_id: string
+  user_id: string
+  role: Generated<string>
+  added_at: TimestampColumn
+}
+
+export interface MessagesTable {
+  organization_id: string
+  id: Generated<string>
+  channel_id: string
+  author_user_id: string
+  body: string
+  visibility: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface ReadCursorsTable {
+  organization_id: string
+  channel_id: string
+  user_id: string
+  last_read_message_id: string | null
+  last_read_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -421,6 +461,10 @@ export interface Database {
   'delivery.comments': CommentsTable
   'delivery.projects': ProjectsTable
   'delivery.project_teams': ProjectTeamsTable
+  'collaboration.channels': ChannelsTable
+  'collaboration.channel_members': ChannelMembersTable
+  'collaboration.messages': MessagesTable
+  'collaboration.read_cursors': ReadCursorsTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable

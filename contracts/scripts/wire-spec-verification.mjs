@@ -22,6 +22,7 @@ function expectedTag(route) {
     ['/teams', 'Teams'],
     ['/projects', 'Projects'],
     ['/work-items', 'WorkItems'],
+    ['/channels', 'Collaboration'],
     ['/agent-events:batch', 'AgentIngest'],
     ['/artifacts/', 'Artifacts']
   ]) {

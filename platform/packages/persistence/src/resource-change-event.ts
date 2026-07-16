@@ -15,6 +15,12 @@ export type ResourceChangeResourceType =
   | 'agent_session'
   | 'operation'
   | 'permission'
+  // Collaboration (chat). Additive to the generic outbox → Worker → gateway path,
+  // so channel/message invalidations ride the existing transport with no new code.
+  | 'channel'
+  | 'channel_member'
+  | 'message'
+  | 'read_cursor'
 
 export type ResourceChangeData = {
   eventId: string

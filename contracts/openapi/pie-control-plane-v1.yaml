@@ -549,6 +549,161 @@ paths:
           $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Collaboration]
+      operationId: listChannels
+      description: Channels the caller is a member of.
+      responses:
+        '200':
+          description: The caller's channels.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/channel.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Collaboration]
+      operationId: createChannel
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/channel-create.v1.schema.json
+      responses:
+        '201':
+          description: Channel created; the creator is its first member.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: getChannel
+      responses:
+        '200':
+          description: Channel representation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/messages:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: listChannelMessages
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Messages in the channel, oldest first, keyset-paginated by message id.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/message.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Collaboration]
+      operationId: postMessage
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/message-create.v1.schema.json
+      responses:
+        '201':
+          description: Message posted; a resource.changed invalidation is delivered to members.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/message.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/read:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Collaboration]
+      operationId: markChannelRead
+      description: Advances the caller's own read cursor to a given message id.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lastReadMessageId]
+              additionalProperties: false
+              properties:
+                lastReadMessageId:
+                  $ref: ../schemas/common/opaque-id.v1.schema.json
+      responses:
+        '200':
+          description: The caller's updated read cursor.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/read-cursor.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/agent-events:batch:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

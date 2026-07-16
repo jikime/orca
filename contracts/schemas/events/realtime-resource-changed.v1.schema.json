@@ -43,7 +43,11 @@
         "artifact",
         "agent_session",
         "operation",
-        "permission"
+        "permission",
+        "channel",
+        "channel_member",
+        "message",
+        "read_cursor"
       ]
     },
     "resourceId": {

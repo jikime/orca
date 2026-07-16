@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/message.v1.schema.json",
+  "title": "Channel message",
+  "description": "A committed post in a channel (doc 08, doc 13:207). Realtime is a thin invalidation; this snapshot is authoritative.",
+  "type": "object",
+  "required": [
+    "id",
+    "organizationId",
+    "channelId",
+    "authorId",
+    "body",
+    "visibility",
+    "version",
+    "createdAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "channelId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "authorId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "body": { "type": "string", "minLength": 1, "maxLength": 40000 },
+    "visibility": { "enum": ["internal", "project", "customer"] },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

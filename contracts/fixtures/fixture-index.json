@@ -360,6 +360,48 @@
       "schemaId": "https://schemas.pielab.ai/resources/work-item-assign.v1.schema.json",
       "document": "invalid/work-item-assign-missing-version.json",
       "expectedValid": false
+    },
+    {
+      "name": "channel response",
+      "schemaId": "https://schemas.pielab.ai/resources/channel.v1.schema.json",
+      "document": "valid/channel.json",
+      "expectedValid": true
+    },
+    {
+      "name": "channel create request",
+      "schemaId": "https://schemas.pielab.ai/resources/channel-create.v1.schema.json",
+      "document": "valid/channel-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "channel create empty name",
+      "schemaId": "https://schemas.pielab.ai/resources/channel-create.v1.schema.json",
+      "document": "invalid/channel-create-empty-name.json",
+      "expectedValid": false
+    },
+    {
+      "name": "channel message response",
+      "schemaId": "https://schemas.pielab.ai/resources/message.v1.schema.json",
+      "document": "valid/message.json",
+      "expectedValid": true
+    },
+    {
+      "name": "channel message create request",
+      "schemaId": "https://schemas.pielab.ai/resources/message-create.v1.schema.json",
+      "document": "valid/message-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "channel message empty body",
+      "schemaId": "https://schemas.pielab.ai/resources/message-create.v1.schema.json",
+      "document": "invalid/message-create-empty-body.json",
+      "expectedValid": false
+    },
+    {
+      "name": "channel read cursor",
+      "schemaId": "https://schemas.pielab.ai/resources/read-cursor.v1.schema.json",
+      "document": "valid/read-cursor.json",
+      "expectedValid": true
     }
   ]
 }

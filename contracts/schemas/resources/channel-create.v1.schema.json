@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/channel-create.v1.schema.json",
+  "title": "Create channel request",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "visibility": { "enum": ["internal", "project", "customer"] }
+  },
+  "additionalProperties": false
+}
