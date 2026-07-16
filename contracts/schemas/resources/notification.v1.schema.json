@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/notification.v1.schema.json",
+  "title": "User notification",
+  "description": "A durable, per-user in-app notification (doc 08 읽음, doc 13:241). Distinct from ephemeral presence; survives tab close and is read-only to its owner.",
+  "type": "object",
+  "required": ["id", "organizationId", "userId", "type", "seen", "read", "createdAt"],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "type": { "enum": ["mention"] },
+    "channelId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "messageId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "seen": { "type": "boolean" },
+    "read": { "type": "boolean" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

@@ -776,6 +776,85 @@ paths:
                 $ref: ../schemas/resources/read-cursor.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/notifications:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      description: The caller's own notifications, unread first. Per-user (RLS-scoped).
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: unread
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: The caller's notifications.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/notification.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/notifications:read-all:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Notifications]
+      operationId: markAllNotificationsRead
+      description: Marks all of the caller's own notifications read.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Count of notifications marked read.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                additionalProperties: false
+                properties:
+                  updated:
+                    type: integer
+                    minimum: 0
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/notifications/{notificationId}/read:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      description: Marks one of the caller's own notifications read (idempotent).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The updated notification.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/notification.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/agent-events:batch:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

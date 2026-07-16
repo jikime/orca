@@ -414,6 +414,18 @@
       "schemaId": "https://schemas.pielab.ai/resources/message-create.v1.schema.json",
       "document": "valid/message-create-reply.json",
       "expectedValid": true
+    },
+    {
+      "name": "user notification",
+      "schemaId": "https://schemas.pielab.ai/resources/notification.v1.schema.json",
+      "document": "valid/notification.json",
+      "expectedValid": true
+    },
+    {
+      "name": "message create with mentions",
+      "schemaId": "https://schemas.pielab.ai/resources/message-create.v1.schema.json",
+      "document": "valid/message-create-mention.json",
+      "expectedValid": true
     }
   ]
 }

@@ -451,6 +451,20 @@ nullable `thread_root_message_id`(같은 tenant 복합 FK)만 추가; 답글은 
 69 fixture/34 op), root src 미변경, 두 lockfile clean. team-lead의 live threads+reactions smoke 후 merge 예정. 후속:
 멘션→DM→presence/typing→첨부→search→채널 invite 또는 Planning Gate — team-lead 방향 대기.
 
+2026-07-17 chat slice 3 `feat/pie-chat-mentions` — 멘션 + durable per-user 알림. platform 전용, root src 미변경,
+design-reference-only. **기존 outbox→realtime 재사용(notification을 union에 추가만)→worker/gateway 변경 0(재확인).**
+**결정(멘션): 클라이언트가 구조화된 `mentions:[userId]` 제공(free-text @handle 파싱 아님 — handle resolver 없음),
+서버가 채널 멤버십 검증·비멤버는 조용히 드롭·post 시점 1회 해소(edit 재계산 안 함).** migration `20260731090001`:
+message_mentions + notifications(type/source_ref/seen/read). **핵심 보안: notifications per-user RLS** — org 격리 +
+`FOR SELECT/UPDATE`에 `user_id = pie.user_id` restrictive 정책. `withTenantUserTransaction`(pie.user_id GUC) 신설;
+알림 INSERT는 poster tx라 org만(poster가 남을 위해 씀, 앱 생성 id·no RETURNING). postMessage 한 tx에 message+mentions+
+멘션당 notification+outbox notification.created. 라우트: listNotifications(본인 것)·markNotificationRead·markAll
+(`:read-all` 정적 콜론). **결정(알림 권한): 별도 permission 없이 organization.read + per-user RLS.** beginIdempotency가
+postMessage 감싸 중복 mention-post→알림 무중복. 테스트: **per-user 격리(A가 B 알림 못 읽음/mark→404)**·멘션 realtime·
+비멤버 드롭·idempotency 무중복·cross-tenant. platform 227 tests green(+8), typecheck 4/4·lint 0·check:contracts green
+(71 schema/71 fixture/37 op), root src 미변경, 두 lockfile clean. team-lead의 live mention+notification+isolation smoke
+후 merge 예정. 후속: DM→presence/typing→첨부→search→채널 invite→DND 또는 Planning Gate — team-lead 방향 대기.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
