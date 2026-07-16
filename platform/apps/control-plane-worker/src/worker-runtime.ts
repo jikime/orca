@@ -11,9 +11,9 @@ export type StartWorkerDeps = {
 }
 
 /**
- * Boots the worker: verifies the database is reachable, then idles with a
- * periodic heartbeat log. The SKIP LOCKED outbox claim loop lands in slice 2 —
- * this slice only proves the process starts, connects, and stays alive.
+ * Boots the worker liveness runtime: verifies the database is reachable, then
+ * emits a periodic heartbeat log. The SKIP LOCKED outbox claim loop runs
+ * alongside this (wired in index.ts), not inside it.
  */
 export async function startWorker(deps: StartWorkerDeps): Promise<WorkerRuntime> {
   const log = deps.log ?? ((message: string) => console.log(message))
@@ -22,7 +22,7 @@ export async function startWorker(deps: StartWorkerDeps): Promise<WorkerRuntime>
   if (!reachable) {
     throw new Error('control-plane-worker cannot reach the database')
   }
-  log('[control-plane-worker] connected; idle (outbox claim loop arrives in slice 2)')
+  log('[control-plane-worker] connected; heartbeat running (claim loop wired in index.ts)')
 
   const timer = setInterval(() => {
     log('[control-plane-worker] heartbeat')
