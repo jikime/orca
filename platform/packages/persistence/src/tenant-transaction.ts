@@ -27,6 +27,30 @@ export async function withTenantTransaction<T>(
 }
 
 /**
+ * Like withTenantTransaction, but ALSO binds `pie.user_id` for per-user RLS. Used by
+ * reads/updates of per-user data (notifications) so a policy of `user_id =
+ * pie.user_id` restricts a caller to their OWN rows even within their org. Writes
+ * that create rows FOR another user (a mention notification) stay on
+ * withTenantTransaction — the per-user policies gate only SELECT/UPDATE.
+ */
+export async function withTenantUserTransaction<T>(
+  db: Kysely<Database>,
+  organizationId: string,
+  userId: string,
+  fn: (trx: Transaction<Database>) => Promise<T>
+): Promise<T> {
+  if (!UUID_PATTERN.test(organizationId) || !UUID_PATTERN.test(userId)) {
+    throw new Error('withTenantUserTransaction requires UUID organizationId and userId')
+  }
+  return db.transaction().execute(async (trx) => {
+    await sql`set local role pie_app`.execute(trx)
+    await sql`select set_config('pie.organization_id', ${organizationId}, true)`.execute(trx)
+    await sql`select set_config('pie.user_id', ${userId}, true)`.execute(trx)
+    return fn(trx)
+  })
+}
+
+/**
  * Worker-side transaction for cross-tenant outbox claiming. Drops to `pie_worker`
  * (its dedicated grant/policy allows the claim without BYPASSRLS) and sets NO org
  * context. Per-org side effects re-enter withTenantTransaction (slice 2).

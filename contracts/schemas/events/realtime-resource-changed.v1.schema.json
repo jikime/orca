@@ -47,7 +47,8 @@
         "channel",
         "channel_member",
         "message",
-        "read_cursor"
+        "read_cursor",
+        "notification"
       ]
     },
     "resourceId": {

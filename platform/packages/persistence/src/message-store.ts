@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { Database } from './database-schema'
 import { emitCollaborationChange, isChannelMemberTx } from './channel-store'
@@ -105,10 +106,58 @@ export type PostMessageResult =
   | { ok: false; reason: 'channel_not_found' | 'not_a_member' | 'invalid_thread_root' }
 
 /**
- * Posts a message (optionally a thread reply). A reply's threadRootMessageId must be
- * a ROOT message in the SAME channel (kept flat — one level); the roster gate runs
- * inside the tx (no TOCTOU). One tenant tx: message row + audit + outbox
- * message.created → the same thin realtime invalidation, threads and all.
+/**
+ * Resolves the message's mentions ONCE at post time (never recomputed on edit): each
+ * mentioned user must be a channel member; non-members are silently dropped. Writes
+ * a message_mentions row and a durable per-user notification (+ its own realtime
+ * invalidation) for each valid mention — all inside the caller's message tx.
+ */
+async function resolveMentions(
+  trx: Transaction<Database>,
+  organizationId: string,
+  channelId: string,
+  messageId: string,
+  mentions: readonly string[]
+): Promise<void> {
+  const unique = [...new Set(mentions)]
+  for (const mentionedUserId of unique) {
+    if (!(await isChannelMemberTx(trx, channelId, mentionedUserId))) {
+      continue
+    }
+    await trx
+      .insertInto('collaboration.message_mentions')
+      .values({
+        organization_id: organizationId,
+        message_id: messageId,
+        mentioned_user_id: mentionedUserId
+      })
+      .onConflict((oc) =>
+        oc.columns(['organization_id', 'message_id', 'mentioned_user_id']).doNothing()
+      )
+      .execute()
+    // Explicit id + no RETURNING: the per-user SELECT policy would hide a row this
+    // (poster) tx has no pie.user_id for.
+    const notificationId = randomUUID()
+    await trx
+      .insertInto('collaboration.notifications')
+      .values({
+        organization_id: organizationId,
+        id: notificationId,
+        user_id: mentionedUserId,
+        type: 'mention',
+        channel_id: channelId,
+        message_id: messageId
+      })
+      .execute()
+    await emitCollaborationChange(trx, organizationId, 'notification', notificationId, 1, 'created')
+  }
+}
+
+/**
+ * Posts a message (optionally a thread reply, optionally with mentions). A reply's
+ * threadRootMessageId must be a ROOT in the SAME channel; the roster gate runs inside
+ * the tx (no TOCTOU). One tenant tx: message + mentions + per-user notifications +
+ * audit + outbox message.created → the same thin realtime invalidation.
  */
 export async function postMessage(
   db: Kysely<Database>,
@@ -119,6 +168,7 @@ export async function postMessage(
     body: string
     visibility?: MessageVisibility
     threadRootMessageId?: string
+    mentions?: readonly string[]
   }
 ): Promise<PostMessageResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
@@ -157,6 +207,9 @@ export async function postMessage(
       })
       .returningAll()
       .executeTakeFirstOrThrow()
+    if (input.mentions && input.mentions.length > 0) {
+      await resolveMentions(trx, input.organizationId, input.channelId, message.id, input.mentions)
+    }
     await trx
       .insertInto('audit.audit_events')
       .values({

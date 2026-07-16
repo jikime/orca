@@ -11,6 +11,7 @@ import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
 import { registerChannelRoutes } from './channel-routes'
+import { registerNotificationRoutes } from './notification-routes'
 import { registerDeliveryRoutes } from './delivery-routes'
 import { registerWorkItemRoutes } from './work-item-routes'
 import { registerInvitationRoutes } from './invitation-routes'
@@ -154,6 +155,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerDeliveryRoutes(app, { db: deps.db, registry: deps.registry })
     registerWorkItemRoutes(app, { db: deps.db, registry: deps.registry })
     registerChannelRoutes(app, { db: deps.db, registry: deps.registry })
+    registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {
       registerRevocationRoutes(app, { db: deps.db, gateway: deps.gateway })
     }

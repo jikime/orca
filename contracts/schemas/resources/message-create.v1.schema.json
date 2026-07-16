@@ -7,7 +7,13 @@
   "properties": {
     "body": { "type": "string", "minLength": 1, "maxLength": 40000 },
     "visibility": { "enum": ["internal", "project", "customer"] },
-    "threadRootMessageId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+    "threadRootMessageId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "mentions": {
+      "description": "User ids to mention. Resolved once at post time and validated against channel membership (non-members are dropped).",
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+    }
   },
   "additionalProperties": false
 }

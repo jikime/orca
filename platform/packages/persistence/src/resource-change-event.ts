@@ -21,6 +21,7 @@ export type ResourceChangeResourceType =
   | 'channel_member'
   | 'message'
   | 'read_cursor'
+  | 'notification'
 
 export type ResourceChangeData = {
   eventId: string

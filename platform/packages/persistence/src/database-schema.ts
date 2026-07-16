@@ -438,6 +438,25 @@ export interface ReadCursorsTable {
   last_read_at: TimestampColumn
 }
 
+export interface MessageMentionsTable {
+  organization_id: string
+  message_id: string
+  mentioned_user_id: string
+  created_at: TimestampColumn
+}
+
+export interface NotificationsTable {
+  organization_id: string
+  id: Generated<string>
+  user_id: string
+  type: string
+  channel_id: string | null
+  message_id: string | null
+  seen: Generated<boolean>
+  read: Generated<boolean>
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -475,6 +494,8 @@ export interface Database {
   'collaboration.messages': MessagesTable
   'collaboration.message_reactions': MessageReactionsTable
   'collaboration.read_cursors': ReadCursorsTable
+  'collaboration.message_mentions': MessageMentionsTable
+  'collaboration.notifications': NotificationsTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable

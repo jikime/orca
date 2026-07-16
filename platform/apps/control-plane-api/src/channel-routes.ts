@@ -233,6 +233,7 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         body: string
         visibility?: ChannelVisibility
         threadRootMessageId?: string
+        mentions?: string[]
       }
       const result = await postMessage(deps.db, {
         organizationId,
@@ -240,7 +241,8 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         authorUserId: userId,
         body: body.body,
         visibility: body.visibility,
-        ...(body.threadRootMessageId ? { threadRootMessageId: body.threadRootMessageId } : {})
+        ...(body.threadRootMessageId ? { threadRootMessageId: body.threadRootMessageId } : {}),
+        ...(body.mentions ? { mentions: body.mentions } : {})
       })
       if (!result.ok) {
         await gate.release()

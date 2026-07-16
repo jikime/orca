@@ -955,6 +955,32 @@ reply count·422·리액션 200+요약+message.updated realtime·remove 204 idem
 219 tests green, typecheck 4/4·lint 0(132 files)·check:contracts green(70 schema/69 fixture/34 op), root src 미변경,
 두 lockfile clean. **worker/gateway 변경 0 재확인.** 후속: 멘션→DM→presence/typing→첨부→search→채널 invite.
 
+2026-07-17 chat slice 3 `feat/pie-chat-mentions`에서 멘션 + durable per-user 알림을 구현했다(platform 전용,
+root src 미변경, design-reference-only). **역시 기존 outbox→realtime를 타서 worker/gateway 변경 0(재확인)** —
+`notification`을 ResourceChangeResourceType union에 추가만. **결정(멘션 파싱): free-text `@handle` regex 파싱 아님 —
+handle→user resolver가 없으므로(표시 handle 없음) 클라이언트가 message-create에 구조화된 `mentions:[userId]` 배열을
+주고 서버가 채널 멤버십으로 검증**(message-create.v1에 additive optional `mentions`). **결정(비멤버 멘션): 조용히
+드롭**(친화적, 422 아님). 멘션은 **post 시점에 1회 해소, 수정 시 재계산 안 함**(이 slice엔 edit 없음, 설계 규칙만
+문서화). migration `20260731090001`: `message_mentions`(org tenant pair), `notifications`(org, user_id, type 'mention',
+source_ref=channel_id+message_id, seen/read 상태). **핵심 보안 — notifications는 per-user RLS:** org 격리 pair + `FOR
+SELECT/UPDATE`에 restrictive `user_id = pie.user_id` 정책 추가 → org 동료 A가 B의 알림을 읽거나 mark 못 함. 이를 위해
+`withTenantUserTransaction`(pie.organization_id + **pie.user_id** GUC 설정) 신설; 읽기/mark는 이걸로, **알림 INSERT는
+poster tx라 org만(INSERT엔 per-user 정책 없음, poster가 남을 위해 씀; SELECT 정책이 poster tx에서 RETURNING을 숨기므로
+알림 id는 앱에서 randomUUID 생성·no RETURNING)**. postMessage 한 tx에: message + message_mentions + 멘션당 notification
++ audit + outbox message.created + 멘션당 outbox **notification.created**(멘션 유저 클라이언트가 unread 배지 갱신). 라우트
+notification-routes.ts: listNotifications(본인 것, unread 필터, per-user RLS)·markNotificationRead·markAllNotificationsRead
+(`:read-all` 정적 콜론 세그먼트, find-my-way OK·probe 확인). **결정(알림 권한): 별도 permission 없음 — org 게이트
+organization.read + per-user RLS로 충분**(알림은 caller 본인 데이터). mark-read는 자연 idempotent라 키 예약 안 함
+(계약은 POST에 Idempotency-Key 표시, 런타임 미강제). **beginIdempotency가 postMessage를 감싸므로 중복 mention-post(같은
+key)는 tx 재실행 없이 저장 결과 replay → 알림 중복 생성 안 함(테스트로 검증).** doc 13 NotificationDelivery(email/push
+channel+template+status)는 후속 delivery 레이어로 조정(이 slice는 in-app 알림). @channel/@here는 presence와 얽혀 후속.
+DND는 후속(알림 생성은 억제 안 하고 push/sound만). 테스트: mention-notification-store(멘션 행+알림·비멤버 드롭·**per-user
+격리[A가 B 알림 못 읽음/mark]**·markAll 본인만·cross-tenant), chat-mentions-vertical(멘션→알림+WS notification realtime·
+**per-user 격리 HTTP[owner가 member2 알림 못 봄, 남의 것 mark→404]**·idempotency 중복 mention→알림 1개·비멤버 드롭).
+platform 227 tests green, typecheck 4/4·lint 0(136 files)·check:contracts green(71 schema/71 fixture/37 op), root src
+미변경, 두 lockfile clean. **worker/gateway 변경 0 재확인.** 후속: DM→presence/typing(@channel/@here 포함)→첨부→
+search→채널 invite→DND 또는 Planning Gate.
+
 ## R8: 서비스 데스크·원격지원·자산
 
 ### 범위
