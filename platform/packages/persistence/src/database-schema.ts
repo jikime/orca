@@ -98,6 +98,60 @@ export interface AuditEventsTable {
   occurred_at: TimestampColumn
 }
 
+export interface ObjectsTable {
+  id: string
+  organization_id: string
+  storage_key: string
+  sha256: string
+  size_bytes: BigIntColumn
+  content_type: string
+  classification: string
+  status: Generated<string>
+  created_at: TimestampColumn
+}
+
+export interface ArtifactsTable {
+  id: string
+  organization_id: string
+  project_id: string
+  work_item_id: string | null
+  name: string
+  classification: string
+  visibility: string
+  status: Generated<string>
+  current_revision: Generated<number>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface ArtifactRevisionsTable {
+  id: string
+  organization_id: string
+  artifact_id: string
+  revision: number
+  object_id: string
+  sha256: string
+  size_bytes: BigIntColumn
+  status: Generated<string>
+  created_at: TimestampColumn
+}
+
+export interface ArtifactUploadSessionsTable {
+  id: string
+  organization_id: string
+  artifact_id: string
+  object_id: string
+  storage_key: string
+  sha256: string
+  size_bytes: BigIntColumn
+  content_type: string
+  method: Generated<string>
+  status: Generated<string>
+  expires_at: TimestampColumn
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -105,5 +159,9 @@ export interface Database {
   'operations.idempotency_records': IdempotencyRecordsTable
   'operations.stream_cursors': StreamCursorsTable
   'operations.operations': OperationsTable
+  'operations.artifact_upload_sessions': ArtifactUploadSessionsTable
   'audit.audit_events': AuditEventsTable
+  'agent.objects': ObjectsTable
+  'agent.artifacts': ArtifactsTable
+  'agent.artifact_revisions': ArtifactRevisionsTable
 }

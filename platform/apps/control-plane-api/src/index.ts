@@ -2,6 +2,7 @@ import { createDatabase, createDatabasePool, pingDatabase } from '@pie/persisten
 import { buildApp } from './app'
 import { loadApiConfig } from './config'
 import { createContractSchemaRegistry } from './contract-schema-registry'
+import { loadObjectStorageFromEnv } from './object-storage-config'
 import { createRealtimeGateway } from './realtime-gateway'
 
 async function main(): Promise<void> {
@@ -15,7 +16,18 @@ async function main(): Promise<void> {
     // A dedicated LISTEN connection, separate from the Kysely pool.
     listenConnectionString: config.databaseUrl
   })
-  const app = buildApp({ ping: () => pingDatabase(pool), logger: true, db, registry, gateway })
+  const objectStorage = loadObjectStorageFromEnv()
+  if (objectStorage) {
+    await objectStorage.ensureBucket()
+  }
+  const app = buildApp({
+    ping: () => pingDatabase(pool),
+    logger: true,
+    db,
+    registry,
+    gateway,
+    ...(objectStorage ? { objectStorage } : {})
+  })
 
   const close = async (): Promise<void> => {
     await app.close()

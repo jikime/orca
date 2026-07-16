@@ -77,11 +77,18 @@ export function decodeCursor(cursor: string): number | null {
 }
 
 const CLOUD_EVENT_SOURCE = 'urn:pie:control-plane'
-const ORGANIZATION_UPDATED_TYPE = 'ai.pielab.organization.updated.v1'
 
-export function buildOrganizationUpdatedCloudEvent(input: {
+/**
+ * Builds a CloudEvents envelope for any resource change. The org is its own
+ * stream (piesequence monotonic per org), so the same outbox → Worker → Realtime
+ * path carries organization, artifact, or any future resource with no new plumbing.
+ */
+export function buildResourceChangeCloudEvent(input: {
   organizationId: string
   eventId: string
+  resourceType: ResourceChangeResourceType
+  resourceId: string
+  changeKind: ResourceChangeKind
   version: number
   occurredAt: string
 }): ResourceChangeCloudEvent {
@@ -89,20 +96,36 @@ export function buildOrganizationUpdatedCloudEvent(input: {
     specversion: '1.0',
     id: input.eventId,
     source: CLOUD_EVENT_SOURCE,
-    type: ORGANIZATION_UPDATED_TYPE,
-    subject: `organizations/${input.organizationId}`,
+    type: `ai.pielab.${input.resourceType}.${input.changeKind}.v1`,
+    subject: `${input.resourceType}/${input.resourceId}`,
     time: input.occurredAt,
     datacontenttype: 'application/json',
     pieorgid: input.organizationId,
-    // Org-level stream: the org is its own stream (piesequence monotonic per org).
     piestream: input.organizationId,
     data: {
-      resourceType: 'organization',
-      resourceId: input.organizationId,
-      changeKind: 'updated',
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      changeKind: input.changeKind,
       version: input.version
     }
   }
+}
+
+export function buildOrganizationUpdatedCloudEvent(input: {
+  organizationId: string
+  eventId: string
+  version: number
+  occurredAt: string
+}): ResourceChangeCloudEvent {
+  return buildResourceChangeCloudEvent({
+    organizationId: input.organizationId,
+    eventId: input.eventId,
+    resourceType: 'organization',
+    resourceId: input.organizationId,
+    changeKind: 'updated',
+    version: input.version,
+    occurredAt: input.occurredAt
+  })
 }
 
 /** Parses a stored outbox payload into the change facts, or null if it is not a

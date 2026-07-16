@@ -199,6 +199,18 @@ cursor dedupe(at-least-once), ResyncRequired→`resync-needed`+주입 fetchChang
 schemaVersion 2의 `realtime` subsection. 테스트는 in-process `ws` mock 서버로 lifecycle 전반을 검증한다.
 renderer 노출·instance connection profile·실제 authn·커서 영속화는 이후 slice로 남는다.
 
+2026-07-19 slice 3으로 Object Storage 어댑터와 artifact 업로드 수직 흐름을 추가했다.
+`packages/object-storage-adapter`는 S3 호환 클라이언트(presign PUT·HEAD)와 조직 바인딩 tenant key
+빌더(`org/{org}/{zone}/{objectId}`, 다른 조직 key 생성 API 부재로 cross-tenant 구조적 차단)를 제공한다.
+`agent` schema에 objects·immutable artifact_revisions(append-only)·artifacts와 upload_sessions를 tenant
+RLS로 두고, `createArtifactUploadIntent`(Idempotency-Key 멱등, 같은 key+payload replay/다른 payload 409,
+localPath는 additionalProperties:false로 거부)와 `finalizeArtifactUpload`(HEAD 검증 후 revision+object
+available+artifact available+audit+outbox를 한 tenant tx)를 구현했다. finalize outbox는 artifact
+resource-change라 slice 2의 Worker→Realtime 경로가 `artifact.created`를 새 plumbing 없이 전달한다.
+통합 테스트는 실 PostgreSQL + 실 S3(SeaweedFS 우선, 불안정 시 MinIO fallback; production/dev 기본은
+SeaweedFS)로 key 격리·presign 왕복·intent 멱등·finalize 원자성+WS 실시간·localPath 거부·cross-tenant
+finalize 404를 검증한다. multipart·object 삭제·quarantine scan·download presign·backup은 후속으로 남는다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
