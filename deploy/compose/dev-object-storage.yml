@@ -1,0 +1,33 @@
+# Local-dev S3-compatible object storage for the Pie Control Plane.
+#
+# Default backend is SeaweedFS (ADR-0011; MinIO is archived upstream). The S3 API
+# gateway listens on 8333. This is a SEPARATE compose file from dev-postgres.yml —
+# bring up both for the full artifact vertical:
+#
+#   docker compose -f deploy/compose/dev-postgres.yml -f deploy/compose/dev-object-storage.yml up -d --wait
+#
+# Point the API at it:
+#   PIE_OBJECT_STORAGE_ENDPOINT=http://localhost:8333
+#   PIE_OBJECT_STORAGE_BUCKET=pie-artifacts
+#   PIE_OBJECT_STORAGE_ACCESS_KEY=pie   PIE_OBJECT_STORAGE_SECRET_KEY=pie   (DEV-ONLY)
+#
+# Integration TESTS start their own ephemeral S3 container via testcontainers, so
+# a running dev stack never collides with a test run.
+
+services:
+  pie-object-storage:
+    image: chrislusf/seaweedfs:3.80
+    container_name: pie-dev-object-storage
+    command: server -s3 -dir=/data -ip.bind=0.0.0.0
+    ports:
+      - "${PIE_S3_PORT:-8333}:8333"
+    volumes:
+      - pie-object-storage-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8333/"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pie-object-storage-data:

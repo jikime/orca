@@ -319,6 +319,27 @@ timeout 재접속·resync 수렴·session.revoked 종료·connection.closing 재
 mode/dev-gate 미연결을 검증한다. renderer 노출, instance connection profile, 실제 authn은 이후 slice로 남고,
 커서의 재시작 간 영속화는 향후 최적화로 남긴다(현재는 재접속 resync로 복구).
 
+2026-07-19 slice 3 `feat/pie-r2-object-storage`에서 Object Storage 어댑터와 artifact 업로드 수직 흐름을
+구현했다. `platform/packages/object-storage-adapter`는 S3 호환 클라이언트(@aws-sdk/client-s3 +
+s3-request-presigner, presign PUT·HEAD·bucket)와 테넌트 key 빌더를 제공한다. key 빌더는 한 조직에
+바인딩되어 모든 key를 `org/{org_id}/{zone}/{objectId}`로 namespace하고, 다른 조직 key를 만들 API 자체가
+없어 cross-tenant 접근이 구조적으로 불가능하다(ADR-0006 §3). isolation zone은 key prefix(artifacts·
+transcripts·attachments)로 분리한다. 물리 schema는 doc 30을 따라 `agent` schema에 `agent.objects`(staging→
+available 등 lifecycle), immutable `agent.artifact_revisions`(append-only, pie_app는 SELECT+INSERT만),
+`agent.artifacts`(current_revision·version)와 `operations.artifact_upload_sessions`를 두고 모두 tenant
+RLS(isolation+guard+FORCE)를 적용한다. `createArtifactUploadIntent`는 `Idempotency-Key`로 멱등하고
+(operations.idempotency_records를 실제로 사용: 같은 key+payload는 같은 intent를 replay, 다른 payload는
+409), 테넌트 key로 staging object와 presigned PUT target을 만든다. localPath/file: 대상은 request schema의
+`additionalProperties:false`로 거부한다. `finalizeArtifactUpload`는 object 존재(HEAD)와 size를 확인한 뒤
+immutable revision 생성 + object available + artifact available + audit + outbox를 한 tenant transaction으로
+쓴다 — outbox 이벤트는 artifact resource-change라 slice 2의 Worker→Realtime 경로가 `artifact.created`를
+새 plumbing 없이 전달한다. 통합 테스트는 실제 PostgreSQL과 실제 S3(테스트는 SeaweedFS 우선 시도 후
+불안정하면 MinIO로 fallback; production/dev compose 기본값은 SeaweedFS로 유지, 어댑터 코드는 동일)로
+테넌트 key 격리, presign 왕복(PUT→HEAD), intent 멱등성, finalize 원자성 + WS 클라이언트의 artifact 실시간
+수신, localPath 거부, 다른 테넌트에서 finalize 불가(RLS 404)를 검증한다. `deploy/compose/dev-object-storage.yml`
+(SeaweedFS S3, dev 전용)을 추가했다. multipart 업로드·object 삭제 workflow·malware/secret scan quarantine
+게이트·download presign·backup restore·관측 대시보드는 후속 R2 slice로 남는다.
+
 ## R3: 인증·RBAC·Entitlement
 
 ### 목표

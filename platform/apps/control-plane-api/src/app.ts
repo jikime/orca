@@ -1,9 +1,11 @@
 import fastifyWebsocket from '@fastify/websocket'
+import type { ObjectStorage } from '@pie/object-storage-adapter'
 import type { PieDatabase } from '@pie/persistence'
 import Ajv2020 from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
+import { registerArtifactRoutes } from './artifact-routes'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { registerControlPlaneRoutes } from './control-plane-routes'
 import { registerHealthRoutes, type HealthDeps } from './health-routes'
@@ -25,6 +27,7 @@ export type BuildAppDeps = HealthDeps & {
   db?: PieDatabase
   registry?: ContractSchemaRegistry
   gateway?: RealtimeGateway
+  objectStorage?: ObjectStorage
 }
 
 function adaptWebSocket(socket: WebSocket): RealtimeSocket {
@@ -86,6 +89,14 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
 
   if (deps.db && deps.registry) {
     registerControlPlaneRoutes(app, { db: deps.db, registry: deps.registry })
+  }
+
+  if (deps.db && deps.registry && deps.objectStorage) {
+    registerArtifactRoutes(app, {
+      db: deps.db,
+      registry: deps.registry,
+      objectStorage: deps.objectStorage
+    })
   }
 
   if (deps.gateway) {
