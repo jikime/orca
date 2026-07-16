@@ -122,6 +122,49 @@ export type PostMessageResult =
       reason: 'channel_not_found' | 'not_a_member' | 'invalid_thread_root' | 'invalid_attachment'
     }
 
+// pino-compatible subset: lets the route pass its request logger so a large-channel
+// @channel truncation is recorded, never silent.
+export type MentionLogger = { warn: (fields: Record<string, unknown>, message?: string) => void }
+
+// Cap on @channel fan-out: a very large channel could otherwise turn one post into a
+// notification storm. Truncation is LOGGED (never silent); members are ordered so the
+// kept slice is deterministic.
+const CHANNEL_MENTION_CAP = 1000
+
+/**
+ * The @channel target set: every current roster member EXCEPT the author (never
+ * self-notify via a group scope). Capped at CHANNEL_MENTION_CAP with a logged warning
+ * naming how many were dropped.
+ */
+async function channelMemberMentionTargets(
+  trx: Transaction<Database>,
+  channelId: string,
+  authorUserId: string,
+  logger?: MentionLogger
+): Promise<string[]> {
+  const rows = await trx
+    .selectFrom('collaboration.channel_members')
+    .select('user_id')
+    .where('channel_id', '=', channelId)
+    .where('user_id', '!=', authorUserId)
+    .orderBy('user_id')
+    .execute()
+  if (rows.length <= CHANNEL_MENTION_CAP) {
+    return rows.map((row) => row.user_id)
+  }
+  logger?.warn(
+    {
+      event: 'mention.channel.truncated',
+      channelId,
+      members: rows.length,
+      cap: CHANNEL_MENTION_CAP,
+      dropped: rows.length - CHANNEL_MENTION_CAP
+    },
+    '@channel mention truncated'
+  )
+  return rows.slice(0, CHANNEL_MENTION_CAP).map((row) => row.user_id)
+}
+
 /**
 /**
  * Resolves the message's mentions ONCE at post time (never recomputed on edit): each
@@ -186,6 +229,14 @@ export async function postMessage(
     visibility?: MessageVisibility
     threadRootMessageId?: string
     mentions?: readonly string[]
+    // @channel: server-resolve a durable mention to every channel member (except author).
+    mentionChannel?: boolean
+    // @here: mention channel members currently present on the gateway. presentUserIds is
+    // the route-supplied per-node present set (in-process gateway read); non-members and
+    // the author are dropped by the shared member-gated mention path.
+    mentionHere?: boolean
+    presentUserIds?: readonly string[]
+    logger?: MentionLogger
     // Ids of PENDING attachment intents (already uploaded + HEAD-verified by the
     // route) to link to this message. Each must be a pending attachment of THIS channel.
     attachmentIds?: readonly string[]
@@ -240,8 +291,32 @@ export async function postMessage(
       })
       .returningAll()
       .executeTakeFirstOrThrow()
-    if (input.mentions && input.mentions.length > 0) {
-      await resolveMentions(trx, input.organizationId, input.channelId, message.id, input.mentions)
+    // Union explicit mentions[] (unchanged — may include the author for a deliberate
+    // self-mention) with the server-resolved @channel and @here scopes (both exclude the
+    // author). One deduped Set → one resolveMentions pass → exactly one notification and
+    // one message_mentions row per user, however many scopes cover them.
+    const mentionTargets = new Set<string>(input.mentions ?? [])
+    if (input.mentionChannel) {
+      for (const id of await channelMemberMentionTargets(
+        trx,
+        input.channelId,
+        input.authorUserId,
+        input.logger
+      )) {
+        mentionTargets.add(id)
+      }
+    }
+    if (input.mentionHere && input.presentUserIds) {
+      for (const id of input.presentUserIds) {
+        if (id !== input.authorUserId) {
+          mentionTargets.add(id)
+        }
+      }
+    }
+    if (mentionTargets.size > 0) {
+      await resolveMentions(trx, input.organizationId, input.channelId, message.id, [
+        ...mentionTargets
+      ])
     }
     if (input.attachmentIds && input.attachmentIds.length > 0) {
       const linked = await linkAttachmentsTx(trx, input.channelId, message.id, input.attachmentIds)

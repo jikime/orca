@@ -159,6 +159,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerChannelRoutes(app, {
       db: deps.db,
       registry: deps.registry,
+      ...(deps.gateway ? { gateway: deps.gateway } : {}),
       ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {})
     })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
