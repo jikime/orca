@@ -1,0 +1,14 @@
+{
+  "name": "@pie/control-plane-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@pie/persistence": "workspace:*"
+  }
+}

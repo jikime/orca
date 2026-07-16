@@ -157,6 +157,23 @@ seam으로 실어 보내고, server-mode redactor로 다시 스크럽하며 cons
 canary token redaction, 번들 size cap을 검증한다. on-demand agent runtime·Pie Runtime handshake
 gating과 안전 모드 UX, 업데이트 실패→안전 모드 명시 배선은 known gap으로 남는다.
 
+### R2 기반 계약 진행
+
+2026-07-17 R2 첫 slice로 독립 `platform` pnpm 워크스페이스(자체 lockfile, 루트 미오염)와 PostgreSQL
+테넌트 저장소 기반을 구현했다. `packages/persistence`는 SQL-first 동결 migration runner(checksum freeze +
+advisory lock), 고정 schema(identity·operations·audit), 역할(`pie_migration_owner`·`pie_app`
+NOBYPASSRLS·`pie_worker`)와 `organizations`·`outbox_events`(doc 30 :330-341 컬럼·partial claim index)·
+`idempotency_records`·append-only `audit_events`를 만든다. RLS는 permissive isolation + restrictive
+guard + FORCE에 `SET LOCAL` 테넌트 문맥을 더하고, 앱 코드는 `withTenantTransaction`으로만 테넌트
+table에 접근한다. Worker는 BYPASSRLS 없이 전용 grant로 cross-tenant claim만 한다. `control-plane-api`·
+`control-plane-worker`는 Fastify 5 부팅·healthz/readyz·traceparent correlation·RFC 9457·Ajv2020 소비까지만
+하고 업무 로직·claim 루프는 slice 2다. 통합 테스트는 testcontainers 실 PostgreSQL 16에서 migration 적용,
+RLS 부정(테넌트 격리·문맥 부재 default deny·worker 권한 경계), 시드 idempotency, checksum 동결을
+검증한다(Docker 부재 시 명시적 SKIP). DTO는 openapi-typescript로 생성하되 contracts의 원격 `$id`
+상호참조를 로컬로 dereference하는 prepass가 필요했다(보고서 open risk). 실제 조직 mutation의
+DB→outbox→Worker→Realtime 수직 흐름, Object Storage, dead-letter, 백업 restore는 후속 slice로 남는다.
+`platform` 경로가 doc 30 :429의 stale `services/control-plane` 경로를 대체한다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

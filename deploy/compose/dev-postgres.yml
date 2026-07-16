@@ -1,0 +1,36 @@
+# Local-dev PostgreSQL 16 for the Pie Control Plane platform workspace.
+#
+# Scope: this is the runtime DB a developer points control-plane-api /
+# control-plane-worker at while iterating. The FULL core profile (Keycloak,
+# SeaweedFS, ...) lands in a later slice. Integration TESTS do NOT use this file
+# — they start their own ephemeral PostgreSQL 16 via testcontainers so a running
+# dev DB and a test run never collide (see platform/packages/persistence tests).
+#
+# Credentials below are DEV-ONLY placeholders (pie/pie). Never reuse them in a
+# shared or deployed environment; production provisions roles + secrets out of band.
+#
+# Usage:
+#   docker compose -f deploy/compose/dev-postgres.yml up -d --wait
+#   DATABASE_URL=postgres://pie:pie@localhost:5433/pie  (default port 5433)
+
+services:
+  pie-postgres:
+    image: postgres:16
+    container_name: pie-dev-postgres
+    environment:
+      POSTGRES_USER: ${PIE_PG_USER:-pie}
+      POSTGRES_PASSWORD: ${PIE_PG_PASSWORD:-pie}
+      POSTGRES_DB: ${PIE_PG_DB:-pie}
+    ports:
+      # 5433 by default so a developer's own local 5432 Postgres is untouched.
+      - "${PIE_PG_PORT:-5433}:5432"
+    volumes:
+      - pie-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PIE_PG_USER:-pie} -d ${PIE_PG_DB:-pie}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pie-postgres-data:
