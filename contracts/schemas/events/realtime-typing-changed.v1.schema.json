@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-typing-changed.v1.schema.json",
+  "title": "Realtime typing indicator (ephemeral)",
+  "description": "Fire-and-forget typing signal for a channel. Ephemeral: no version, no replay, no persistence — the payload IS the state and the client applies a short TTL.",
+  "type": "object",
+  "required": ["type", "schemaVersion", "organizationId", "channelId", "userId", "at"],
+  "properties": {
+    "type": { "const": "typing.changed" },
+    "schemaVersion": { "const": 1 },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "channelId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

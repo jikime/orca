@@ -116,6 +116,31 @@ export const PieRealtimeConnectionClosingSchema = z
   })
   .passthrough()
 
+// Ephemeral collaboration signals (presence/typing). Non-durable: no version, no
+// cursor, no replay — the payload IS the state. The client renders directly and
+// self-heals (typing on a short TTL, presence on the next presence event).
+export const PieRealtimeTypingChangedSchema = z
+  .object({
+    type: z.literal('typing.changed'),
+    schemaVersion: z.literal(1),
+    organizationId: opaqueIdSchema,
+    channelId: opaqueIdSchema,
+    userId: opaqueIdSchema,
+    at: timestampSchema
+  })
+  .passthrough()
+
+export const PieRealtimePresenceChangedSchema = z
+  .object({
+    type: z.literal('presence.changed'),
+    schemaVersion: z.literal(1),
+    organizationId: opaqueIdSchema,
+    userId: opaqueIdSchema,
+    state: z.enum(['online', 'offline']),
+    at: timestampSchema
+  })
+  .passthrough()
+
 // Every inbound frame the client may receive, discriminated by `type`.
 export const PieRealtimeServerMessageSchema = z.discriminatedUnion('type', [
   PieRealtimeServerWelcomeSchema,
@@ -123,7 +148,9 @@ export const PieRealtimeServerMessageSchema = z.discriminatedUnion('type', [
   PieRealtimeSessionRevokedSchema,
   PieRealtimeResyncRequiredSchema,
   PieRealtimeHeartbeatSchema,
-  PieRealtimeConnectionClosingSchema
+  PieRealtimeConnectionClosingSchema,
+  PieRealtimeTypingChangedSchema,
+  PieRealtimePresenceChangedSchema
 ])
 
 // Recovery feed page (contracts/schemas/resources/change-page.v1) fetched during
@@ -143,5 +170,7 @@ export type PieRealtimeResourceChanged = z.infer<typeof PieRealtimeResourceChang
 export type PieRealtimeSessionRevoked = z.infer<typeof PieRealtimeSessionRevokedSchema>
 export type PieRealtimeResyncRequired = z.infer<typeof PieRealtimeResyncRequiredSchema>
 export type PieRealtimeConnectionClosing = z.infer<typeof PieRealtimeConnectionClosingSchema>
+export type PieRealtimeTypingChanged = z.infer<typeof PieRealtimeTypingChangedSchema>
+export type PieRealtimePresenceChanged = z.infer<typeof PieRealtimePresenceChangedSchema>
 export type PieRealtimeServerMessage = z.infer<typeof PieRealtimeServerMessageSchema>
 export type PieResourceChangePage = z.infer<typeof PieResourceChangePageSchema>

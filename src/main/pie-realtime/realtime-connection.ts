@@ -268,6 +268,12 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
           stop()
         }
         break
+      case 'presence.changed':
+      case 'typing.changed':
+        // Ephemeral collaboration signals: they carry no version and invalidate no
+        // cache, so the Main connection validates them (above) and ignores them here.
+        // Rendering presence/typing in the UI is a later renderer slice.
+        break
     }
   }
 

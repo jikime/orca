@@ -1004,6 +1004,34 @@ idempotent에 더해 같은-key-다른-payload 409). 테스트: dm-store(compute
 72 fixture/39 op), root src 미변경, 두 lockfile clean. **worker/gateway 변경 0 재확인.** 후속: presence/typing(@channel/
 @here, 휘발성 broadcast=신규 경로)→첨부→search→group DM→DND 또는 Planning Gate.
 
+2026-07-17 chat slice 5 `feat/pie-chat-presence-typing`에서 presence + typing을 구현했다 — **모든 이전 chat
+slice와 다른 Pie 최초의 non-durable(휘발성) realtime 경로.** 이전은 전부 durable outbox→worker→gateway를 탔지만
+presence/typing은 durable value·version·audit이 없어 outbox에 쓰면 stream_cursors·outbox_events를 무의미하게 오염.
+**이 slice는 gateway에 별도 broadcast 경로를 추가하고(이 slice에서만 realtime-gateway.ts를 만짐), 클라이언트 계약
+(root src/shared/pie-realtime-contract.ts zod + AsyncAPI)을 additive로 확장(이 slice에서만 root 계약 접촉, 예상된
+정상).** **아키텍처: 별도 Postgres NOTIFY 채널 `pie_ephemeral`이 outbox_events·stream_cursors를 완전 우회** —
+mutation-free `select pg_notify('pie_ephemeral', <json>)`를 API 핸들러/gateway에서 직접 발사(트랜잭션·outbox·worker
+미경유; worker는 이 이벤트를 절대 못 봄). gateway의 LISTEN source가 기존 resource-change 채널과 함께 이 채널을 구독,
+페이로드가 곧 상태(row fetch 없음). **결정(메시지 형태): 별도 WS 타입 `typing.changed`·`presence.changed`**(resource.
+changed 아님 — version·refetch 없음, 페이로드가 상태). 재접속 시 **replay 없음**(ephemeral은 catchUpAllAfterReconnect
+안 탐, 클라이언트가 상태 재유도: typing은 TTL로 소멸, presence는 재-broadcast). **Part A 타이핑:** `POST .../channels/
+{id}/typing`(member-gated, no idempotency=fire-and-forget), row 0·outbox 0으로 pg_notify만 발사→gateway가 typing.changed
+를 **그 채널의 다른 멤버에게만** fan-out(비멤버는 누가 타이핑하는지 못 앎; gateway가 채널 멤버 조회로 필터). **rate cap:
+유저·채널당 1초 1회 coalesce**(route 인메모리 Map, 플러드 차단; LRU 축출은 후속). **데이터>presence 우선순위: 타이핑은
+별도 NOTIFY 채널+별도 WS 타입이라 backed-up presence가 resource.changed를 굶기지 않음; ephemeral은 버퍼·replay 없이
+드롭 가능(durable만 cursor catch-up).** **Part B presence(결정: gateway-in-memory):** gateway가 이미 orgConnections로
+누가 접속했는지 알므로 별도 테이블 없이 접속/종료로 도출 — 유저의 첫 연결 시 presence online, 마지막 연결 종료 시
+offline을 pg_notify로 발사(모든 gateway 인스턴스가 broadcast하도록, 수평 확장에서도 동작·여전히 tableless), 멀티탭은
+한 연결이라도 살아있으면 online. **presence scope: org-level "누가 온라인"이 정직한 최소**(per-channel presence·연결 시
+초기 스냅샷은 후속). **재사용/불변: durable 경로(messages/threads/reactions/mentions/DMs/notifications) 무변경 —
+outbox-publish.ts·worker 무터치(확인).** root는 계약 2파일만(pie-realtime-contract.ts zod + realtime-connection.ts에
+presence/typing 케이스 추가=validate 후 무시, renderer UI는 후속 frontend slice; 토큰키 금지 유지). @channel/@here 멘션은
+presence가 생겼으니 이제 가능(작은 후속). 테스트(라이브 WS): typing이 멤버 도달·비멤버 미도달·durable row 0·rate cap
+coalesce; presence connect→online·last disconnect→offline·멀티탭 유지; durable 메시지가 typing과 독립적으로 resource.
+changed 전달. platform 244 tests green, typecheck 4/4·lint 0(139 files)·check:contracts green(74 schema/72 fixture/
+40 op/9 realtime msg), root typecheck:node·pie-realtime-contract 테스트·root lint green, **worker/outbox-publish
+무변경 확인**, 두 lockfile clean. 후속: 첨부→search→group DM→DND→@channel/@here→per-channel presence 또는 Planning Gate.
+
 ## R8: 서비스 데스크·원격지원·자산
 
 ### 범위
