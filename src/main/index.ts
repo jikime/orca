@@ -109,6 +109,11 @@ import {
 import { ensureWindowsUserDataAclGrant } from './startup/windows-user-data-acl'
 import { shouldQuitWhenAllWindowsClosed } from './startup/window-all-closed-quit-policy'
 import { createServeDesktopActivationGate } from './startup/serve-desktop-activation'
+import {
+  extractPieProtocolUrl,
+  registerPieProtocolOpenUrlHandler
+} from './startup/pie-protocol-ingress'
+import { pieAuthCallbackBroker } from './pie-deep-link/pie-auth-callback'
 import { RateLimitService } from './rate-limits/service'
 import { readMiniMaxSessionCookie } from './minimax/minimax-cookie-store'
 import { getInitialClaudeRateLimitTarget } from './rate-limits/claude-rate-limit-target'
@@ -488,6 +493,49 @@ function requestDesktopActivation(): void {
   desktopActivationGate.requestActivation()
 }
 
+type PieDeepLinkSource = 'initial-launch' | 'macos-open-url' | 'second-instance'
+
+function dispatchPieAuthCallback(rawUrl: string, source: PieDeepLinkSource): boolean {
+  const result = pieAuthCallbackBroker.dispatch(rawUrl)
+  if (result.status === 'rejected') {
+    // Why: callback URLs contain short-lived credentials, so diagnostics expose only bounded reason codes.
+    console.warn(`[pie-deep-link] Rejected ${source} auth callback: ${result.reason}`)
+    return result.reason !== 'invalid-link'
+  }
+  return true
+}
+
+function routePieProtocolCommandLine(
+  commandLine: readonly string[],
+  source: Exclude<PieDeepLinkSource, 'macos-open-url'>
+): void {
+  const candidate = extractPieProtocolUrl(commandLine)
+  if (candidate.status === 'ambiguous') {
+    console.warn(`[pie-deep-link] Rejected ${source}: multiple Pie URLs`)
+    return
+  }
+  if (candidate.status === 'single') {
+    dispatchPieAuthCallback(candidate.url, source)
+  }
+}
+
+function handleSecondInstance(commandLine: readonly string[]): void {
+  routePieProtocolCommandLine(commandLine, 'second-instance')
+  requestDesktopActivation()
+}
+
+function handlePieOpenUrl(rawUrl: string): void {
+  const recognized = dispatchPieAuthCallback(rawUrl, 'macos-open-url')
+  if (recognized && app.isReady()) {
+    requestDesktopActivation()
+  }
+}
+
+if (!isServeMode) {
+  // Why: macOS can deliver custom-protocol events before ready, so register at module startup.
+  registerPieProtocolOpenUrlHandler(app, handlePieOpenUrl)
+}
+
 function getDesktopWindowStatus(): RuntimeDesktopWindowStatus {
   const state = desktopActivationGate.getState()
   return state === 'ready' ? 'openable' : state
@@ -604,7 +652,7 @@ const hasSingleInstanceLock = skipSingleInstanceLock
   ? true
   : bypassSingleInstanceLock
     ? true
-    : acquireSingleInstanceLock(app, requestDesktopActivation)
+    : acquireSingleInstanceLock(app, handleSecondInstance)
 if (startupDiagnosticsEnabled) {
   logStartupDiagnostic('single-instance-lock-result', {
     acquired: hasSingleInstanceLock,
@@ -625,6 +673,9 @@ if (!hasSingleInstanceLock) {
 // below happen — those handlers only fire after whenReady, which app.quit()
 // prevents from ever dispatching.
 if (hasSingleInstanceLock) {
+  if (!isServeMode) {
+    routePieProtocolCommandLine(process.argv, 'initial-launch')
+  }
   // Why: dev parent shutdown coupling is only for electron-vite desktop runs.
   // `orca serve` may be launched through a CLI shim or background shell whose
   // parent lifetime is not the intended server lifetime.

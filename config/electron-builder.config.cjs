@@ -49,6 +49,12 @@ const winSpeechNativeResource = {
 module.exports = {
   appId: 'com.stablyai.orca',
   productName: 'Orca',
+  protocols: [
+    {
+      name: 'Pie Desktop',
+      schemes: ['pie']
+    }
+  ],
   directories: {
     buildResources: 'resources/build'
   },

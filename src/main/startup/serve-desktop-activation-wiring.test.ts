@@ -7,7 +7,11 @@ describe('serve desktop activation wiring', () => {
 
   it('routes second-instance and app activation through one safety gate', () => {
     expect(source).toContain('createServeDesktopActivationGate({')
-    expect(source).toContain('acquireSingleInstanceLock(app, requestDesktopActivation)')
+    expect(source).toContain('acquireSingleInstanceLock(app, handleSecondInstance)')
+    expect(source).toContain(
+      'function handleSecondInstance(commandLine: readonly string[]): void {'
+    )
+    expect(source).toContain('requestDesktopActivation()')
     expect(source).toContain("app.on('activate', requestDesktopActivation)")
     expect(source).toContain('getDesktopWindowStatus: getDesktopWindowStatus')
   })

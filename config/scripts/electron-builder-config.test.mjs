@@ -19,6 +19,15 @@ const {
 } = require('../packaged-runtime-node-modules.cjs')
 
 describe('electron-builder config', () => {
+  it('registers the Pie deep-link scheme in packaged desktop metadata', () => {
+    expect(electronBuilderConfig.protocols).toEqual([
+      {
+        name: 'Pie Desktop',
+        schemes: ['pie']
+      }
+    ])
+  })
+
   it('excludes repo-only source trees from app.asar', () => {
     expect(electronBuilderConfig.files).toEqual(
       expect.arrayContaining([

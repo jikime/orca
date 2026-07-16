@@ -56,11 +56,11 @@ describe('acquireSingleInstanceLock', () => {
     expect(acquired).toBe(true)
     expect(fake.requestSingleInstanceLock).toHaveBeenCalledTimes(1)
     expect(fake.on).toHaveBeenCalledTimes(1)
-    expect(fake.on).toHaveBeenCalledWith('second-instance', onSecondInstance)
+    expect(fake.on).toHaveBeenCalledWith('second-instance', expect.any(Function))
     expect(fake.listeners['second-instance']).toHaveLength(1)
   })
 
-  it('fires the registered callback when second-instance dispatches', () => {
+  it('forwards the second-instance command line without Electron event objects', () => {
     const onSecondInstance = vi.fn()
     const fake = makeFakeApp(true)
 
@@ -68,9 +68,9 @@ describe('acquireSingleInstanceLock', () => {
 
     const [registered] = fake.listeners['second-instance'] ?? []
     expect(registered).toBeDefined()
-    registered?.()
+    registered?.({ type: 'second-instance' }, ['orca', 'pie://auth/callback'])
 
-    expect(onSecondInstance).toHaveBeenCalledTimes(1)
+    expect(onSecondInstance).toHaveBeenCalledWith(['orca', 'pie://auth/callback'])
   })
 })
 
