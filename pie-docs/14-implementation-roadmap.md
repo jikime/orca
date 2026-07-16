@@ -717,6 +717,34 @@ Team(key unique·dup 거부·기본 팀 provisioning), Project(create+링크+aud
 lint 0, check:contracts green, root src 미변경. **slice 2가 다음:** WorkItem aggregate(team_counters 소비)+
 Team Workflow+Board move. **slice 3:** My Work+comment/Activity+Core Gate 자동화.
 
+2026-07-27 slice 2 `feat/pie-r4-workitem-workflow-board`에서 WorkItem aggregate + Team WorkItem Workflow +
+Board move를 구현했다(platform 전용, root src 미변경). **contracts additive:** `moveWorkItemState`
+(`.../work-items/{id}:move-state`)·`listTeamWorkflowStates` OpenAPI op + `work-item-move-state.v1`·
+`workflow-state.v1` 스키마 + fixture 3개, `work-item.v1`에 `workflowVersion`/`sortKey`를 **optional(required
+아님)로 추가**해 하위호환 유지, `check:contracts` green(22 op/62 schema/54 fixture). **delivery migration
+`20260727090001`:** `delivery.teams`에 `workflow_version` 컬럼(팀 상태 SET 변경마다 증가, teams.version과 별개),
+`delivery.workflow_states`(팀 소유, 고정 category enum triage|backlog|unstarted|started|completed|canceled;
+`unique(org_id,team_id,id)`로 work_items가 **자기 팀 상태만** 참조하는 복합 FK 가능), `delivery.work_items`
+(teamId 필수·projectId nullable[개인/팀 backlog], version·sort_key, 같은 팀 복합 FK). **식별자 원자성(doc
+30:259):** human key=team.key+'-'+sequence를 `team_counters` `UPDATE ... RETURNING (next_sequence-1)`로
+같은 tx에서 발급 — 행 잠금이 동시 생성을 직렬화해 gap/dup 없는 순차 식별자(APP-1·APP-2). **식별자는 Orca
+Worktree/Workspace/orchestration task ID와 별개 네임스페이스**(종료 조건 676: UUID가 PK, human key는 조회용,
+Orca task ID와 코드 결합 없음). **두 Workflow 분리(doc 27:137-146, 종료 조건 674):** 이 slice는 Team WorkItem
+Workflow(실행 상태)만 구현하고 Project Delivery Workflow는 만들지 않으며, WorkItem 상태 이동이 어떤 Delivery
+Stage도 자동 진행하지 않음 — 코드·주석과 "move가 project row 무변경" 테스트로 경계를 명시(Delivery Workflow가
+아직 없으므로 결합 자체를 만들지 않음). **:move-state vs updateWorkItem 결정: 전용 `:move-state` op** — doc
+23:118-119의 fromStateId·toStateId·workflowVersion·expectedVersion 4중 검증을 명시적 액션으로 하고, PATCH는
+stateId 변경을 거부(→:move-state 유도)해 workflowVersion 검증 우회를 차단. stale workflowVersion/expectedVersion/
+fromState→412, workflow 밖 toState→422. find-my-way가 param 뒤 리터럴 `:` suffix를 못 파싱해 마지막 세그먼트
+전체를 한 param으로 받아 핸들러에서 분리(클라이언트가 보는 URL은 그대로 `{id}:move-state`). 기본 팀 provisioning
+(slice1 `insertTeamRow`)을 확장해 **모든 팀이 생성 시 기본 Workflow(Todo→In Progress→In Review→Done)를 같은 1
+tx에서 seed** — provisionOwner의 멱등성 무회귀. getWorkItem=`authorizeResourcePermission`(work_item.read)으로
+ResourceGrant도 소비(work-item narrow grant→역할 있어도 거부, 테스트로 증명). 테스트: 기본 Workflow seed·
+workflow_version 증가·순차 식별자·팀별 prefix·동시 생성 직렬화·stale update 412·move(valid/stale version/stale
+workflow/invalid toState)·cross-tenant RLS·move가 project row 무변경·realtime work_item.created·ResourceGrant
+narrow 거부. platform 182 tests green(+15), lint 0, check:contracts green, root src 미변경. **slice 3이 다음:**
+My Work + comment/Activity + Core Gate 자동화.
+
 ## R5: AI 실행 추적과 개발 Workspace
 
 ### 목표

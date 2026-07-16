@@ -365,6 +365,70 @@ paths:
           $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/work-items/{workItemId}:move-state:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/WorkItemId'
+    post:
+      tags: [WorkItems]
+      operationId: moveWorkItemState
+      description: >-
+        Board move. Validates fromStateId, toStateId, the team's workflowVersion
+        and the item's expectedVersion together (doc 23:118-119). This advances
+        the Team WorkItem Workflow only; it never auto-advances a Delivery Stage.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/work-item-move-state.v1.schema.json
+      responses:
+        '200':
+          description: Work item moved to the target state.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/work-item.v1.schema.json
+        '412':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/teams/{teamId}/workflow-states:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: teamId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Teams]
+      operationId: listTeamWorkflowStates
+      description: >-
+        The team's WorkItem Workflow states plus the current workflowVersion a
+        board client sends with a move. Read side of the board (doc 27:122-136).
+      responses:
+        '200':
+          description: The team's workflow states.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, workflowVersion]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/workflow-state.v1.schema.json
+                  workflowVersion:
+                    $ref: ../schemas/common/resource-version.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/agent-events:batch:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

@@ -52,6 +52,12 @@
     "stateId": {
       "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
     },
+    "workflowVersion": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "sortKey": {
+      "type": "integer"
+    },
     "priority": {
       "enum": ["none", "urgent", "high", "medium", "low"]
     },

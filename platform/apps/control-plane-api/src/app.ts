@@ -11,6 +11,7 @@ import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
 import { registerDeliveryRoutes } from './delivery-routes'
+import { registerWorkItemRoutes } from './work-item-routes'
 import { registerInvitationRoutes } from './invitation-routes'
 import { registerRevocationRoutes } from './revocation-routes'
 import type { KeycloakTokenVerifier } from './keycloak-token-verifier'
@@ -150,6 +151,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     })
     registerInvitationRoutes(app, { db: deps.db })
     registerDeliveryRoutes(app, { db: deps.db, registry: deps.registry })
+    registerWorkItemRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {
       registerRevocationRoutes(app, { db: deps.db, gateway: deps.gateway })
     }

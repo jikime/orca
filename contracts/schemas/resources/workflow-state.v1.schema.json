@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/workflow-state.v1.schema.json",
+  "title": "Team workflow state",
+  "description": "A state in a Team's WorkItem Workflow (doc 27:122-136). category is fixed vocabulary; key/name are team-defined. This is the WorkItem execution workflow, distinct from the Project Delivery Workflow.",
+  "type": "object",
+  "required": ["id", "organizationId", "teamId", "key", "name", "category", "sortKey"],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "teamId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,29}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "category": {
+      "enum": ["triage", "backlog", "unstarted", "started", "completed", "canceled"]
+    },
+    "sortKey": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false
+}
