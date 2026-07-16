@@ -1,4 +1,5 @@
 import { createDatabase, createDatabasePool, pingDatabase } from '@pie/persistence'
+import pino from 'pino'
 import { buildApp } from './app'
 import { loadApiConfig } from './config'
 import { createContractSchemaRegistry } from './contract-schema-registry'
@@ -14,7 +15,8 @@ async function main(): Promise<void> {
     db,
     registry,
     // A dedicated LISTEN connection, separate from the Kysely pool.
-    listenConnectionString: config.databaseUrl
+    listenConnectionString: config.databaseUrl,
+    logger: pino({ base: { service: config.serviceName } })
   })
   const objectStorage = loadObjectStorageFromEnv()
   if (objectStorage) {

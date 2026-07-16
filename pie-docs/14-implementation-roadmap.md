@@ -362,6 +362,26 @@ minor 초과면 limited(연결되나 일부 기능 제한), 아니면 supported.
 ·lan-http·direct-password)와 old/current/future 버전 케이스로 세 상태를 구분함을 테스트한다(종료 조건 그대로).
 observability 대시보드, dead-letter table·job queue 일반화, 공개 인증 페이지 셸은 후속 R2로 남는다.
 
+2026-07-19 slice 5 `feat/pie-r2-observability-trace`에서 관측성과 종료 조건 :241(한 요청을 Electron부터
+DB·Worker까지 끝에서 끝으로 추적)을 구현했다. **문서 판독:** OpenTelemetry는 observability **deploy
+profile**(doc 32:276 Collector+backend, ADR-0011:43)이고 doc은 W3C Trace Context 전파 + 구조적 signal을
+요구하므로, OTel SDK를 아직 끌어오지 않고 W3C traceparent 전파 + 구조적 pino 로그 + JSON 메트릭을 정직히
+구현하고 OTel Collector/exporter는 deploy profile 후속으로 둔다. **trace 전파:** 도메인 mutation과 artifact
+finalize가 traceparent를 받아 trace-id를 audit row에 쓰고 traceparent를 CloudEvents 봉투의
+distributed-tracing 확장 필드(doc 23:46)로 outbox에 싣는다. Worker claim 루프는 봉투에서 trace-id를 꺼내
+publish/park/requeue를 구조적으로 로그하고, gateway는 delivery 시 DB에서 봉투의 traceparent를 읽어
+trace-id로 delivery를 로그한다. Realtime `resource.changed` 스키마에는 trace 필드가 없으므로(계약 변경은
+별도 slice) client측 상관은 gateway까지이며 wire 계약을 확장하지 않는다(문서화). **구조적 로그:** worker가
+console.log 대신 pino(service·workerId·event 필드)를 쓰고 주기적 메트릭 라인을 남긴다. **메트릭:** API가
+auth-free 내부 `GET /internal/metrics`(JSON: outbox published/pending/parked·claim lag 초·realtime
+connected clients·delivered messages)를 제공한다 — outbox 카운트는 pie_worker 전용 grant로 cross-tenant
+집계(BYPASSRLS 아님, 내용 미노출). Prometheus 포맷은 ADR 없어 JSON now·exporter later. **ops 대시보드:**
+빌드·프레임워크 없는 단일 정적 HTML을 `GET /internal/ops`로 서빙해 metrics·readyz·discovery를 fetch로
+표시(dev/ops 편의, Grafana/OTel은 deploy profile). **e2e trace 테스트:** 알려진 traceparent로 mutation →
+같은 trace-id가 audit row·outbox 봉투·worker publish 로그·gateway delivery 로그에 나타남을 검증(종료 조건
+실행형). dead-letter table·job queue 일반화·공개 인증 페이지 셸은 후속 R2, OTel exporter·Grafana는
+observability deploy profile로 남는다.
+
 ## R3: 인증·RBAC·Entitlement
 
 ### 목표

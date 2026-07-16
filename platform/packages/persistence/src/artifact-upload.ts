@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely'
 import type { Database } from './database-schema'
 import type { MutationClock } from './organization-mutation'
-import { buildResourceChangeCloudEvent } from './resource-change-event'
+import { buildResourceChangeCloudEvent, traceIdFromTraceparent } from './resource-change-event'
 import { withTenantTransaction } from './tenant-transaction'
 
 // artifact.v1 shape.
@@ -245,6 +245,7 @@ export type FinalizeArtifactUploadInput = {
   uploadSessionId: string
   actorId?: string
   requestId?: string
+  traceparent?: string
 }
 
 /**
@@ -320,7 +321,8 @@ export async function finalizeArtifactUpload(
         target_type: 'artifact',
         target_id: session.artifact_id,
         after_digest: session.sha256,
-        request_id: input.requestId ?? null
+        request_id: input.requestId ?? null,
+        trace_id: traceIdFromTraceparent(input.traceparent)
       })
       .execute()
 
@@ -343,7 +345,8 @@ export async function finalizeArtifactUpload(
             resourceId: session.artifact_id,
             changeKind: 'created',
             version: newVersion,
-            occurredAt
+            occurredAt,
+            traceparent: input.traceparent
           })
         ),
         occurred_at: occurredAt,

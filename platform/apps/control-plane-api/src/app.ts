@@ -10,6 +10,7 @@ import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerDiscoveryRoute } from './discovery-route'
+import { registerMetricsRoutes } from './metrics-routes'
 import { registerHealthRoutes, type HealthDeps } from './health-routes'
 import { registerProblemDetails } from './problem-details'
 import type { RealtimeGateway, RealtimeSocket } from './realtime-gateway'
@@ -109,6 +110,10 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       registry: deps.registry,
       objectStorage: deps.objectStorage
     })
+  }
+
+  if (deps.db && deps.gateway) {
+    registerMetricsRoutes(app, { db: deps.db, gateway: deps.gateway })
   }
 
   if (deps.gateway) {

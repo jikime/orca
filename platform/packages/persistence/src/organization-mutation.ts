@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { sql, type Kysely } from 'kysely'
 import type { Database } from './database-schema'
-import { buildOrganizationUpdatedCloudEvent } from './resource-change-event'
+import { buildOrganizationUpdatedCloudEvent, traceIdFromTraceparent } from './resource-change-event'
 import { withTenantTransaction } from './tenant-transaction'
 
 export type MutationClock = {
@@ -17,7 +17,9 @@ export type UpdateOrganizationDisplayNameInput = {
   expectedVersion?: number
   actorId?: string
   requestId?: string
-  traceId?: string
+  // W3C traceparent for end-to-end correlation; its trace-id lands in the audit
+  // row and the outbox envelope so the request is traceable to the Worker/gateway.
+  traceparent?: string
 }
 
 export type UpdateOrganizationDisplayNameResult = {
@@ -77,6 +79,7 @@ export async function updateOrganizationDisplayName(
 
     const newVersion = currentVersion + 1
     const occurredAt = new Date(clock.now()).toISOString()
+    const traceId = traceIdFromTraceparent(input.traceparent)
 
     await trx
       .updateTable('identity.organizations')
@@ -95,7 +98,7 @@ export async function updateOrganizationDisplayName(
         before_digest: digest(current.display_name),
         after_digest: digest(input.displayName),
         request_id: input.requestId ?? null,
-        trace_id: input.traceId ?? null
+        trace_id: traceId
       })
       .execute()
 
@@ -104,7 +107,8 @@ export async function updateOrganizationDisplayName(
       organizationId: input.organizationId,
       eventId: outboxId,
       version: newVersion,
-      occurredAt
+      occurredAt,
+      traceparent: input.traceparent
     })
     await trx
       .insertInto('operations.outbox_events')

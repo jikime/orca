@@ -11,6 +11,7 @@ export type WorkerConfig = {
   maxAttempts: number
   baseBackoffMs: number
   maxBackoffMs: number
+  metricsIntervalMs: number
 }
 
 function intFromEnv(value: string | undefined, fallback: number): number {
@@ -37,6 +38,7 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     pollIntervalMs: intFromEnv(env.PIE_WORKER_POLL_MS, 1_000),
     maxAttempts: intFromEnv(env.PIE_WORKER_MAX_ATTEMPTS, 5),
     baseBackoffMs: intFromEnv(env.PIE_WORKER_BASE_BACKOFF_MS, 1_000),
-    maxBackoffMs: intFromEnv(env.PIE_WORKER_MAX_BACKOFF_MS, 300_000)
+    maxBackoffMs: intFromEnv(env.PIE_WORKER_MAX_BACKOFF_MS, 300_000),
+    metricsIntervalMs: intFromEnv(env.PIE_WORKER_METRICS_INTERVAL_MS, 30_000)
   }
 }

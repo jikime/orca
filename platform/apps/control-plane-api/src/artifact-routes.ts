@@ -259,7 +259,8 @@ export function registerArtifactRoutes(app: FastifyInstance, deps: ArtifactRoute
         const artifact = await finalizeArtifactUpload(deps.db, clock, {
           organizationId,
           uploadSessionId,
-          requestId: request.traceId
+          requestId: request.traceId,
+          traceparent: request.traceparent
         })
         assertResponseMatchesContract(deps.registry, ARTIFACT_SCHEMA_ID, artifact)
         void reply.header('etag', `"artifact-${artifact.version}"`)
