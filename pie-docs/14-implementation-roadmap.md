@@ -382,6 +382,46 @@ connected clients·delivered messages)를 제공한다 — outbox 카운트는 p
 실행형). dead-letter table·job queue 일반화·공개 인증 페이지 셸은 후속 R2, OTel exporter·Grafana는
 observability deploy profile로 남는다.
 
+2026-07-20 slice 6 `feat/pie-r2-dead-letter-auth-shell`에서 마지막 R2-범위 종료 조건(dead-letter
+table·작업 큐 일반화, 공개 인증 utility page 셸·이메일 pipeline 셸)을 구현했다. **dead-letter:** doc 30의
+operations 카탈로그에 전용 dead-letter table이 없어 정직한 최소 설계로 `operations.dead_letter_events`를
+추가했다(outbox 봉투 컬럼 전부 + parked_at·last_error_code·attempt_count + 재큐 감사 트레일, 다른
+operations table과 동일한 RLS: pie_app isolation+guard, pie_worker 전용 grant). parking은 이제 in-place
+표시가 아니라 **relocate**다 — 재시도 예산을 넘긴 row를 한 worker transaction에서 dead_letter_events로
+옮기고 hot outbox에서 삭제해(pending-claim partial index를 작게 유지, dead letter를 운영상 가시화)
+`requeueFailedEvent`가 `relocateToDeadLetter`를 호출한다(pie_worker에 outbox DELETE grant 추가).
+operator 재큐(`requeueDeadLetterEvent`, UI 없음, 조직을 넘나드는 정당한 ops라 tenant 문맥 없이 실행)는 dead
+letter를 attempt_count 0으로 outbox에 되돌리고 dead-letter row는 삭제 대신 `status=requeued`+requeue_count
+로 트레일을 남기며 감사 이벤트(`outbox.dead_letter.requeued`)를 append한다. `/internal/metrics`는
+deadLetter(parked) 카운트를 추가한다(pie_worker cross-tenant count only). **작업 큐 일반화:** outbox가
+여전히 유일한 job source라 범용 job framework를 만들지 않고, SKIP LOCKED 큐 역학만 재사용 가능한 모듈로
+정직하게 추출했다 — 순수 재시도 정책(`queue-retry-policy.ts`: backoff·park 결정)과 table-agnostic 폴링
+드라이버(`queue-polling-loop.ts`: unref timer·배치 실패 격리·start/stop)를 outbox를 첫 소비자로 두고
+분리했고, 새 job type이 자신의 claim/execute를 더해 이들을 재사용한다고 문서화했다(투기적 추상화 금지).
+**공개 인증 셸:** 문서 정찰 결과 credential 흐름(이메일/비밀번호·확인 토큰 처리·재설정 폼·MFA·Passkey)은
+Keycloak 소유이고 Control Plane은 결과·랜딩·안내 페이지만 소유한다(doc 16:11-19, doc 00:42, doc 12:36).
+control-plane-api가 `/public/*`에 verify-email·reset-password·invite·sso-callback 결과 셸을 프레임워크·빌드
+없이(=/internal/ops와 같은 규율) 정적 서빙하고, 공개 표면이라 응답마다 엄격한 CSP(`default-src 'none';
+style-src 'self'` — script 전면 차단, inline script/style 없음)를 세우며 `pie://` 딥링크로 앱에 넘긴다. 셸은
+쿼리스트링을 의도적으로 무시해 토큰을 읽지도 로그하지도 않는다(doc 16:21-22, 실제 토큰 검증·URL strip은
+R3). **이메일 pipeline 셸:** 작업 큐 규칙에 따라 범용 framework를 만들지 않고, 이메일 발송 seam(타입 계약
+`PieEmailSender` + 구조적 로그만 하는 dev no-op 구현, 실제 발송 없음)만 정의했다 — Pie는 초대·보안 경고
+템플릿만 소유하고 Keycloak이 가입·확인·재설정을 소유하며(doc 17:126), 최종 형태는 큐 역학을 재사용하는
+outbox 기반 이메일 job type이나 실제 SMTP·템플릿·영속 발송 큐는 R3에 온다. 테스트는 relocation(hot outbox
+비워짐·dead-letter row 완결), 재큐→republish→realtime 전달, poison 격리(poison park가 healthy 전달을 막지
+않음), dead-letter 메트릭, 새 table RLS 음성, 공개 페이지 CSP+inline script 부재, 이메일 seam 구조적 로그를
+검증한다.
+
+이로써 R2 **범위 코드 구현**은 종료 조건을 모두 실행형 증거로 닫았다: 버전 있는 Control Plane API와 request
+correlation, PostgreSQL migration·테넌트 문맥 강제(RLS), Object Storage 테넌트 key·presign·격리 영역,
+transactional outbox·작업 큐·멱등 소비자·dead-letter, 감사 append, Realtime Gateway 연결·재동기화 계약,
+공개 인증 utility page 셸·이메일 발송 seam, 로그·메트릭·trace·기본 ops 대시보드. R2 범위에서 **deploy/ops
+영역으로 남는 것**은 코드가 아니라 배포·운영 관심사다: OTel Collector/exporter·Grafana(observability
+deploy profile), 실제 IdP(Keycloak) credential 흐름·SMTP·이메일 템플릿(R3), WAL/PITR·custom-format
+백업(ops), instance discovery·connection profile 자동 연결, SeaweedFS/reverse proxy compose `core` profile
+배포. artifact multipart·삭제·quarantine·download presign과 실제 authn(WS/REST org stand-in 대체)은 R3
+이후 기능 slice로 남는다.
+
 ## R3: 인증·RBAC·Entitlement
 
 ### 목표

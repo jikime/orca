@@ -99,14 +99,25 @@ describe('outbox claim loop', () => {
     const second = await loop.runOnce()
     expect(second.parked).toBeGreaterThanOrEqual(1)
 
-    const parked = await withoutTenantContext(db, (trx) =>
+    // Parking relocates the row OUT of the hot outbox into the dead-letter store.
+    const stillInOutbox = await withoutTenantContext(db, (trx) =>
       trx
         .selectFrom('operations.outbox_events')
-        .select(['parked_at', 'last_error_code'])
+        .select('id')
         .where('id', '=', poisonId)
         .executeTakeFirst()
     )
-    expect(parked?.parked_at).not.toBeNull()
-    expect(parked?.last_error_code).toBe('POISON_PAYLOAD')
+    expect(stillInOutbox).toBeUndefined()
+
+    const dead = await withoutTenantContext(db, (trx) =>
+      trx
+        .selectFrom('operations.dead_letter_events')
+        .select(['status', 'last_error_code', 'event_type'])
+        .where('id', '=', poisonId)
+        .executeTakeFirst()
+    )
+    expect(dead?.status).toBe('parked')
+    expect(dead?.last_error_code).toBe('POISON_PAYLOAD')
+    expect(dead?.event_type).toBe('broken')
   })
 })

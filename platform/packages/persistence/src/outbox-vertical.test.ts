@@ -202,14 +202,24 @@ describe('worker claim + publish', () => {
     expect(
       await requeueFailedEvent(db, { ...event, attemptCount: 1 }, 'POISON_PAYLOAD', options)
     ).toBe('parked')
-    const parked = await withoutTenantContext(db, (trx) =>
+    // Parking relocates the row into the dead-letter store and clears it from the
+    // hot outbox.
+    const stillInOutbox = await withoutTenantContext(db, (trx) =>
       trx
         .selectFrom('operations.outbox_events')
-        .select(['parked_at', 'last_error_code'])
+        .select('id')
         .where('id', '=', poisonId)
         .executeTakeFirst()
     )
-    expect(parked?.parked_at).not.toBeNull()
+    expect(stillInOutbox).toBeUndefined()
+    const parked = await withoutTenantContext(db, (trx) =>
+      trx
+        .selectFrom('operations.dead_letter_events')
+        .select(['status', 'last_error_code'])
+        .where('id', '=', poisonId)
+        .executeTakeFirst()
+    )
+    expect(parked?.status).toBe('parked')
     expect(parked?.last_error_code).toBe('POISON_PAYLOAD')
   })
 })

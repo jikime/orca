@@ -7,6 +7,8 @@ import {
   type ResourceChangedMessage
 } from './resource-change-event'
 import { encodeResourceChangedNotification, RESOURCE_CHANGED_CHANNEL } from './realtime-notify'
+import { relocateToDeadLetter } from './dead-letter-store'
+import { decideQueueRetry } from './queue-retry-policy'
 import { withWorkerClaimTransaction } from './tenant-transaction'
 
 export type ClaimedOutboxEvent = {
@@ -150,9 +152,11 @@ export type RequeueOptions = {
 export type RequeueOutcome = 'requeued' | 'parked'
 
 /**
- * Records a failed publish: bumps attempt_count and either backs off (exponential)
- * for another try, or — past the retry budget — parks the row as a dead letter
- * (parked_at + last_error_code) so the claim loop stops picking it up.
+ * Records a failed publish using the shared queue retry policy: bumps
+ * attempt_count and either backs off (exponential) for another try, or — past the
+ * retry budget — dead-letters the row by relocating it OUT of the hot outbox into
+ * operations.dead_letter_events (so the pending-claim index stays small and the
+ * dead letter is operationally visible).
  */
 export async function requeueFailedEvent(
   db: Kysely<Database>,
@@ -160,29 +164,18 @@ export async function requeueFailedEvent(
   errorCode: string,
   options: RequeueOptions
 ): Promise<RequeueOutcome> {
+  const decision = decideQueueRetry(event.attemptCount, options)
   const nextAttempt = event.attemptCount + 1
   return withWorkerClaimTransaction(db, async (trx) => {
-    if (nextAttempt >= options.maxAttempts) {
-      await trx
-        .updateTable('operations.outbox_events')
-        .set({
-          attempt_count: nextAttempt,
-          parked_at: sql`now()`,
-          last_error_code: errorCode,
-          claimed_by: null,
-          claim_expires_at: null
-        })
-        .where('id', '=', event.id)
-        .where('published_at', 'is', null)
-        .execute()
+    if (decision.outcome === 'park') {
+      await relocateToDeadLetter(trx, event.id, errorCode, nextAttempt)
       return 'parked'
     }
-    const backoffMs = Math.min(options.baseBackoffMs * 2 ** (nextAttempt - 1), options.maxBackoffMs)
     await trx
       .updateTable('operations.outbox_events')
       .set({
         attempt_count: nextAttempt,
-        available_at: sql`now() + make_interval(secs => ${backoffMs / 1000})`,
+        available_at: sql`now() + make_interval(secs => ${decision.backoffMs / 1000})`,
         last_error_code: errorCode,
         claimed_by: null,
         claim_expires_at: null

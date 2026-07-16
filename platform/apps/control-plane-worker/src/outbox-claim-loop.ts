@@ -7,15 +7,9 @@ import {
   traceparentFromPayload,
   type PieDatabase
 } from '@pie/persistence'
+import { createQueuePollingLoop, NOOP_LOGGER, type StructuredLogger } from './queue-polling-loop'
 
-// pino-compatible subset so the loop emits structured logs and tests can capture.
-export type StructuredLogger = {
-  info: (fields: Record<string, unknown>, message?: string) => void
-  warn: (fields: Record<string, unknown>, message?: string) => void
-  error: (fields: Record<string, unknown>, message?: string) => void
-}
-
-const NOOP_LOGGER: StructuredLogger = { info: () => {}, warn: () => {}, error: () => {} }
+export type { StructuredLogger }
 
 export type OutboxBatchSummary = {
   claimed: number
@@ -55,8 +49,6 @@ const EMPTY_SUMMARY: OutboxBatchSummary = {
 
 export function createOutboxClaimLoop(options: OutboxClaimLoopOptions): OutboxClaimLoop {
   const logger = options.logger ?? NOOP_LOGGER
-  let timer: ReturnType<typeof setTimeout> | null = null
-  let stopped = false
 
   const runOnce = async (): Promise<OutboxBatchSummary> => {
     const claimed = await claimOutboxBatch(options.db, {
@@ -105,36 +97,18 @@ export function createOutboxClaimLoop(options: OutboxClaimLoopOptions): OutboxCl
     return summary
   }
 
-  const scheduleNext = (): void => {
-    if (stopped) {
-      return
-    }
-    timer = setTimeout(() => {
-      void runOnce()
-        .catch((error) => {
-          // A whole-batch failure (e.g. DB blip) must not kill the loop; the next
-          // tick retries, and claimed rows fall back to reclaim on lease expiry.
-          logger.error({ event: 'outbox.batch_failed', error: String(error) }, 'claim batch failed')
-        })
-        .finally(scheduleNext)
-    }, options.pollIntervalMs)
-    if (typeof timer === 'object' && 'unref' in timer) {
-      timer.unref()
-    }
-  }
+  // The outbox is the first consumer of the shared SKIP LOCKED queue mechanics:
+  // it supplies runOnce as the tick and reuses the generic recurring driver.
+  const loop = createQueuePollingLoop({
+    tick: runOnce,
+    pollIntervalMs: options.pollIntervalMs,
+    loopName: 'outbox',
+    logger
+  })
 
   return {
     runOnce,
-    start: () => {
-      stopped = false
-      scheduleNext()
-    },
-    stop: () => {
-      stopped = true
-      if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-    }
+    start: loop.start,
+    stop: loop.stop
   }
 }
