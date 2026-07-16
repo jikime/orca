@@ -24,6 +24,7 @@ function expectedTag(route) {
     ['/work-items', 'WorkItems'],
     ['/channels', 'Collaboration'],
     ['/dms', 'Collaboration'],
+    ['/messages', 'Collaboration'],
     ['/notifications', 'Notifications'],
     ['/agent-events:batch', 'AgentIngest'],
     ['/artifacts/', 'Artifacts']

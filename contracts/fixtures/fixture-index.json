@@ -428,6 +428,18 @@
       "expectedValid": true
     },
     {
+      "name": "message search result page",
+      "schemaId": "https://schemas.pielab.ai/resources/message-search-result.v1.schema.json",
+      "document": "valid/message-search-result.json",
+      "expectedValid": true
+    },
+    {
+      "name": "message search result page with extra field",
+      "schemaId": "https://schemas.pielab.ai/resources/message-search-result.v1.schema.json",
+      "document": "invalid/message-search-result-extra-field.json",
+      "expectedValid": false
+    },
+    {
       "name": "start dm request",
       "schemaId": "https://schemas.pielab.ai/resources/dm-create.v1.schema.json",
       "document": "valid/dm-create.json",

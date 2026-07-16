@@ -422,6 +422,10 @@ export interface MessagesTable {
   thread_root_message_id: string | null
   created_at: TimestampColumn
   updated_at: TimestampColumn
+  // STORED generated tsvector (slice 7 search). Never selected/inserted via the query
+  // builder — matched only through a raw `search_tsv @@ ...` predicate — so it is typed
+  // never-selectable/never-writable to keep it out of insert and selectAll shapes.
+  search_tsv: ColumnType<never, never, never>
 }
 
 export interface MessageReactionsTable {

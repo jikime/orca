@@ -756,6 +756,43 @@ paths:
                 $ref: ../schemas/resources/message.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/messages/search:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Collaboration]
+      operationId: searchMessages
+      description: >-
+        Full-text search over message bodies, most recent first. Member-scoped: only
+        hits from channels the caller is currently on are returned, even within their
+        own org (chat slice 7). Read-only.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: The search query. Parsed with websearch_to_tsquery('simple').
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1000
+        - $ref: '#/components/parameters/Cursor'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: A keyset-paginated page of matching message summaries, most recent first.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/message-search-result.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/reactions:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'
