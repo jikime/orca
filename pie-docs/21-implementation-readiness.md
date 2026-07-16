@@ -376,6 +376,37 @@ Team WorkItem Workflow만 구현하고 Delivery Workflow는 만들지 않으며 
 authorizeResourcePermission(work_item.read)으로 ResourceGrant도 소비. platform 182 tests green(+15), lint 0,
 contracts green, root src 미변경. slice 3=My Work + comments/Activity + Core Gate automation.
 
+2026-07-28 R4 slice 3(My Work + comments/Activity + assignment + Core Gate 자동화 + TEN-004) 구현 — **R4 Core
+Gate CLOSED**(platform 전용, root src 미변경). **contracts additive:** `createWorkItemComment`/
+`listWorkItemComments`(nested `/comments`)·`listWorkItemActivity`(`/activity`)·`assignWorkItem`(`:assign`) op +
+listWorkItems에 `assignee` query param, `comment-create.v1`·`work-item-activity-entry.v1`·`work-item-assign.v1`
+스키마 + fixture 6개, check:contracts green(26 op/65 schema/60 fixture). **migration `20260728090001`:**
+`delivery.comments`(work_item 같은 tenant FK, visibility internal|project|customer, RLS) + **My Work 인덱스**
+`work_items_assignee_idx (org, assignee_id, state_id, sort_key, id) where archived_at is null`(doc 30:352 —
+거대한 OR 금지, targeted index). **결정 1(My Work URL): `GET .../work-items?assignee=me`** — canonical work-items
+리소스의 query filter(doc 23:148-150), `me` sentinel을 서버가 토큰 subject의 Pie userId로 해소(별도 /my-work
+URL 아님, 타 유저 유출 없음, org-scoped). **결정 2(comment realtime signal): work_item.updated invalidation**
+— comment는 work-item child라 aggregate root invalidation이 정직한 최소 신호(speculative comment 이벤트 타입
+안 만듦). **결정 3(Activity source): audit.audit_events 필터 읽기**(target_type='work_item'+target_id, dedicated
+projection은 연기) — audit이 SoT. **결정 4(assignment permission): 전용 `:assign` 액션(work_item.assign)** —
+PATCH는 assignee 변경 거부(USE_ASSIGN 409)해 work_item.update로 재배정하는 권한 구멍 차단(member는 update는
+있고 assign 없음, 라이브로 403 증명). :move-state colon-dispatch 라우트를 action('move-state'|'assign')으로 분기.
+**TEN-004(customer-field-projection-snapshots):** `resource-projection.ts`(audience internal|external — 멤버십
+역할이 전부 external role manifest면 external), projectWorkItemForAudience(external→assigneeId·priority·sortKey·
+workflowVersion 필드 삭제)·projectProjectForAudience(external→summary·status 삭제)·projectCommentsForAudience
+(external→visibility='customer'만). **customer-org-on-project 관계는 Planning Gate라 이 slice는 org-level
+customer_approver 멤버십 fixture로 projection을 증명**(정직 최소, 문서화). listComments가 라이브로 audience 필터
+적용(customer 역할→customer 코멘트만). **Core Gate 통합 테스트 `r4-core-gate`:** provision→CORE team→project→
+work item(CORE-1)→assign→My Work→board move→comment→Activity(created/assigned/state_moved/commented) 전체
+관통 + 게이트 조건(cross-tenant 403·stale ETag 412·**응답 본문에 access/refresh token·bearer 노출 0**·WorkItem
+opaque UUID id ≠ human key APP-N 네임스페이스[Orca ID와 별개]). **R5 인계 포트(doc 28:509-521): WorkItem opaque
+id + stateId(permission/content 포트) 노출 확인, R5는 안 만듦.** platform 188 tests green(+대략 17, 병렬 컨테이너
+포트 고갈로 일부 파일 transient skip→격리 재실행으로 통과 확인), typecheck 4/4·lint 0(121 files)·check:contracts
+green, root src 미변경, 두 lockfile clean. **남은 R4 = Planning Gate**(Cycle/Initiative/Milestone/ProjectUpdate/
+Intake/SavedView/offline-cache/search/external-refs) + R5 핸드오프. **Core Gate closed→R5 AI Workspace 착수 가능.**
+**플래그: delivery 라우트 런타임 idempotency dedup 미배선**(Idempotency-Key 헤더는 계약상 필수지만 저장 dedup은
+아직 없음, 후속).
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

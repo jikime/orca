@@ -358,6 +358,18 @@ export interface TeamCountersTable {
   next_sequence: DefaultedBigIntColumn
 }
 
+export interface CommentsTable {
+  organization_id: string
+  id: Generated<string>
+  work_item_id: string
+  author_id: string
+  body: string
+  visibility: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 export interface ProjectsTable {
   organization_id: string
   id: Generated<string>
@@ -406,6 +418,7 @@ export interface Database {
   'delivery.team_counters': TeamCountersTable
   'delivery.workflow_states': WorkflowStatesTable
   'delivery.work_items': WorkItemsTable
+  'delivery.comments': CommentsTable
   'delivery.projects': ProjectsTable
   'delivery.project_teams': ProjectTeamsTable
   'agent.objects': ObjectsTable

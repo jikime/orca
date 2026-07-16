@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/work-item-activity-entry.v1.schema.json",
+  "title": "Work item activity entry",
+  "description": "One entry in a work item's Activity timeline, read from the audit trail filtered to this work item (state moves, assignments, comments, field changes). Read-only projection of audit.audit_events.",
+  "type": "object",
+  "required": ["id", "workItemId", "action", "occurredAt"],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "workItemId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "actorId": {
+      "type": ["string", "null"]
+    },
+    "occurredAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  },
+  "additionalProperties": false
+}
