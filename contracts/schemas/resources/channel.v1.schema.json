@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/channel.v1.schema.json",
+  "title": "Collaboration channel",
+  "description": "An org-scoped conversation space (doc 08, doc 13:206). scopeType/scopeId are a forward pointer; slice 1 is organization-level channels only.",
+  "type": "object",
+  "required": [
+    "id",
+    "organizationId",
+    "name",
+    "scopeType",
+    "visibility",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "scopeType": { "enum": ["organization", "team", "project", "customer", "ticket"] },
+    "scopeId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "visibility": { "enum": ["internal", "project", "customer"] },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

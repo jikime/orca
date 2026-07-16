@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/read-cursor.v1.schema.json",
+  "title": "Channel read cursor",
+  "description": "A user's per-channel last-read marker, keyed by the last read MESSAGE ID (never a stream sequence).",
+  "type": "object",
+  "required": ["organizationId", "channelId", "userId", "lastReadMessageId", "lastReadAt"],
+  "properties": {
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "channelId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "lastReadMessageId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "lastReadAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

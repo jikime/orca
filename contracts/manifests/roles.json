@@ -48,7 +48,12 @@
         "remote.file_transfer",
         "audit.read",
         "policy.manage",
-        "session.revoke"
+        "session.revoke",
+        "channel.create",
+        "channel.read",
+        "channel.manage",
+        "message.post",
+        "message.read"
       ]
     },
     {
@@ -94,7 +99,12 @@
         "remote.view",
         "audit.read",
         "policy.manage",
-        "session.revoke"
+        "session.revoke",
+        "channel.create",
+        "channel.read",
+        "channel.manage",
+        "message.post",
+        "message.read"
       ]
     },
     {
@@ -126,7 +136,11 @@
         "mcp.work_item.read",
         "mcp.work_item.write",
         "mcp.artifact.write",
-        "mcp.execution_context.read"
+        "mcp.execution_context.read",
+        "channel.create",
+        "channel.read",
+        "message.post",
+        "message.read"
       ]
     },
     {
@@ -152,7 +166,11 @@
         "mcp.work_item.read",
         "mcp.work_item.write",
         "mcp.artifact.write",
-        "mcp.execution_context.read"
+        "mcp.execution_context.read",
+        "channel.create",
+        "channel.read",
+        "message.post",
+        "message.read"
       ]
     },
     {
@@ -165,7 +183,10 @@
         "work_item.read",
         "work_item.comment",
         "work_item.approve",
-        "artifact.read"
+        "artifact.read",
+        "channel.read",
+        "message.post",
+        "message.read"
       ]
     },
     {
@@ -182,7 +203,10 @@
         "repository.read",
         "agent_session.read",
         "artifact.read",
-        "artifact.publish"
+        "artifact.publish",
+        "channel.read",
+        "message.post",
+        "message.read"
       ]
     },
     {
