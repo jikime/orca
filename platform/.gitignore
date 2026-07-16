@@ -1,0 +1,5 @@
+node_modules/
+dist/
+# Generated DTO types are reproducible via `pnpm gen:api-types`; not hand-edited.
+generated/
+*.tsbuildinfo

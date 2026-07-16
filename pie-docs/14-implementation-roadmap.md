@@ -244,6 +244,38 @@ R1 전체가 완료된 것은 아니다. 실제 서명 인증서를 사용하는
 - 백업을 새 환경에 복원하고 데이터·감사 연속성을 검증한다.
 - 구버전 앱 fixture가 지원·제한·업데이트 필요 상태를 구분한다.
 
+### 구현 상태
+
+2026-07-17 `feat/pie-r2-platform-foundation`에서 첫 slice인 platform 워크스페이스와 PostgreSQL 테넌트
+기반을 구현했다. `platform/`은 자체 `pnpm-workspace.yaml`과 lockfile을 가진 독립 pnpm 워크스페이스로,
+Desktop 루트 package와 dependency를 섞지 않는다(루트 lockfile 무변경 확인). 앱은
+`apps/control-plane-api`·`apps/control-plane-worker`, 패키지는 `packages/persistence` 하나로 시작한다.
+ADR-0008 clause 11에 따라 `platform/` 경로를 사용하고 doc 30 :429의 `services/control-plane` 경로는
+stale로 간주한다.
+
+`packages/persistence`는 SQL-first 동결 migration runner(적용 파일의 checksum을 기록하고 이미 적용된
+migration의 checksum이 바뀌면 hard error, advisory lock으로 단일 실행)와 고정 schema(identity·
+operations·audit)를 만든다. 역할은 `pie_migration_owner`, `pie_app`(NOBYPASSRLS), `pie_worker`(claim 전용)
+이다. `identity.organizations`는 테넌트 root라 자기 `id`를 RLS 기준으로 삼고, `operations.outbox_events`는
+doc 30 :330-332 컬럼을 그대로 두고 partial claim index를 가지며, `operations.idempotency_records`와
+append-only `audit.audit_events`가 함께 있다. 모든 테넌트 table은 permissive isolation + restrictive
+boundary guard + FORCE RLS를 적용하고, `withTenantTransaction`이 `SET LOCAL ROLE pie_app` +
+`SET LOCAL pie.organization_id`로 문맥을 건다(문맥 없으면 default deny). Worker는 BYPASSRLS가 아니라
+`pie_worker` 전용 grant·policy로 cross-tenant claim만 하고(`withWorkerClaimTransaction`), 시드 등 운영
+경로는 `withoutTenantContext`를 쓴다. 시드 로더는 `contracts/fixtures/valid/organization.json` 모양의
+임시 조직을 idempotent하게 넣는다(공개 createOrganization 엔드포인트 없음, 결정 사항).
+
+두 앱은 최소 Fastify 5 부팅만 한다. API는 `/healthz`(liveness)·`/readyz`(DB ping)와 W3C traceparent
+correlation, RFC 9457 problem+json 오류, 그리고 contracts의 JSON Schema 2020-12를 소비하는 Ajv2020
+validator를 갖고 아직 업무 엔드포인트는 없다. Worker는 부팅·연결·heartbeat idle만 하며 SKIP LOCKED
+claim 루프는 slice 2다. 로컬 dev는 `deploy/compose/dev-postgres.yml`(PostgreSQL 16 단독, dev 전용
+자격증명)로 띄우고, 통합 테스트는 dev DB와 충돌하지 않도록 testcontainers로 임시 PG16을 띄워 실제
+migration·RLS 부정 테스트·worker claim·시드 idempotency를 검증한다(Docker 부재 시 명시적 SKIP).
+DTO 생성기는 openapi-typescript를 고정했고, OpenAPI가 스키마를 원격 `$id`로 상호 참조해 오프라인
+생성이 막히므로 로컬 파일로 dereference하는 얇은 prepass를 거쳐 18개 operation DTO를 `generated/`에
+만든다. slice 2는 조직 mutation을 한 transaction 안에서 audit+outbox로 쓰고 Worker의 SKIP LOCKED
+claim과 Realtime `resource.changed`까지 잇는 수직 흐름이다.
+
 ## R3: 인증·RBAC·Entitlement
 
 ### 목표
