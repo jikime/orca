@@ -19,13 +19,19 @@ export type RealtimeSocket = {
 
 export type RealtimeSocketFactory = (
   url: string,
-  handlers: RealtimeSocketHandlers
+  handlers: RealtimeSocketHandlers,
+  // Bearer access token carried on the WS upgrade (Main-only ws client). The
+  // gateway verifies it and the subject's membership before subscribing.
+  authToken: string | null
 ) => RealtimeSocket
 
 // Reuses the `ws` client already used by the relay transport in main; adds no
 // new dependency.
-export const defaultRealtimeSocketFactory: RealtimeSocketFactory = (url, handlers) => {
-  const socket = new WebSocket(url)
+export const defaultRealtimeSocketFactory: RealtimeSocketFactory = (url, handlers, authToken) => {
+  const socket = new WebSocket(
+    url,
+    authToken ? { headers: { authorization: `Bearer ${authToken}` } } : undefined
+  )
   socket.on('open', () => handlers.onOpen())
   socket.on('message', (data: Buffer) => handlers.onMessage(data.toString()))
   socket.on('close', () => handlers.onClose())
@@ -51,6 +57,9 @@ export type RealtimeConnectionOptions = {
   organizationId: string
   capabilities?: string[]
   socketFactory?: RealtimeSocketFactory
+  // Supplies the current access token for the WS upgrade (from the auth lifecycle
+  // via the composition root — never the renderer). Read at each connect attempt.
+  getAccessToken?: () => string | null
   // Injected recovery fetch (the REST listResourceChanges call); keeps this
   // module transport-pure. Returns changes after the given cursor.
   fetchChanges?: (afterCursor: string | null) => Promise<PieRealtimeResourceChanged[]>
@@ -267,32 +276,36 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
       return
     }
     setStatus({ state: 'connecting', attempt })
-    socket = socketFactory(options.url, {
-      onOpen: () => {
-        send({
-          type: 'client.hello',
-          schemaVersion: 1,
-          protocolVersion: PIE_REALTIME_PROTOCOL_VERSION,
-          instanceId: options.instanceId,
-          organizationId: options.organizationId,
-          lastCursor: lastAppliedCursor,
-          ...(options.capabilities ? { capabilities: options.capabilities } : {})
-        })
-        armHeartbeatWatchdog()
-      },
-      onMessage: handleMessage,
-      onClose: () => {
-        if (stopped || revoked) {
-          return
+    socket = socketFactory(
+      options.url,
+      {
+        onOpen: () => {
+          send({
+            type: 'client.hello',
+            schemaVersion: 1,
+            protocolVersion: PIE_REALTIME_PROTOCOL_VERSION,
+            instanceId: options.instanceId,
+            organizationId: options.organizationId,
+            lastCursor: lastAppliedCursor,
+            ...(options.capabilities ? { capabilities: options.capabilities } : {})
+          })
+          armHeartbeatWatchdog()
+        },
+        onMessage: handleMessage,
+        onClose: () => {
+          if (stopped || revoked) {
+            return
+          }
+          socket = null
+          connectionId = null
+          scheduleReconnect('socket-closed')
+        },
+        onError: (error) => {
+          log(`[pie-realtime] socket error: ${String(error)}`)
         }
-        socket = null
-        connectionId = null
-        scheduleReconnect('socket-closed')
       },
-      onError: (error) => {
-        log(`[pie-realtime] socket error: ${String(error)}`)
-      }
-    })
+      options.getAccessToken?.() ?? null
+    )
   }
 
   return {

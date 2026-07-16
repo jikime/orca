@@ -11,7 +11,7 @@ import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
 import type { KeycloakTokenVerifier } from './keycloak-token-verifier'
-import { registerRequestAuthentication } from './request-authentication'
+import { extractBearerToken, registerRequestAuthentication } from './request-authentication'
 import { registerDiscoveryRoute } from './discovery-route'
 import { registerMetricsRoutes } from './metrics-routes'
 import { registerHealthRoutes, type HealthDeps } from './health-routes'
@@ -39,6 +39,9 @@ export type BuildAppDeps = HealthDeps & {
   // Enables the token-authenticated identity routes (session/memberships/
   // provisioning). Omitted by the dependency-light unit tests.
   tokenVerifier?: KeycloakTokenVerifier
+  // Operator bearer that gates /internal/* (metrics/ops). When set, those routes
+  // require it; documented interim before full operator admin (R3+).
+  operatorToken?: string
 }
 
 function adaptWebSocket(socket: WebSocket): RealtimeSocket {
@@ -109,12 +112,15 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     })
   }
 
-  if (deps.db && deps.registry) {
-    registerControlPlaneRoutes(app, { db: deps.db, registry: deps.registry })
+  // R3: every protected route now requires the verified token subject + membership,
+  // so the token-verification decorations register once, and the tenant routes are
+  // gated on the verifier being present (no verifier → the routes are not exposed).
+  if (deps.tokenVerifier) {
+    registerRequestAuthentication(app, deps.tokenVerifier)
   }
 
   if (deps.db && deps.registry && deps.tokenVerifier) {
-    registerRequestAuthentication(app, deps.tokenVerifier)
+    registerControlPlaneRoutes(app, { db: deps.db, registry: deps.registry })
     registerIdentityRoutes(app, {
       db: deps.db,
       registry: deps.registry,
@@ -122,7 +128,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     })
   }
 
-  if (deps.db && deps.registry && deps.objectStorage) {
+  if (deps.db && deps.registry && deps.objectStorage && deps.tokenVerifier) {
     registerArtifactRoutes(app, {
       db: deps.db,
       registry: deps.registry,
@@ -131,15 +137,22 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
   }
 
   if (deps.db && deps.gateway) {
-    registerMetricsRoutes(app, { db: deps.db, gateway: deps.gateway })
+    registerMetricsRoutes(app, {
+      db: deps.db,
+      gateway: deps.gateway,
+      operatorToken: deps.operatorToken
+    })
   }
 
   if (deps.gateway) {
     const gateway = deps.gateway
     void app.register(fastifyWebsocket)
     app.register(async (scoped) => {
-      scoped.get('/v1/realtime', { websocket: true }, (socket: WebSocket) => {
-        gateway.handleConnection(adaptWebSocket(socket))
+      scoped.get('/v1/realtime', { websocket: true }, (socket: WebSocket, request) => {
+        gateway.handleConnection(
+          adaptWebSocket(socket),
+          extractBearerToken(request.headers.authorization)
+        )
       })
     })
     app.addHook('onClose', async () => {

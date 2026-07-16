@@ -7,6 +7,7 @@ import {
   publishClaimedEvent,
   runMigrations,
   seedOrganizationFixture,
+  seedMembershipFixture,
   type PieDatabase
 } from '@pie/persistence'
 import { startPostgresHarness, type PostgresHarness } from '@pie/persistence/testing'
@@ -25,6 +26,11 @@ import {
   type ContractSchemaRegistry
 } from './contract-schema-registry'
 import { createRealtimeGateway, type RealtimeGateway } from './realtime-gateway'
+import {
+  allowAllConnections,
+  createTestTokenVerifier,
+  TEST_ISSUER
+} from './authorization-test-support'
 
 let pgHarness: PostgresHarness | null = null
 let s3Harness: ObjectStorageHarness | null = null
@@ -55,10 +61,13 @@ function intentBody(overrides: Record<string, unknown> = {}) {
   }
 }
 
+const ARTIFACT_SUBJECT = 'artifact-tester'
+const AUTH_HEADER = { authorization: `Bearer ${ARTIFACT_SUBJECT}` }
+
 async function postIntent(org: string, body: unknown, key: string) {
   return fetch(`${baseUrl}/v1/organizations/${org}/artifacts/upload-intents`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'idempotency-key': key },
+    headers: { 'content-type': 'application/json', 'idempotency-key': key, ...AUTH_HEADER },
     body: JSON.stringify(body)
   })
 }
@@ -66,7 +75,7 @@ async function postIntent(org: string, body: unknown, key: string) {
 async function postFinalize(org: string, sessionId: string, body: unknown, key: string) {
   return fetch(`${baseUrl}/v1/organizations/${org}/artifacts/uploads/${sessionId}:finalize`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'idempotency-key': key },
+    headers: { 'content-type': 'application/json', 'idempotency-key': key, ...AUTH_HEADER },
     body: JSON.stringify(body)
   })
 }
@@ -103,13 +112,26 @@ beforeAll(async () => {
   await storage.ensureBucket()
   registry = createContractSchemaRegistry()
   gateway = createRealtimeGateway({
+    authorizeConnection: allowAllConnections(),
     db,
     registry,
     listenConnectionString: pgHarness.connectionString,
     heartbeatIntervalMs: 60_000,
     resyncWindow: 100
   })
-  app = buildApp({ ping: async () => true, db, registry, gateway, objectStorage: storage })
+  await seedMembershipFixture(db, {
+    organizationId: orgId,
+    issuer: TEST_ISSUER,
+    subject: ARTIFACT_SUBJECT
+  })
+  app = buildApp({
+    ping: async () => true,
+    db,
+    registry,
+    gateway,
+    objectStorage: storage,
+    tokenVerifier: createTestTokenVerifier()
+  })
   await app.ready()
   await gateway.start()
   await app.listen({ host: '127.0.0.1', port: 0 })
@@ -226,6 +248,14 @@ describe('artifact upload vertical', () => {
       id: otherOrg,
       slug: `other-${otherOrg.slice(0, 8)}`,
       displayName: 'Other'
+    })
+    // The caller is a member of BOTH orgs, so RBAC passes for otherOrg — this
+    // isolates the RLS boundary: the session belongs to orgId, so under otherOrg's
+    // context RLS hides it and finalize is 404 (not an authorization 403).
+    await seedMembershipFixture(db, {
+      organizationId: otherOrg,
+      issuer: TEST_ISSUER,
+      subject: ARTIFACT_SUBJECT
     })
     const intent = await postIntent(orgId, intentBody({ name: 'private.pdf' }), randomUUID())
     const { uploadSessionId } = (await intent.json()) as { uploadSessionId: string }

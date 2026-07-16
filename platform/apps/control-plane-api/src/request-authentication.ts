@@ -2,14 +2,18 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
 import type { KeycloakTokenVerifier, VerifiedPrincipal } from './keycloak-token-verifier'
 
-function bearerToken(request: FastifyRequest): string | null {
-  const raw = request.headers.authorization
-  const value = Array.isArray(raw) ? raw[0] : raw
+/** Extracts a bearer token from an Authorization header value (or null). */
+export function extractBearerToken(rawHeader: string | string[] | undefined): string | null {
+  const value = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader
   if (!value) {
     return null
   }
   const match = /^Bearer (.+)$/i.exec(value.trim())
   return match ? match[1]!.trim() : null
+}
+
+function bearerToken(request: FastifyRequest): string | null {
+  return extractBearerToken(request.headers.authorization)
 }
 
 declare module 'fastify' {

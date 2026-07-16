@@ -28,7 +28,11 @@ import { closeAllWatchers } from './ipc/filesystem-watcher'
 import { disposeWorktreeBaseDirectoryWatchers } from './ipc/worktree-base-directory-watcher'
 import { registerCoreHandlers } from './ipc/register-core-handlers'
 import { startPieRealtimeIfEnabled, stopPieRealtime } from './pie-realtime/realtime-service'
-import { startPieAuthMainIfEnabled, stopPieAuthService } from './pie-auth-main-wiring'
+import {
+  getPieAuthAccessToken,
+  startPieAuthMainIfEnabled,
+  stopPieAuthService
+} from './pie-auth-main-wiring'
 import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
@@ -1114,7 +1118,9 @@ function openMainWindow(): BrowserWindow {
   // guarded so a macOS window re-open (openMainWindow) does not open a second one.
   if (!pieRealtimeStarted) {
     pieRealtimeStarted = true
-    startPieRealtimeIfEnabled()
+    // The realtime client authenticates with the current access token (Main-only,
+    // from the auth lifecycle) on both the WS upgrade and the REST resync fetch.
+    startPieRealtimeIfEnabled({ getAccessToken: getPieAuthAccessToken })
   }
   // Why: dev-gated OIDC/PKCE login service. No-op unless PIE_AUTH_DISCOVERY_URL is
   // set and safe mode has not disabled 'pie-auth'; login is triggered explicitly.

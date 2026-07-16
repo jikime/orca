@@ -12,6 +12,7 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
+import { authorizeOrgPermission } from './route-authorization'
 
 const INTENT_REQUEST_SCHEMA_ID =
   'https://schemas.pielab.ai/resources/artifact-upload-intent-request.v1.schema.json'
@@ -95,6 +96,22 @@ export function registerArtifactRoutes(app: FastifyInstance, deps: ArtifactRoute
     if (!UUID_PATTERN.test(organizationId)) {
       return problem(reply, request, 400, 'BAD_REQUEST', 'invalid organizationId')
     }
+    const principal = await app.requireAuthenticatedSubject(request, reply)
+    if (!principal) {
+      return reply
+    }
+    if (
+      !(await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'artifact.publish'
+      ))
+    ) {
+      return reply
+    }
     const key = idempotencyKey(request)
     if (!key) {
       return problem(reply, request, 400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required')
@@ -104,10 +121,10 @@ export function registerArtifactRoutes(app: FastifyInstance, deps: ArtifactRoute
       return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid upload intent request')
     }
     const body = request.body as IntentRequest
-    // principalId is the org until R3 provides an authenticated subject.
+    // The idempotency principal is now the authenticated token subject.
     const scope = {
       organizationId,
-      principalId: organizationId,
+      principalId: principal.subject,
       method: 'POST',
       route: '/v1/organizations/{organizationId}/artifacts/upload-intents',
       key
@@ -195,6 +212,22 @@ export function registerArtifactRoutes(app: FastifyInstance, deps: ArtifactRoute
       }
       if (!UUID_PATTERN.test(organizationId)) {
         return problem(reply, request, 400, 'BAD_REQUEST', 'invalid organizationId')
+      }
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) {
+        return reply
+      }
+      if (
+        !(await authorizeOrgPermission(
+          deps.db,
+          request,
+          reply,
+          principal,
+          organizationId,
+          'artifact.publish'
+        ))
+      ) {
+        return reply
       }
       // The contract path is `.../uploads/{uploadSessionId}:finalize`.
       if (!sessionRef.endsWith(FINALIZE_SUFFIX)) {

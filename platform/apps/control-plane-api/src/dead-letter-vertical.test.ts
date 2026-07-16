@@ -25,6 +25,7 @@ import {
   type ContractSchemaRegistry
 } from './contract-schema-registry'
 import { createRealtimeGateway, type RealtimeGateway } from './realtime-gateway'
+import { allowAllConnections } from './authorization-test-support'
 
 let harness: PostgresHarness | null = null
 let pool: Pool
@@ -103,6 +104,7 @@ beforeAll(async () => {
   await runMigrations(pool)
   registry = createContractSchemaRegistry()
   gateway = createRealtimeGateway({
+    authorizeConnection: allowAllConnections(),
     db,
     registry,
     listenConnectionString: harness.connectionString,

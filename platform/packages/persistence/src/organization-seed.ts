@@ -48,3 +48,59 @@ export async function seedOrganizationFixture(
     return { id: input.id, inserted: (result?.numInsertedOrUpdatedRows ?? 0n) > 0n }
   })
 }
+
+export type MembershipSeedInput = {
+  organizationId: string
+  issuer: string
+  subject: string
+  roleIds?: string[]
+  email?: string
+  displayName?: string
+}
+
+export type MembershipSeedResult = {
+  userId: string
+  membershipId: string
+}
+
+/**
+ * Dev/test fixture: maps an issuer+subject to a UserAccount and grants an active
+ * membership (owner role by default) in the given org. Runs privileged (org root +
+ * global user account). Idempotent on (issuer, subject) and (org, user).
+ */
+export async function seedMembershipFixture(
+  db: Kysely<Database>,
+  input: MembershipSeedInput
+): Promise<MembershipSeedResult> {
+  return withoutTenantContext(db, async (trx) => {
+    const account = await trx
+      .insertInto('identity.user_accounts')
+      .values({
+        issuer: input.issuer,
+        subject: input.subject,
+        email: input.email ?? `${input.subject}@test`,
+        email_verified: true,
+        display_name: input.displayName ?? 'Test Member'
+      })
+      .onConflict((oc) => oc.columns(['issuer', 'subject']).doUpdateSet({ email_verified: true }))
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const membership = await trx
+      .insertInto('identity.memberships')
+      .values({
+        organization_id: input.organizationId,
+        user_id: account.id,
+        status: 'active',
+        role_ids: input.roleIds ?? ['organization_owner']
+      })
+      .onConflict((oc) =>
+        oc.columns(['organization_id', 'user_id']).doUpdateSet({
+          status: 'active',
+          role_ids: input.roleIds ?? ['organization_owner']
+        })
+      )
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    return { userId: account.id, membershipId: membership.id }
+  })
+}

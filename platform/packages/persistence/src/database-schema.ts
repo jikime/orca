@@ -163,6 +163,18 @@ export interface AuditEventsTable {
   occurred_at: TimestampColumn
 }
 
+export interface AuthorizationDenialsTable {
+  id: Generated<string>
+  requested_organization_id: string | null
+  actor_user_id: string | null
+  issuer: string | null
+  subject: string | null
+  permission: string
+  reason: string
+  request_id: string | null
+  occurred_at: TimestampColumn
+}
+
 export interface ObjectsTable {
   id: string
   organization_id: string
@@ -233,6 +245,7 @@ export interface Database {
   'operations.operations': OperationsTable
   'operations.artifact_upload_sessions': ArtifactUploadSessionsTable
   'audit.audit_events': AuditEventsTable
+  'audit.authorization_denials': AuthorizationDenialsTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable

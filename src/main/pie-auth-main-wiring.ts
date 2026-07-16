@@ -2,7 +2,11 @@ import { app, safeStorage, shell } from 'electron'
 import { desktopSessionBroker } from './pie-session/desktop-session-broker'
 import { PieSessionTokenLifecycle } from './pie-session/pie-session-token-lifecycle'
 import { SafeStorageSessionSecretStore } from './pie-session/safe-storage-session-secret-store'
-import { initPieAuthServiceIfEnabled, stopPieAuthService } from './pie-auth/pie-auth-service'
+import {
+  getPieAuthAccessToken,
+  initPieAuthServiceIfEnabled,
+  stopPieAuthService
+} from './pie-auth/pie-auth-service-registry'
 
 // Electron composition root for the OIDC/PKCE login service. Kept out of the
 // pie-auth/ core so that core stays electron-free and unit-testable. Dev-gated:
@@ -24,4 +28,4 @@ export function startPieAuthMainIfEnabled(): void {
   })
 }
 
-export { stopPieAuthService }
+export { getPieAuthAccessToken, stopPieAuthService }

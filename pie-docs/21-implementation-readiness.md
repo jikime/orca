@@ -293,6 +293,26 @@ realtime처럼 dev-gated(PIE_AUTH_DISCOVERY_URL, 자동시작 없음, 명시적 
 safe-mode 50 tests green, typecheck(node+cli+web)·oxlint·check:contracts green, root lockfile 무변경.
 오케스트레이터가 리뷰 후 실 Keycloak 교차 스모크. 남음: slice 3(stand-in 대체·RBAC), slice 4(초대·폐기).
 
+2026-07-23 slice 3으로 **org stand-in 4곳을 모두 검증 토큰 subject+membership으로 교체하고 RBAC를 강제**
+했다(platform+root). **RBAC 코어(순수 `permission-evaluator.ts`):** doc 01:215-231 순서 — membership active
+→ 요청 org 일치 → 명시적 거부 우선 → 역할 permission(slice-1 catalog 해석), default-deny·거부 우선.
+resource-grant 좁힘은 다음 authorization slice로 명시 연기(가짜 안 함). 결과+reason(permission vs 후속 entitlement
+혼동 방지, doc 11). **거부 감사는 org FK 없는 보안 스트림 `audit.authorization_denials`에 기록**(privileged·
+FK-free·best-effort) — 존재하지 않는/무관한 org id 거부도 FK 위반 없이 clean 403+감사(다른 조직 ID 직접
+요청 공격이 500이 되지 않음). **TEN-006 matrix 테스트**
+(evidence `permission-entitlement-combination-matrix`): 7역할×permission, cross-org·비활성·명시적 거부,
+entitlement 축 stub 열. **stand-in 교체:** control-plane-routes(헤더 제거, op별 permission), artifact-routes
+(principal=subject, artifact.publish), **realtime-gateway(ClientHello org 불신, WS bearer를 upgrade 헤더로
+운반—ClientHello wire 미확장, Main 전용 ws라 헤더 자연스러움; 브라우저 클라이언트면 auth 필드 contracts
+고려사항—verify+membership+org.read 후 구독)**, ROOT pie-realtime(stand-in 헤더 제거, auth lifecycle access
+token을 주입 provider로 WS+REST resync에 bearer 전송, renderer 아님; `pie-auth-service.getAccessToken`+index
+composition). **operator: `/internal/*`는 `PIE_OPERATOR_TOKEN` bearer 게이트(full-admin 전 interim), `/public/*`
+는 의도적 공개 유지.** **CONTRACT GAP(재플래그): provisioning operation 미계약, ClientHello auth 필드 없음.**
+테스트: RBAC matrix, 각 라우트 authorized/401/403+감사/cross-org, realtime WS 토큰+membership·거부·격리,
+/internal operator 게이트, root changes-fetch bearer·헤더 부재·lifecycle 출처. platform 118 + root 100 tests
+green, root lockfile 무변경. 남음: ResourceGrant narrowing·entitlement/UsageMeter(다음 authz slice), 초대·폐기
+(slice 4).
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
