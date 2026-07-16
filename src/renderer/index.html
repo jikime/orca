@@ -3,7 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <title>Orca</title>
-    <!-- CSP is relaxed during development; electron-vite injects a stricter policy for production builds -->
+    <!--
+      Production Content-Security-Policy (ELC-005 hardening). The renderer loads
+      over file://, so this strict policy is the enforced baseline. In dev the
+      renderer-dev-csp plugin (build-plugins/) rewrites this tag to add the
+      electron-vite HMR origins (http/ws localhost) and the inline/eval the dev
+      server needs. The bare script-eval keyword must never appear in this
+      production tag (only the WebAssembly-scoped variant below).
+      - 'wasm-unsafe-eval': onig.wasm (TextMate highlighting) compiles WebAssembly.
+      - style-src 'unsafe-inline': Radix/shadcn primitives set inline style for
+        positioning and Tailwind injects a runtime style element.
+      - img/media blob: + data:: pet, editor, terminal, and emulator surfaces
+        build blob:/data: URLs for images and frames.
+      - worker-src blob:: Monaco spins up its language workers.
+      - frame-src inherits default-src 'self', which permits the sandboxed
+        srcdoc notebook iframe (IpynbViewer) while blocking remote frames.
+      <webview> guests have their own security context and are unaffected.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: data:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'"
+    />
   </head>
 
   <body>

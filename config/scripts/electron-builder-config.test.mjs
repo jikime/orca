@@ -145,6 +145,38 @@ describe('electron-builder config', () => {
     }
   })
 
+  describe('Electron fuses (ELC-005 hardening)', () => {
+    it('disables the unused Node debugging and env fuses', () => {
+      expect(electronBuilderConfig.electronFuses).toMatchObject({
+        enableNodeOptionsEnvironmentVariable: false,
+        enableNodeCliInspectArguments: false
+      })
+    })
+
+    it('enables cookie encryption, ASAR integrity, and asar-only app loading', () => {
+      expect(electronBuilderConfig.electronFuses).toMatchObject({
+        enableCookieEncryption: true,
+        enableEmbeddedAsarIntegrityValidation: true,
+        onlyLoadAppFromAsar: true
+      })
+    })
+
+    // Why: runAsNode cannot be disabled — the packaged CLI launchers run under
+    // ELECTRON_RUN_AS_NODE and the terminal daemon is child_process.fork()'d as
+    // plain Node, which itself depends on that env var. This test documents that
+    // the value is deliberate, not an oversight.
+    it('keeps runAsNode enabled for the CLI launchers and forked daemon', () => {
+      expect(electronBuilderConfig.electronFuses.runAsNode).toBe(true)
+    })
+
+    // Why: the production renderer loads over file:// and fetches file:// assets
+    // (onig.wasm, Monaco workers), so file:// privileges stay granted until the
+    // renderer is served from a custom protocol.
+    it('leaves file:// protocol privileges granted (deferred)', () => {
+      expect(electronBuilderConfig.electronFuses.grantFileProtocolExtraPrivileges).toBe(true)
+    })
+  })
+
   it('uses Orca native rebuild hook instead of electron-builder default rebuild', () => {
     expect(electronBuilderConfig.beforeBuild).toBe(electronBuilderNativeRebuild)
     expect(electronBuilderConfig.npmRebuild).toBe(true)

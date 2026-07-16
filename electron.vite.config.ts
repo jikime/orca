@@ -3,6 +3,7 @@ import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { createPlainNodeEntryGuardPlugin } from './build-plugins/plain-node-entry-guard'
+import { createRendererDevCspPlugin } from './build-plugins/renderer-dev-csp'
 
 // Why: the telemetry transport is gated by two compile-time constants that
 // only the official CI release workflow sets. Contributor / `pnpm dev` /
@@ -227,7 +228,7 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), createRendererDevCspPlugin()],
     worker: {
       format: 'es'
     }

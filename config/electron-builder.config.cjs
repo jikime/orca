@@ -376,6 +376,37 @@ module.exports = {
     afterInstall: 'resources/linux/packaging/after-install.sh',
     afterRemove: 'resources/linux/packaging/after-remove.sh'
   },
+  // Why: ELC-005 (권한 상승 via DevTools/Node option/ASAR 변조) hardening. Disable
+  // unused Electron fuses and embed ASAR integrity so packaged code cannot be
+  // swapped or run under a debugger. electron-builder flips these on the packaged
+  // binary and re-signs macOS automatically, and embeds the Windows integrity
+  // resource, so no hand-rolled afterPack flip is needed.
+  electronFuses: {
+    // Why: runAsNode MUST stay enabled. The packaged CLI launchers
+    // (cli-installer.ts, appimage-cli-wrapper.ts) run `ELECTRON_RUN_AS_NODE=1`
+    // and the terminal daemon is child_process.fork()'d as plain Node
+    // (daemon-init.ts) — disabling this fuse breaks the CLI and daemon since
+    // fork() itself depends on ELECTRON_RUN_AS_NODE.
+    runAsNode: true,
+    enableCookieEncryption: true,
+    // Why: the runtime deliberately strips NODE_OPTIONS before spawning children
+    // and no code reads NODE_EXTRA_CA_CERTS, so honoring these env vars only adds
+    // an injection surface.
+    enableNodeOptionsEnvironmentVariable: false,
+    enableNodeCliInspectArguments: false,
+    // Why: integrity validation is enforced only on macOS + Windows; Linux flips
+    // the fuse but Electron does not enforce it there (accepted gap).
+    enableEmbeddedAsarIntegrityValidation: true,
+    // Why: asarUnpack still resolves — unpacked files are referenced through the
+    // app.asar index, so restricting the search path to app.asar keeps the CLI,
+    // daemon, and native modules working.
+    onlyLoadAppFromAsar: true,
+    // Why: left enabled (deferred). The production renderer loads over file://
+    // (loadFile) and fetches file:// assets — onig.wasm and Monaco ES workers —
+    // which require the extra file:// privileges. Disable only after the renderer
+    // is served from a custom protocol.
+    grantFileProtocolExtraPrivileges: true
+  },
   beforeBuild: electronBuilderNativeRebuild,
   // Why: must be true so that electron-builder rebuilds native modules
   // (node-pty) for each target architecture when producing dual-arch macOS

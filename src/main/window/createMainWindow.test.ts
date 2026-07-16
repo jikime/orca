@@ -171,7 +171,13 @@ describe('createMainWindow', () => {
 
     expect(browserWindowMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        webPreferences: expect.objectContaining({ sandbox: true })
+        // Why: renderer trust boundary is pinned explicitly (ELC-005) rather than
+        // inheriting Electron defaults that can change across major versions.
+        webPreferences: expect.objectContaining({
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false
+        })
       })
     )
     const browserWindowOptions = browserWindowMock.mock.calls[0]?.[0]
