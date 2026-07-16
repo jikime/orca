@@ -1,8 +1,14 @@
+import fastifyWebsocket from '@fastify/websocket'
+import type { PieDatabase } from '@pie/persistence'
 import Ajv2020 from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type { WebSocket } from 'ws'
+import type { ContractSchemaRegistry } from './contract-schema-registry'
+import { registerControlPlaneRoutes } from './control-plane-routes'
 import { registerHealthRoutes, type HealthDeps } from './health-routes'
 import { registerProblemDetails } from './problem-details'
+import type { RealtimeGateway, RealtimeSocket } from './realtime-gateway'
 import { resolveTraceContext } from './request-correlation'
 
 declare module 'fastify' {
@@ -14,6 +20,20 @@ declare module 'fastify' {
 
 export type BuildAppDeps = HealthDeps & {
   logger?: boolean
+  // Provided by the running service; omitted by the health/Ajv unit tests, which
+  // keep the app dependency-free.
+  db?: PieDatabase
+  registry?: ContractSchemaRegistry
+  gateway?: RealtimeGateway
+}
+
+function adaptWebSocket(socket: WebSocket): RealtimeSocket {
+  return {
+    send: (data) => socket.send(data),
+    close: (code, reason) => socket.close(code, reason),
+    onMessage: (handler) => socket.on('message', (data: Buffer) => handler(data.toString())),
+    onClose: (handler) => socket.on('close', handler)
+  }
 }
 
 export function buildApp(deps: BuildAppDeps): FastifyInstance {
@@ -63,6 +83,24 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       return { echoed: body.message }
     }
   )
+
+  if (deps.db && deps.registry) {
+    registerControlPlaneRoutes(app, { db: deps.db, registry: deps.registry })
+  }
+
+  if (deps.gateway) {
+    const gateway = deps.gateway
+    void app.register(fastifyWebsocket)
+    app.register(async (scoped) => {
+      scoped.get('/v1/realtime', { websocket: true }, (socket: WebSocket) => {
+        gateway.handleConnection(adaptWebSocket(socket))
+      })
+    })
+    app.addHook('onClose', async () => {
+      gateway.broadcastClosing('server shutdown')
+      await gateway.stop()
+    })
+  }
 
   return app
 }

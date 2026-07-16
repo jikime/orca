@@ -7,6 +7,11 @@ type DefaultedBigIntColumn = ColumnType<
   string | number | bigint | undefined,
   string | number | bigint
 >
+type NullableBigIntColumn = ColumnType<
+  string | null,
+  string | number | bigint | null | undefined,
+  string | number | bigint | null
+>
 type TimestampColumn = ColumnType<Date, Date | string | undefined, Date | string>
 type NullableTimestampColumn = ColumnType<
   Date | null,
@@ -15,6 +20,7 @@ type NullableTimestampColumn = ColumnType<
 >
 // jsonb: read back as parsed JSON (unknown), written as a JSON string.
 type JsonbColumn = ColumnType<unknown, string, string>
+type NullableJsonbColumn = ColumnType<unknown, string | null | undefined, string | null>
 
 export interface OrganizationsTable {
   id: string
@@ -42,6 +48,25 @@ export interface OutboxEventsTable {
   attempt_count: Generated<number>
   published_at: NullableTimestampColumn
   last_error_code: string | null
+  stream_sequence: NullableBigIntColumn
+  parked_at: NullableTimestampColumn
+}
+
+export interface StreamCursorsTable {
+  organization_id: string
+  last_sequence: DefaultedBigIntColumn
+  updated_at: TimestampColumn
+}
+
+export interface OperationsTable {
+  id: Generated<string>
+  organization_id: string
+  kind: string
+  status: Generated<string>
+  result_resource_id: string | null
+  problem: NullableJsonbColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
 }
 
 export interface IdempotencyRecordsTable {
@@ -78,5 +103,7 @@ export interface Database {
   'identity.organizations': OrganizationsTable
   'operations.outbox_events': OutboxEventsTable
   'operations.idempotency_records': IdempotencyRecordsTable
+  'operations.stream_cursors': StreamCursorsTable
+  'operations.operations': OperationsTable
   'audit.audit_events': AuditEventsTable
 }

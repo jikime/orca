@@ -99,5 +99,5 @@
       }
     }
   ],
-  "ignorePatterns": ["**/node_modules", "**/dist", "**/out", "platform", "deploy"]
+  "ignorePatterns": ["**/node_modules", "**/dist", "**/out", "platform/**", "deploy/**"]
 }
