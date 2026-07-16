@@ -340,6 +340,28 @@ immutable revision 생성 + object available + artifact available + audit + outb
 (SeaweedFS S3, dev 전용)을 추가했다. multipart 업로드·object 삭제 workflow·malware/secret scan quarantine
 게이트·download presign·backup restore·관측 대시보드는 후속 R2 slice로 남는다.
 
+2026-07-19 slice 4 `feat/pie-r2-backup-capability`에서 남은 두 R2 종료 조건(백업·복원 연속성, 앱
+최소버전·capability 게이팅)을 구현했다. **백업/복원:** `packages/persistence/database-backup.ts`가 논리
+백업 driver로, pg 도구를 **postgres 컨테이너 내부에서** 실행한다(주입된 exec) — host pg_dump가 서버와
+다른 major(여기 host는 psql 17.x)면 조용한 손상 위험이라 의도적으로 피한다. `pg_dumpall --roles-only
+--no-role-passwords`(역할, 비밀번호 제외)와 plain SQL `pg_dump`(스키마·데이터·grant·RLS policy)를 뜬 뒤
+새 컨테이너에 psql로 복원한다. 통합 테스트는 컨테이너 A를 채우고(2 tenant, org mutation 수직 + publish로
+stream_cursors + artifact intent/finalize) 백업→**새 컨테이너 B로 복원**→검증한다: migration checksum
+테이블 보존, org/audit/outbox/artifact row 수·내용 일치, audit 연속성(digest 보존), 복원 DB에서 RLS
+여전히 강제(tenant A만 보임), stream_cursors 일관성(복원 후 재개 publish가 시퀀스를 1로 되돌리지 않고
+다음 번호로 이어감). 위협모델 P1 Backup: DB에 credential이 없고(토큰은 client측), audit은 digest만
+저장함을 canary로 검증(백업 바이트에 canary 평문 부재·digest 존재, globals 덤프에 PASSWORD 없음).
+custom-format+pg_restore와 WAL/PITR은 production ops 관심사로 문서상 deferred(복원 스모크는 컨테이너 간
+텍스트 이동이 단순한 plain SQL을 사용 — 연속성·RLS·비밀 검증은 포맷 무관). **capability/버전 게이팅:**
+control-plane-api가 `GET /.well-known/pie`(getInstanceDiscovery)를 구현해 config 기반의 정직한 discovery
+문서(존재하는 endpoint api·realtime, 구현된 기능만 true인 capabilities, 최소버전 정책)를 서빙하고 응답을
+contract로 검증한다. 클라이언트측 평가기는 doc 16:65-66에 따라 Electron repo `src/shared/
+pie-instance-discovery.ts`에 순수 함수로 두었다: discovery를 zod로 검증하고 (appVersion, 지원 protocol)로
+supported/limited/needs-update를 분류한다 — 최소버전 미만·protocol major 초과면 needs-update, protocol
+minor 초과면 limited(연결되나 일부 기능 제한), 아니면 supported. R0 discovery fixture(valid·unknown-optional
+·lan-http·direct-password)와 old/current/future 버전 케이스로 세 상태를 구분함을 테스트한다(종료 조건 그대로).
+observability 대시보드, dead-letter table·job queue 일반화, 공개 인증 페이지 셸은 후속 R2로 남는다.
+
 ## R3: 인증·RBAC·Entitlement
 
 ### 목표
