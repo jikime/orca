@@ -159,8 +159,26 @@ onig.wasm과 Monaco worker를 `file://`에서 가져오기 때문이며, rendere
 --strict`, app.asar 레이아웃을 검사하며, 이것이 ELC-005의 `fuse-asar-signature-gate` 증거다. fuse
 읽기와 결정 로직은 pure 함수로 단위 테스트한다.
 
-R1 전체가 완료된 것은 아니다. 실제 서명 인증서를 사용하는 릴리스 서명·notarization gate와 기존
-프로필 migration dry-run·안전 모드는 후속 R1 slice로 남아 있다.
+같은 날 다섯 번째 slice `feat/pie-r1-profile-migration-dryrun`에서 기존 Orca 프로필의 감지·백업·
+마이그레이션 dry-run을 구현했다. 감지는 주입된 userData 경로를 읽기 전용으로 조사해 `none`(새 설치),
+`legacy-single-profile`(루트 orca-data.json), `multi-profile`(orca-profile-index.json)로 분류하고
+프로필별 파일 존재/누락, 손상 index의 `.bak` 복구 여부, orca-data.json의 top-level schemaVersion(없으면
+`unversioned`)을 인벤토리한다. 백업은 index와 프로필 데이터 파일을 `userData/pie/migration-backups/
+{runId}/`에 tmp+rename으로 복사하되, 암호화 자격증명 저장소(`pie/session-secrets`·claude/codex
+accounts·claude-runtime-auth·`*.enc`)와 `orchestration.db`는 복사하지 않고 manifest에 excluded-secret·
+excluded-database로만 기록한다. manifest는 마지막에 기록해 중단된 스냅샷은 manifest 부재로 폐기 대상이
+된다. dry-run 엔진은 provisional `pie/migration-target` projection 대비 항목을 create·merge·conflict·
+missing·sensitive-device-only로 분류하고 데이터를 이동하지 않으며, 두 번 실행해도 runId·timestamp를
+제외하면 같은 report를 낸다. report는 경로와 개수만 담고 파일 내용·token 값을 절대 포함하지 않으며
+`writeSecureJsonFile`로 `userData/pie/migration-reports/{runId}.json`에 권한 제한 저장한다. 표시명이
+아닌 안정적 id에서 경로를 파생하는 중앙 `pie-product-identity` 계약이 이 매핑을 고정하고, 앱 데이터
+디렉터리 naming·`orca://`·IPC·telemetry 키는 부수적으로 변경하지 않는다. 감지·백업·dry-run은 모두
+Main 전용이며 아직 renderer나 IPC로 노출하지 않는다. 실제 cutover(데이터 이동)와 안전 모드는 후속
+slice로 남고, 마이그레이션 데이터 노출을 위한 전용 threat-model gate는 아직 없으며 위협 모델 P1
+Backup 행에 매핑된다.
+
+R1 전체가 완료된 것은 아니다. 실제 서명 인증서를 사용하는 릴리스 서명·notarization gate와 프로필
+마이그레이션의 실제 cutover·안전 모드는 후속 R1 slice로 남아 있다.
 
 ### 종료 조건
 

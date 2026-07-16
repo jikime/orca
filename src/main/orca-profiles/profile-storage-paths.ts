@@ -10,6 +10,13 @@ const PROFILE_DIRECTORY_NAME = 'profiles'
 
 export const LEGACY_BACKUP_COUNT = 5
 
+// Why: IDs from the on-disk index become filesystem path segments; a tampered
+// index must not be able to escape the profiles directory. Shared so detection
+// and backup do not fork this rule.
+export function isValidOrcaProfileId(id: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id)
+}
+
 let profileUserDataPath: string | null = null
 
 export function initOrcaProfilePaths(): void {
