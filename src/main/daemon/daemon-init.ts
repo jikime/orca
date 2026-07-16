@@ -622,6 +622,18 @@ export function getDaemonProvider(): DaemonProvider | null {
   return adapter
 }
 
+export type DaemonLiveness = 'active' | 'degraded' | 'not-started'
+
+/** Coarse liveness for diagnostics: whether a provider is installed and whether
+ *  it is the degraded (no-daemon) fallback. Keeps the DegradedDaemonPtyProvider
+ *  classification with the other provider-instance checks in this module. */
+export function getDaemonLiveness(): DaemonLiveness {
+  if (!adapter) {
+    return 'not-started'
+  }
+  return adapter instanceof DegradedDaemonPtyProvider ? 'degraded' : 'active'
+}
+
 // Why: the "Restart daemon" flow rebuilds the current-protocol adapter and
 // must update both the module-level `adapter` singleton here and the
 // `localProvider` reference inside ipc/pty.ts. Without this helper they could

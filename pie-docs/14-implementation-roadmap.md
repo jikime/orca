@@ -177,8 +177,32 @@ Main 전용이며 아직 renderer나 IPC로 노출하지 않는다. 실제 cutov
 slice로 남고, 마이그레이션 데이터 노출을 위한 전용 threat-model gate는 아직 없으며 위협 모델 P1
 Backup 행에 매핑된다.
 
-R1 전체가 완료된 것은 아니다. 실제 서명 인증서를 사용하는 릴리스 서명·notarization gate와 프로필
-마이그레이션의 실제 cutover·안전 모드는 후속 R1 slice로 남아 있다.
+같은 날 여섯 번째 slice `feat/pie-r1-safe-mode-diagnostics`에서 안전 모드 메커니즘과 연결 진단
+번들 확장을 구현했다. 안전 모드는 startup/gpu-fallback-marker를 따른 schema-versioned 크래시 버스트
+마커(userData의 `safe-mode.json`, 빌드별 sticky, 정상 시작이나 앱·Electron 버전 변경 시 초기화,
+크래시 루프 중 원자적 write)로 연속 실패한 시작 횟수를 세고, 기본 임계값 3회 연속 실패 뒤 다음
+launch가 안전 모드로 부팅한다. `--safe-mode` CLI 플래그나 `PIE_SAFE_MODE=1` 환경변수로 강제할 수도
+있으며 플래그가 버스트보다 우선한다. 결정은 순수 함수이고 프로세스 상태는 Main에서 한 번 정해진 뒤
+읽기 전용이다(어떤 IPC 핸들러도 변경하지 못해 renderer가 서브시스템 보안을 끌 수 없다). 안전 모드는
+first-window startup seam에서 `guardStartupService`로 터미널 daemon과 agent hook server 시작을
+건너뛰어, 크래시를 유발하던 서브시스템이 복구 부팅에서 다시 실행되지 않게 한다. 창이 뜬 뒤 유예
+시간 동안 크래시 없이 살아남거나 사용자가 정상 종료(`before-quit`)하면 카운터를 지운다 — 유예
+시간보다 짧은 실행·종료 반복이 크래시 버스트로 오인되지 않게 한다. 진단 번들에는 `pie-connection-diagnostics` 수집기가
+Main/Renderer/Runtime/Relay 4-way 섹션을 추가한다 — 안전 모드 상태, Pie 세션 status와 instanceId만,
+보안 저장소 가용성(backend/reason), daemon liveness, 앱·Electron·platform을 필드 단위로 구성하고
+기존 server-mode redactor로 다시 한번 스크럽한 뒤 emit한다. Runtime과 Relay는 아직 없으므로
+`not-configured`로 정직하게 보고한다. 섹션은 composition root가 등록한 provider를 통해 기존
+`collectDiagnosticBundle`에 실려 consent·preview·upload 흐름은 바뀌지 않는다.
+
+안전 모드는 R1에서 메커니즘만 구현했다. 사용자에게 보이는 배너·복구 UI, on-demand로 실행되는 agent
+runtime과 Pie Runtime handshake의 gating(현재는 선언만 되고 startup launch가 아니라 미가드), 업데이트
+실패→안전 모드의 명시적 배선은 남아 있다. `updater-fallback.ts`는 상태 비교 helper라 트리거 seam이
+아니어서 배선하지 않았고, 업데이트로 유발된 시작 크래시는 크래시 버스트 경로가 일반적으로 이미
+포착한다. 마이그레이션 데이터 노출 전용 threat-model gate가 없는 점(위협 모델 P1 Backup 행 매핑)도
+그대로다.
+
+R1 전체가 완료된 것은 아니다. 실제 서명 인증서를 사용하는 릴리스 서명·notarization gate, 프로필
+마이그레이션의 실제 cutover, 안전 모드 UX와 업데이트 실패 복구 배선은 후속 R1 slice로 남아 있다.
 
 ### 종료 조건
 
