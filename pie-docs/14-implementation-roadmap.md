@@ -502,6 +502,33 @@ realtime, cross-tenant user 열거 차단, seed 멱등·drift를 검증한다. *
 이 기반에 대고 구현한다. **아직 남음:** reauth_required 상태·refresh token 회전(slice 2), stand-in 대체·
 RBAC 강제(slice 3), 초대·폐기 전파(slice 4), provisioning contract 정식화(contracts slice).
 
+2026-07-22 slice 2 `feat/pie-r3-electron-oidc`에서 Electron 시스템 브라우저 OIDC/PKCE 로그인 수직을
+구현해 R1 seam에 네트워크 호출을 채웠다(ROOT 저장소 src/main·src/shared, platform 미변경). **의존성
+결정: root lockfile에 아무것도 추가하지 않았다** — PKCE/S256/state/nonce는 node:crypto, 토큰 호출은
+fetch로 충분하고, ID 토큰 검증도 jose 없이 `crypto.createPublicKey({format:'jwk'})`+`crypto.verify`로
+JWKS 서명을 확인한다(RS256/ES256). **`src/main/pie-auth/` 모듈:** `oidc-discovery`(issuer의 discovery
+문서를 가져와 검증 — 문서의 issuer가 고정 issuer와 **정확히** 일치해야 하고, 모든 endpoint는 HTTPS이거나
+gate된 dev 예외로 loopback-HTTP여야 함, doc 31:134-135), `pkce-authorization-request`(node:crypto로
+verifier 43–128자·S256 challenge·state[R1 broker의 base64url 32–256 패턴 충족]·nonce, authorize URL —
+verifier는 절대 미포함), `loopback-callback-server`(RFC 8252: 127.0.0.1 ephemeral 포트, single-shot,
+state 검증, 토큰 없는 "앱으로 돌아가기" 페이지, hard timeout — **선호 모드**), `callback-channel`(loopback과
+pie:// 딥링크[R1 `pieAuthCallbackBroker`]를 한 인터페이스 뒤에 두고 fallback), `token-exchange`(authorization_
+code+refresh grant, **public client — secret 없음**), `id-token-verifier`(서명+iss+aud+exp+**nonce** 검증,
+AUT-001), `pie-auth-service`(합성: instance discovery→OIDC discovery→채널 열기→`shell.openExternal`[임베디드
+webview 절대 아님]→콜백 대기→state 검증→코드 교환→nonce 검증→플랫폼 `/v1/session`+첫 로그인 시
+`/v1/provisioning`→PieSessionState→`handleLoginSuccess`; 만료 전 회전→`handleTokenRotation`, 회전/refresh
+실패→session broker에 `reauth_required`; 로그아웃→`handleLogout`+Keycloak end_session best-effort; verifier/
+state/nonce/loopback 서버 등 임시값은 사용 즉시 폐기). realtime처럼 **dev-gated**(`PIE_AUTH_DISCOVERY_URL`,
+production 자동시작 없음, 로그인은 명시적 트리거)이고 안전모드에서 `pie-auth`를 게이트한다. access token은
+Main 메모리에만, refresh token만 SessionSecretStore에, renderer는 기존 broker IPC로만 세션 상태를 받는다
+(PieSessionState의 토큰키 금지 유지). **테스트:** mock OIDC 서버(discovery/token/JWKS)+mock 플랫폼(session/
+provisioning)로 discovery 검증(issuer mismatch·non-HTTPS 거부·loopback dev 예외)·PKCE 적합성·loopback
+캡처/state 거부/timeout/토큰 없는 페이지·**실 `pieAuthCallbackBroker` 딥링크 fallback**·토큰 교환+refresh+
+nonce mismatch 거부·전체 흐름·refresh 회전→양 토큰 교체·refresh 실패→reauth_required·로그아웃·**SessionSecretStore가
+refresh만 보고 access는 못 봄(canary)**·broker 이벤트에 토큰 문자열 부재(canary)를 검증한다. 오케스트레이터가
+리뷰 후 실 Keycloak 교차 스모크를 돌린다. **아직 남음:** stand-in 대체·RBAC 강제(slice 3), 초대·폐기 전파
+(slice 4).
+
 ## R4: 프로젝트·업무 포털
 
 ### 목표

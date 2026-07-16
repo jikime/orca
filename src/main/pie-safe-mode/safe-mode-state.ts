@@ -12,6 +12,7 @@ export type SafeModeSubsystem =
   | 'agent-runtimes'
   | 'pie-runtime-handshake'
   | 'pie-realtime'
+  | 'pie-auth'
 
 export type SafeModeReason = 'crash-burst' | 'flag'
 
@@ -28,7 +29,10 @@ export type SafeModeState = {
 export const SAFE_MODE_GATED_SUBSYSTEMS: readonly SafeModeSubsystem[] = [
   'terminal-daemon',
   'agent-hooks',
-  'pie-realtime'
+  'pie-realtime',
+  // The login flow opens the system browser + network; gated so a crash-burst
+  // recovery boot never auto-starts it (it checks before running).
+  'pie-auth'
 ]
 
 export const SAFE_MODE_CLI_FLAG = '--safe-mode'
