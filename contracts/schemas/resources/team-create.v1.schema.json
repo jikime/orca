@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/team-create.v1.schema.json",
+  "title": "Create team request",
+  "type": "object",
+  "required": ["key", "name"],
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]{1,9}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    }
+  },
+  "additionalProperties": false
+}

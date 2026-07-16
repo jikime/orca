@@ -10,6 +10,7 @@ import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
+import { registerDeliveryRoutes } from './delivery-routes'
 import { registerInvitationRoutes } from './invitation-routes'
 import { registerRevocationRoutes } from './revocation-routes'
 import type { KeycloakTokenVerifier } from './keycloak-token-verifier'
@@ -63,6 +64,20 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
   const ajv = new Ajv2020({ allErrors: true, strict: false })
   addFormats(ajv)
   app.setValidatorCompiler(({ schema }) => ajv.compile(schema))
+
+  // RFC 7386 merge-patch: the contract types PATCH bodies as
+  // application/merge-patch+json, which Fastify does not parse by default.
+  app.addContentTypeParser(
+    'application/merge-patch+json',
+    { parseAs: 'string' },
+    (_request, body, done) => {
+      try {
+        done(null, JSON.parse(body as string))
+      } catch (error) {
+        done(error as Error, undefined)
+      }
+    }
+  )
 
   app.decorateRequest('traceId', '')
   app.decorateRequest('traceparent', '')
@@ -134,6 +149,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       instanceId: (deps.discoveryConfig ?? loadDiscoveryConfig()).instanceId
     })
     registerInvitationRoutes(app, { db: deps.db })
+    registerDeliveryRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {
       registerRevocationRoutes(app, { db: deps.db, gateway: deps.gateway })
     }

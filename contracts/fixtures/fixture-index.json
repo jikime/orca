@@ -140,6 +140,18 @@
       "expectedValid": true
     },
     {
+      "name": "team create request",
+      "schemaId": "https://schemas.pielab.ai/resources/team-create.v1.schema.json",
+      "document": "valid/team-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "team create rejects a bad key",
+      "schemaId": "https://schemas.pielab.ai/resources/team-create.v1.schema.json",
+      "document": "invalid/team-create-bad-key.json",
+      "expectedValid": false
+    },
+    {
       "name": "renderer session request",
       "schemaId": "https://schemas.pielab.ai/ipc/renderer-session-get-request.v1.schema.json",
       "document": "valid/ipc-session-get-request.json",

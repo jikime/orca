@@ -344,6 +344,20 @@ platform 156 tests green(+18), lint 0, contracts OK, root src 미변경. **R3 au
 남은 R3: MFA/복구/step-up(AUT-006)·Passkey. R4 대기: projects/storage metering·resource-scoped op·subscription
 생성. 상시 gap: provisioning/invite/revoke/entitlement op OpenAPI 미계약, ClientHello auth 필드 없음.
 
+2026-07-26 R4 시작. slice 1(delivery 기반+Team+Project) 구현(platform 전용, root src 미변경). **contracts 확장
+개시(R4는 계약 확장이 범위): additive `createTeam`/`getTeam` op + `team-create.v1` 스키마+fixture, check:contracts
+green(20 op/60 schema/51 fixture).** **선행 배관:** resource-scoped 인가 헬퍼 `authorizeResourcePermission`
+(R3 slice5 evaluator resource-scope의 **첫 실 소비자**), core.projects entitlement(core.members 패턴,
+createProject 402≠project.create 403, distinct 감사). **migration `20260726090001`:** delivery schema, 복합
+(org_id,id) 키·복합 FK(doc 30:104-136), teams(key ^[A-Z][A-Z0-9]{1,9}$)·team_counters·projects(project.v1)·
+project_teams(같은 tenant FK). **결정: merged provisionOwner 확장으로 org 생성 tx에서 기본 Team(CORE) 생성**
+(created 분기만, 멱등 무회귀). Team(create team.manage/get/list) + Project(list/create/get/update). **createProject
+=권한+entitlement→한 tx(project+team link+audit+outbox project.created)→realtime 무-plumbing 전달**. updateProject
+merge-patch+If-Match/ETag→412. **getProject=authorizeResourcePermission(project.read) — ResourceGrant 첫 실
+소비자(narrow grant→역할 있어도 거부).** merge-patch+json parser 추가. 테스트: delivery RLS·Team(dup key·기본 팀)·
+Project(realtime·402·412·narrow 거부). platform 167 tests green(+11), lint 0, contracts green, root src 미변경.
+slice 2=WorkItem+Board, slice 3=My Work+Core Gate.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
