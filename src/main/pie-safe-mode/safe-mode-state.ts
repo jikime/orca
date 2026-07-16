@@ -11,6 +11,7 @@ export type SafeModeSubsystem =
   | 'agent-hooks'
   | 'agent-runtimes'
   | 'pie-runtime-handshake'
+  | 'pie-realtime'
 
 export type SafeModeReason = 'crash-burst' | 'flag'
 
@@ -22,10 +23,12 @@ export type SafeModeState = {
 
 // Subsystems safe mode actually gates today. agent-runtimes and
 // pie-runtime-handshake launch on demand (not at startup) and are not yet
-// guarded — tracked as a known gap in the desktop-lifecycle docs.
+// guarded — tracked as a known gap in the desktop-lifecycle docs. pie-realtime
+// checks isSafeModeSubsystemDisabled before connecting, so it is gated here.
 export const SAFE_MODE_GATED_SUBSYSTEMS: readonly SafeModeSubsystem[] = [
   'terminal-daemon',
-  'agent-hooks'
+  'agent-hooks',
+  'pie-realtime'
 ]
 
 export const SAFE_MODE_CLI_FLAG = '--safe-mode'

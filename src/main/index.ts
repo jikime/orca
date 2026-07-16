@@ -27,6 +27,7 @@ import { initDaemonPtyProvider, disconnectDaemon, shutdownDaemon } from './daemo
 import { closeAllWatchers } from './ipc/filesystem-watcher'
 import { disposeWorktreeBaseDirectoryWatchers } from './ipc/worktree-base-directory-watcher'
 import { registerCoreHandlers } from './ipc/register-core-handlers'
+import { startPieRealtimeIfEnabled, stopPieRealtime } from './pie-realtime/realtime-service'
 import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
@@ -245,6 +246,7 @@ let headlessBrowserDisplayAvailable = false
 let starNag: StarNagService | null = null
 let agentAwakeService: AgentAwakeService | null = null
 let crashReports: CrashReportStore | null = null
+let pieRealtimeStarted = false
 let unsubscribeAgentAwakeStatusChanges: (() => void) | null = null
 let unsubscribeSystemResumeBroadcast: (() => void) | null = null
 let watcherShutdownPromise: Promise<void> | null = null
@@ -1105,6 +1107,13 @@ function openMainWindow(): BrowserWindow {
       onBeforeOrcaProfileSignOut: () => desktopRelayService?.fenceAndCloseNow()
     }
   )
+  // Why: dev-gated Realtime client. startPieRealtimeIfEnabled is a no-op unless
+  // PIE_REALTIME_URL + org are set and safe mode has not disabled 'pie-realtime';
+  // guarded so a macOS window re-open (openMainWindow) does not open a second one.
+  if (!pieRealtimeStarted) {
+    pieRealtimeStarted = true
+    startPieRealtimeIfEnabled()
+  }
   automations.setWebContents(window.webContents)
   automations.start()
   attachMainWindowServices(
@@ -2500,6 +2509,8 @@ app.on('will-quit', (e) => {
     // quit chain.
     // Why: normal quits preserve the detached daemon for warm reattach, but a
     // dev parent dying means the temp/dev profile has no owner left to reattach.
+    // Close the dev-gated Realtime client (no-op if it never connected).
+    stopPieRealtime()
     const daemonTeardown = isDevParentShutdownRequested() ? shutdownDaemon() : disconnectDaemon()
     Promise.allSettled([daemonTeardown, rpcStopAndClear, watcherShutdown, emulatorShutdown])
       .then(() => shutdownTelemetry())

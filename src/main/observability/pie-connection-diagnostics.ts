@@ -21,9 +21,20 @@ import { redactValue } from './redactor'
  * yet, so they report not-configured to keep the doc's 4-way shape from day one.
  */
 
-export const PIE_CONNECTION_DIAGNOSTICS_SCHEMA_VERSION = 1
+// v2 adds the `realtime` subsection (additive; older readers ignore it).
+export const PIE_CONNECTION_DIAGNOSTICS_SCHEMA_VERSION = 2
 
 export type PieDaemonLiveness = 'active' | 'degraded' | 'not-started' | 'unknown'
+
+// Realtime client connection state (its own concern, distinct from runtime/relay).
+export type PieRealtimeConnectionState =
+  | 'disabled'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'resync-needed'
+  | 'revoked'
+  | 'stopped'
 
 export type PieConnectionDiagnosticsSection = {
   type: 'pie-connection-diagnostics'
@@ -40,6 +51,7 @@ export type PieConnectionDiagnosticsSection = {
   }
   secureStorage: PieSecureStorageAvailability
   daemon: { liveness: PieDaemonLiveness }
+  realtime: { state: PieRealtimeConnectionState }
   runtime: { status: 'not-configured' }
   relay: { status: 'not-configured' }
   app: {
@@ -55,6 +67,8 @@ export type PieConnectionDiagnosticsSources = {
   sessionBroker: Pick<DesktopSessionBroker, 'getState'>
   safeStorage: PieSafeStorageLike
   getDaemonLiveness: () => PieDaemonLiveness
+  // Optional: absent until the Realtime client is wired in; defaults to disabled.
+  getRealtimeState?: () => PieRealtimeConnectionState
   environment: {
     appVersion: string
     electronVersion: string
@@ -85,6 +99,7 @@ export function collectPieConnectionDiagnostics(
       sources.environment.platform
     ),
     daemon: { liveness: sources.getDaemonLiveness() },
+    realtime: { state: sources.getRealtimeState?.() ?? 'disabled' },
     runtime: { status: 'not-configured' },
     relay: { status: 'not-configured' },
     app: {

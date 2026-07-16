@@ -19,6 +19,7 @@ function makeSources(overrides: {
   encryptionAvailable?: boolean
   backend?: string
   daemonLiveness?: PieDaemonLiveness
+  realtimeState?: 'disabled' | 'connected' | 'reconnecting'
   platform?: NodeJS.Platform
 }): PieConnectionDiagnosticsSources {
   const sessionState = overrides.sessionState ?? {
@@ -37,6 +38,7 @@ function makeSources(overrides: {
         : { getSelectedStorageBackend: () => overrides.backend as string })
     },
     getDaemonLiveness: () => overrides.daemonLiveness ?? 'active',
+    getRealtimeState: () => overrides.realtimeState ?? 'disabled',
     environment: {
       appVersion: '1.4.142',
       electronVersion: '38.0.0',
@@ -50,11 +52,13 @@ describe('collectPieConnectionDiagnostics', () => {
   it('emits the expected four-way shape with subsystems mocked', () => {
     const section = collectPieConnectionDiagnostics(makeSources({ daemonLiveness: 'active' }))
     expect(section.type).toBe('pie-connection-diagnostics')
-    expect(section.schemaVersion).toBe(1)
+    expect(section.schemaVersion).toBe(2)
     expect(section.collectedAt).toBe(new Date(1_700_000_000_000).toISOString())
     expect(section.session).toEqual({ status: 'signed_out', instanceId: 'local-desktop' })
     expect(section.secureStorage).toEqual({ available: true, backend: 'keychain' })
     expect(section.daemon).toEqual({ liveness: 'active' })
+    // Realtime defaults to disabled until the client is dev-gated on.
+    expect(section.realtime).toEqual({ state: 'disabled' })
     // Runtime and Relay do not exist yet — reported honestly, not omitted.
     expect(section.runtime).toEqual({ status: 'not-configured' })
     expect(section.relay).toEqual({ status: 'not-configured' })
@@ -80,6 +84,11 @@ describe('collectPieConnectionDiagnostics', () => {
       reason: 'crash-burst',
       disabledSubsystems: ['terminal-daemon', 'agent-hooks']
     })
+  })
+
+  it('reflects the realtime connection state', () => {
+    const section = collectPieConnectionDiagnostics(makeSources({ realtimeState: 'connected' }))
+    expect(section.realtime).toEqual({ state: 'connected' })
   })
 
   it('reports secure storage as unavailable without a trusted backend', () => {
