@@ -211,6 +211,18 @@ resource-change라 slice 2의 Worker→Realtime 경로가 `artifact.created`를 
 SeaweedFS)로 key 격리·presign 왕복·intent 멱등·finalize 원자성+WS 실시간·localPath 거부·cross-tenant
 finalize 404를 검증한다. multipart·object 삭제·quarantine scan·download presign·backup은 후속으로 남는다.
 
+2026-07-19 slice 4로 백업·복원 연속성과 앱 최소버전·capability 게이팅을 추가해 R2의 남은 두 종료
+조건을 닫았다. `database-backup.ts`는 논리 백업 driver(pg 도구를 postgres 컨테이너 내부에서 실행 —
+host pg_dump major mismatch 위험 회피; `pg_dumpall --roles-only --no-role-passwords` + plain SQL
+`pg_dump`). 복원 스모크는 컨테이너 A(2 tenant + org 수직 + publish + artifact intent/finalize) 백업→새
+컨테이너 B 복원→migration checksum·row 수·audit 연속성·복원 DB RLS 강제·stream_cursors 일관성(재개
+publish가 다음 시퀀스로 이어감)을 검증하고, P1 Backup을 canary로 확인(백업에 평문 secret 부재, audit
+digest만, globals에 PASSWORD 없음). custom-format+WAL/PITR은 ops로 deferred. `GET /.well-known/pie`를
+config 기반 정직한 값으로 서빙하고 contract 검증한다. 클라이언트 버전 평가기는 `src/shared/
+pie-instance-discovery.ts`(Electron repo) 순수 함수로 supported/limited/needs-update를 분류하고 R0
+discovery fixture + old/current/future 버전으로 세 상태를 검증한다. observability 대시보드·dead-letter
+일반화·공개 인증 페이지는 후속으로 남는다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

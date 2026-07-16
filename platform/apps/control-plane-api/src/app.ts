@@ -8,6 +8,8 @@ import type { WebSocket } from 'ws'
 import { registerArtifactRoutes } from './artifact-routes'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { registerControlPlaneRoutes } from './control-plane-routes'
+import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
+import { registerDiscoveryRoute } from './discovery-route'
 import { registerHealthRoutes, type HealthDeps } from './health-routes'
 import { registerProblemDetails } from './problem-details'
 import type { RealtimeGateway, RealtimeSocket } from './realtime-gateway'
@@ -28,6 +30,7 @@ export type BuildAppDeps = HealthDeps & {
   registry?: ContractSchemaRegistry
   gateway?: RealtimeGateway
   objectStorage?: ObjectStorage
+  discoveryConfig?: DiscoveryConfig
 }
 
 function adaptWebSocket(socket: WebSocket): RealtimeSocket {
@@ -86,6 +89,15 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       return { echoed: body.message }
     }
   )
+
+  if (deps.registry) {
+    // Discovery needs only the contract registry (no DB), so it is available
+    // even in the dependency-light configurations.
+    registerDiscoveryRoute(app, {
+      registry: deps.registry,
+      config: deps.discoveryConfig ?? loadDiscoveryConfig()
+    })
+  }
 
   if (deps.db && deps.registry) {
     registerControlPlaneRoutes(app, { db: deps.db, registry: deps.registry })
