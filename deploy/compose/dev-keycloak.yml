@@ -1,0 +1,45 @@
+# Local-dev Keycloak for the Pie Control Plane identity provider (ADR-0009).
+#
+# Keycloak owns credentials, email verification, MFA, and Passkey; Pie owns
+# issuer+subject mapping, Organization, Membership, Role and Permission. This is a
+# STANDALONE dev file matching dev-postgres.yml / dev-object-storage.yml; the full
+# core profile (reverse proxy, shared cluster) lands later.
+#
+# The realm is imported from deploy/keycloak/pie-realm.json — the SINGLE source
+# that the integration tests also import via testcontainers, so dev and test agree
+# on the realm, the PUBLIC pie-desktop client, and PKCE S256.
+#
+# start-dev runs an in-memory dev database and disables production hardening — it
+# is for local iteration ONLY, never a deployed environment. The admin creds below
+# are DEV-ONLY placeholders (admin/admin); production provisions them out of band.
+#
+# Usage:
+#   docker compose -f deploy/compose/dev-keycloak.yml up -d --wait
+#   Issuer:   http://localhost:8088/realms/pie   (default port 8088)
+#   Admin UI: http://localhost:8088/  (admin/admin)
+
+services:
+  pie-keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: pie-dev-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${PIE_KC_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${PIE_KC_ADMIN_PASSWORD:-admin}
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      # 8088 by default so a developer's own local 8080 is untouched.
+      - "${PIE_KC_PORT:-8088}:8080"
+    volumes:
+      # Realm import: the same file the tests use. Read-only mount.
+      - ../keycloak/pie-realm.json:/opt/keycloak/data/import/pie-realm.json:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 40

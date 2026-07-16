@@ -1,8 +1,16 @@
-import { createDatabase, createDatabasePool, pingDatabase } from '@pie/persistence'
+import {
+  createDatabase,
+  createDatabasePool,
+  pingDatabase,
+  seedRoleManifest
+} from '@pie/persistence'
 import pino from 'pino'
 import { buildApp } from './app'
 import { loadApiConfig } from './config'
+import { loadAuthConfig } from './auth-config'
 import { createContractSchemaRegistry } from './contract-schema-registry'
+import { loadDiscoveryConfig } from './discovery-config'
+import { createKeycloakTokenVerifier } from './keycloak-token-verifier'
 import { loadObjectStorageFromEnv } from './object-storage-config'
 import { createRealtimeGateway } from './realtime-gateway'
 
@@ -22,12 +30,21 @@ async function main(): Promise<void> {
   if (objectStorage) {
     await objectStorage.ensureBucket()
   }
+  // Materialize the role/permission vocabulary so the DB is self-contained and
+  // manifest drift is detectable (idempotent — no-op when already current).
+  await seedRoleManifest(db)
+  const discoveryConfig = loadDiscoveryConfig()
+  const tokenVerifier = createKeycloakTokenVerifier(
+    loadAuthConfig(process.env, discoveryConfig.issuer)
+  )
   const app = buildApp({
     ping: () => pingDatabase(pool),
     logger: true,
     db,
     registry,
     gateway,
+    discoveryConfig,
+    tokenVerifier,
     ...(objectStorage ? { objectStorage } : {})
   })
 
