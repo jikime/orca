@@ -54,6 +54,39 @@ export interface MembershipsTable {
   updated_at: TimestampColumn
 }
 
+export interface InvitationsTable {
+  id: Generated<string>
+  organization_id: string
+  email: string
+  user_type: string
+  role_ids: ColumnType<string[], string[] | undefined, string[]>
+  customer_scope: string | null
+  project_scope: string | null
+  token_hash: string
+  status: Generated<string>
+  expires_at: TimestampColumn
+  accepted_at: NullableTimestampColumn
+  accepted_by: string | null
+  created_by: string | null
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface DeviceSessionsTable {
+  id: Generated<string>
+  session_id: string
+  family_id: Generated<string>
+  user_id: string
+  issuer: string
+  subject: string
+  status: Generated<string>
+  rotation_counter: Generated<number>
+  revoked_reason: string | null
+  created_at: TimestampColumn
+  last_seen_at: TimestampColumn
+  revoked_at: NullableTimestampColumn
+}
+
 export interface RolesTable {
   id: string
   scope: string
@@ -234,6 +267,8 @@ export interface Database {
   'identity.organizations': OrganizationsTable
   'identity.user_accounts': UserAccountsTable
   'identity.memberships': MembershipsTable
+  'identity.invitations': InvitationsTable
+  'identity.device_sessions': DeviceSessionsTable
   'identity.roles': RolesTable
   'identity.permissions': PermissionsTable
   'identity.role_permissions': RolePermissionsTable

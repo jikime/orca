@@ -37,3 +37,9 @@ export function stopPieAuthService(): void {
   currentService?.stop()
   currentService = null
 }
+
+/** Routes a pie://invite token to the auth service (logs in if needed, then joins
+ *  the org). No-op when auth is not dev-gated on. */
+export async function acceptPieInvite(inviteToken: string): Promise<void> {
+  await currentService?.acceptInvite(inviteToken)
+}

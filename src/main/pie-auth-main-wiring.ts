@@ -3,6 +3,7 @@ import { desktopSessionBroker } from './pie-session/desktop-session-broker'
 import { PieSessionTokenLifecycle } from './pie-session/pie-session-token-lifecycle'
 import { SafeStorageSessionSecretStore } from './pie-session/safe-storage-session-secret-store'
 import {
+  acceptPieInvite,
   getPieAuthAccessToken,
   initPieAuthServiceIfEnabled,
   stopPieAuthService
@@ -28,4 +29,4 @@ export function startPieAuthMainIfEnabled(): void {
   })
 }
 
-export { getPieAuthAccessToken, stopPieAuthService }
+export { acceptPieInvite, getPieAuthAccessToken, stopPieAuthService }

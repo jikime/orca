@@ -22,12 +22,16 @@ export function createGatewayConnectionAuthorizer(
     } catch {
       return { authorized: false, reason: 'invalid_token' }
     }
-    const { decision } = await authorizeSubjectForOrg(
+    const { decision, userId } = await authorizeSubjectForOrg(
       db,
       { issuer: principal.issuer, subject: principal.subject },
       organizationId,
       'organization.read'
     )
-    return { authorized: decision.allowed, reason: decision.allowed ? undefined : decision.reason }
+    return {
+      authorized: decision.allowed,
+      reason: decision.allowed ? undefined : decision.reason,
+      ...(userId ? { userId } : {})
+    }
   }
 }

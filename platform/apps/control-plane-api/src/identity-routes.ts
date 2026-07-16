@@ -3,6 +3,7 @@ import {
   getSessionState,
   listMembershipsForMember,
   provisionOwner,
+  recordDeviceSession,
   type PieDatabase
 } from '@pie/persistence'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
@@ -66,6 +67,16 @@ export function registerIdentityRoutes(app: FastifyInstance, deps: IdentityRoute
         ? { issuer: principal.issuer, subject: principal.subject, expiresAt: principal.expiresAt }
         : null
     })
+    // Establish the Pie session record (keyed on the token's sid) so revocation can
+    // reject this session at the next request even before the token expires.
+    if (state.status === 'signed_in' && principal?.sessionId) {
+      await recordDeviceSession(deps.db, {
+        sessionId: principal.sessionId,
+        userId: state.userId,
+        issuer: principal.issuer,
+        subject: principal.subject
+      })
+    }
     assertResponseMatchesContract(deps.registry, SESSION_STATE_SCHEMA_ID, state)
     return state
   })

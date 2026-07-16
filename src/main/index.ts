@@ -29,10 +29,12 @@ import { disposeWorktreeBaseDirectoryWatchers } from './ipc/worktree-base-direct
 import { registerCoreHandlers } from './ipc/register-core-handlers'
 import { startPieRealtimeIfEnabled, stopPieRealtime } from './pie-realtime/realtime-service'
 import {
+  acceptPieInvite,
   getPieAuthAccessToken,
   startPieAuthMainIfEnabled,
   stopPieAuthService
 } from './pie-auth-main-wiring'
+import { isPieInviteUrl, parsePieInviteUrl } from './pie-deep-link/pie-invite-link'
 import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
@@ -516,6 +518,20 @@ function requestDesktopActivation(): void {
 type PieDeepLinkSource = 'initial-launch' | 'macos-open-url' | 'second-instance'
 
 function dispatchPieAuthCallback(rawUrl: string, source: PieDeepLinkSource): boolean {
+  // pie://invite/<token> is a sibling deep link (unsolicited token, not a state
+  // callback). Route it to the auth service, which logs in if needed then accepts.
+  if (isPieInviteUrl(rawUrl)) {
+    const invite = parsePieInviteUrl(rawUrl)
+    if (!invite.ok) {
+      // Never log the token; only bounded reason codes.
+      console.warn(`[pie-deep-link] Rejected ${source} invite: ${invite.reason}`)
+      return invite.reason !== 'not-invite-link'
+    }
+    void acceptPieInvite(invite.token).catch((error) => {
+      console.warn(`[pie-deep-link] invite acceptance failed: ${String(error)}`)
+    })
+    return true
+  }
   const result = pieAuthCallbackBroker.dispatch(rawUrl)
   if (result.status === 'rejected') {
     // Why: callback URLs contain short-lived credentials, so diagnostics expose only bounded reason codes.

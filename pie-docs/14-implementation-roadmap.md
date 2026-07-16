@@ -563,6 +563,37 @@ root pie-realtime changes-fetch가 bearer 전송·stand-in 헤더 부재·토큰
 root 100 tests(pie-realtime/auth/session/safe-mode) green, root lockfile 무변경. **남음:** ResourceGrant
 narrowing·entitlement/UsageMeter·resource-scoped grant(다음 authorization slice), 초대·폐기 전파(slice 4).
 
+2026-07-24 slice 4 `feat/pie-r3-invite-revocation`에서 **초대 흐름 + 세션·토큰 폐기 전파**를 구현해 남은 R3
+종료 조건을 닫았다(platform + root). **Part A 초대(doc 01:81-94):** migration `identity.invitations`는 **원본
+토큰이 아니라 해시만** 저장하고(doc 01:88), 역할 템플릿(manifest 검증), 대상 이메일, 만료, 단일 사용
+(accepted_at), org-scoped RLS를 가진다. `createInvitation`(member.invite=owner/admin만; 원본 토큰을 한 번만
+반환, R2 이메일 seam이 로깅—실제 발송 없음, audit)·`revokeInvitation`(수락 전 취소)·`acceptInvitation`(한
+tx로 token 해시+만료+미사용+**대상 이메일=검증 토큰 subject 이메일**+org 상태 확인→소비[accepted]+**초대에
+고정된 역할로 Membership 생성**+audit+outbox `membership.created`→Realtime). **단일 사용 재수락 거부·교차
+이메일/교차 org 재사용 구조적 차단**(토큰은 org+email에 바인딩, 생성 membership은 초대의 것이지 호출자
+선택 아님)—AUT-004 `invitation-replay-cross-tenant-suite`. `pie://invite/<token>` 딥링크는 **auth-callback
+broker의 형제 파서**(`pie-invite-link.ts`)로 구현했다(초대는 state 핸드셰이크 없는 unsolicited 토큰 전달이라
+state-매칭 broker에 얹지 않음—판단·보고); ROOT Main이 딥링크 수신 시 필요하면 OIDC 로그인 후
+`acceptInvite`를 호출한다. **Part B 폐기 전파(doc 01:150-163):** `identity.device_sessions`는 **Keycloak
+session id(access token `sid` claim)로 키잉**되고 family·rotation 마커를 가진다. **Keycloak-vs-Pie 경계
+결정: Keycloak이 credential과 실제 refresh 토큰 회전·자체 재사용 탐지를 소유하고, Pie는 세션 메타데이터 +
+폐기 결정 + 다음-요청 강제를 소유한다**(ADR-0009). verifier가 sid로 `isSessionRevoked`를 조회해 **폐기된
+세션의 토큰을 만료 전에도 다음 요청부터 거부**(AUT-005 `revoke-propagation-offline-suite`). membership 폐기는
+**기존 RBAC status 검사로 다음 요청부터 자동 거부**되고, gateway가 해당 user의 라이브 연결에 `session.revoked`
+(contract 존재, 이유 membership_revoked)를 push한다(연결에 userId 저장). `rotateSessionFamily`는 Pie측 회전
+마커—**stale 마커 재생 시 family 전체 폐기**(AUT-002 `refresh-token-family-reuse-suite`). `revokeMembership`은
+**마지막 organization_owner 제거를 차단**하고 owner 행 FOR UPDATE 락으로 동시성 안전(두 동시 제거 중 하나만
+성공)—TEN-005 `last-owner-concurrency-suite`. 세션 폐기 라우트: 현재/전체/현재외 전체(doc 01:157). **모든
+초대·폐기 라우트는 OpenAPI에 없음→to-be-contracted 내부 라우트로 구현+플래그(wire 계약 미확장).** 테스트:
+초대 4 suite(생성→수락·재수락 거부·교차이메일·만료·revoked·해시만 저장·역할 고정), device-session
+(회전·재사용→family 폐기·revoke one/all-but-current), last-owner(차단·동시성·revoke→RBAC 거부), API
+revoke-propagation(membership 폐기→다음 요청 403+`session.revoked` WS·세션 폐기→다음 요청 401·last-owner
+409·초대 HTTP 왕복), root invite-link 파서. platform 138 tests + root 78 tests green, root lockfile 무변경.
+**이로써 R3 종료 조건 충족:** 서로 다른 권한 로그인(slice 1-3)·다른 조직 ID 직접 요청 거부(slice 3)·**역할·
+세션 폐기가 다음 요청부터 반영**(slice 4)·**초대 재사용·refresh token 재사용·마지막 소유자 공격 차단**
+(slice 4); permission vs entitlement 구분은 reason 코드로 distinct-ready(entitlement 모델 자체는 후속).
+**남은 R3(후속 slice):** MFA·복구·step-up(AUT-006)·Passkey, entitlement/UsageMeter, ResourceGrant narrowing.
+
 ## R4: 프로젝트·업무 포털
 
 ### 목표
