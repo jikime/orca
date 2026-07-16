@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/ipc/renderer-session-changed.v1.schema.json",
+  "title": "Renderer session changed event",
+  "type": "object",
+  "required": ["type", "protocolVersion", "sequence", "session"],
+  "properties": {
+    "type": {
+      "const": "session.changed"
+    },
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "session": {
+      "$ref": "https://schemas.pielab.ai/resources/session-state.v1.schema.json"
+    }
+  }
+}

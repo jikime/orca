@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/project.v1.schema.json",
+  "title": "Project",
+  "type": "object",
+  "required": ["id", "organizationId", "name", "status", "version", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "summary": {
+      "type": ["string", "null"],
+      "maxLength": 2000
+    },
+    "status": {
+      "enum": ["planned", "active", "paused", "completed", "cancelled"]
+    },
+    "version": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "archivedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

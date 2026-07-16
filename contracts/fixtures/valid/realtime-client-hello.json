@@ -1,0 +1,9 @@
+{
+  "type": "client.hello",
+  "schemaVersion": 1,
+  "protocolVersion": "1.0",
+  "instanceId": "company-pie-prod",
+  "organizationId": "11111111-1111-4111-8111-111111111111",
+  "lastCursor": "cursor-00000042",
+  "capabilities": ["resource.changed.v1", "session.revoked.v1"]
+}

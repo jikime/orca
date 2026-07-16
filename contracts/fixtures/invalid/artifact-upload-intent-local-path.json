@@ -1,0 +1,11 @@
+{
+  "projectId": "10000000-0000-4000-8000-000000000002",
+  "workItemId": null,
+  "name": "report.pdf",
+  "contentType": "application/pdf",
+  "sizeBytes": 4096,
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "classification": "internal",
+  "visibility": "internal",
+  "localPath": "/private/project/report.pdf"
+}

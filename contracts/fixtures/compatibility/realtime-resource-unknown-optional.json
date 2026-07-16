@@ -1,0 +1,13 @@
+{
+  "type": "resource.changed",
+  "schemaVersion": 1,
+  "eventId": "77777777-7777-4777-8777-777777777777",
+  "cursor": "cursor-00000044",
+  "organizationId": "11111111-1111-4111-8111-111111111111",
+  "resourceType": "project",
+  "resourceId": "33333333-3333-4333-8333-333333333333",
+  "changeKind": "updated",
+  "version": 4,
+  "occurredAt": "2026-07-15T11:00:00Z",
+  "futureProjectionHint": "ignored-by-v1"
+}

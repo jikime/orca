@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/mcp/artifact-register-output.v1.schema.json",
+  "title": "pie.artifacts.register output",
+  "type": "object",
+  "required": ["artifact", "correlationId"],
+  "properties": {
+    "artifact": {
+      "$ref": "https://schemas.pielab.ai/resources/artifact.v1.schema.json"
+    },
+    "correlationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    }
+  }
+}

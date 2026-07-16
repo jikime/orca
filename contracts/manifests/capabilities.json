@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "capabilities": [
+    { "id": "core.organizations", "requiredProfile": "core" },
+    { "id": "core.memberships", "requiredProfile": "core" },
+    { "id": "core.teams", "requiredProfile": "core" },
+    { "id": "core.projects", "requiredProfile": "core" },
+    { "id": "core.work_items", "requiredProfile": "core" },
+    { "id": "realtime.resource_changes", "requiredProfile": "core" },
+    { "id": "runtime.handshake_v1", "requiredProfile": "desktop" },
+    { "id": "runtime.bounded_streams", "requiredProfile": "desktop" },
+    { "id": "agent.event_ingest_v1", "requiredProfile": "core" },
+    { "id": "mcp.project_tools_v1", "requiredProfile": "desktop" },
+    { "id": "mcp.artifact_register_v1", "requiredProfile": "desktop" },
+    { "id": "object.upload", "requiredProfile": "core" },
+    { "id": "support.remote_terminal", "requiredProfile": "support" },
+    { "id": "meeting.video", "requiredProfile": "meeting" }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/runtime/runtime-rpc-response.v1.schema.json",
+  "title": "Runtime RPC response",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["requestId", "protocolVersion", "runtimeId", "ok", "result"],
+      "properties": {
+        "requestId": {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "runtimeId": {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": true
+      }
+    },
+    {
+      "type": "object",
+      "required": ["requestId", "protocolVersion", "runtimeId", "ok", "problem"],
+      "properties": {
+        "requestId": {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "runtimeId": {
+          "anyOf": [
+            {
+              "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ok": {
+          "const": false
+        },
+        "problem": {
+          "$ref": "https://schemas.pielab.ai/common/problem-details.v1.schema.json"
+        }
+      }
+    }
+  ]
+}

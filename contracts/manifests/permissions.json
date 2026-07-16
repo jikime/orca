@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "permissions": [
+    { "id": "organization.read", "resource": "organization", "action": "read", "risk": "standard" },
+    {
+      "id": "organization.manage",
+      "resource": "organization",
+      "action": "manage",
+      "risk": "critical"
+    },
+    { "id": "member.read", "resource": "membership", "action": "read", "risk": "standard" },
+    { "id": "member.invite", "resource": "membership", "action": "invite", "risk": "elevated" },
+    { "id": "member.manage", "resource": "membership", "action": "manage", "risk": "critical" },
+    { "id": "role.manage", "resource": "role", "action": "manage", "risk": "critical" },
+    { "id": "team.read", "resource": "team", "action": "read", "risk": "standard" },
+    { "id": "team.manage", "resource": "team", "action": "manage", "risk": "elevated" },
+    { "id": "project.read", "resource": "project", "action": "read", "risk": "standard" },
+    { "id": "project.create", "resource": "project", "action": "create", "risk": "standard" },
+    { "id": "project.update", "resource": "project", "action": "update", "risk": "standard" },
+    { "id": "project.archive", "resource": "project", "action": "archive", "risk": "elevated" },
+    { "id": "work_item.read", "resource": "work_item", "action": "read", "risk": "standard" },
+    { "id": "work_item.create", "resource": "work_item", "action": "create", "risk": "standard" },
+    { "id": "work_item.update", "resource": "work_item", "action": "update", "risk": "standard" },
+    { "id": "work_item.assign", "resource": "work_item", "action": "assign", "risk": "standard" },
+    { "id": "work_item.comment", "resource": "work_item", "action": "comment", "risk": "standard" },
+    { "id": "work_item.approve", "resource": "work_item", "action": "approve", "risk": "elevated" },
+    { "id": "workspace.open", "resource": "workspace", "action": "open", "risk": "standard" },
+    { "id": "workspace.execute", "resource": "workspace", "action": "execute", "risk": "elevated" },
+    { "id": "repository.read", "resource": "repository", "action": "read", "risk": "standard" },
+    { "id": "repository.push", "resource": "repository", "action": "push", "risk": "elevated" },
+    {
+      "id": "agent_session.read",
+      "resource": "agent_session",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "agent_turn.read_raw",
+      "resource": "agent_turn",
+      "action": "read_raw",
+      "risk": "elevated"
+    },
+    {
+      "id": "agent_capture.manage",
+      "resource": "agent_capture",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    { "id": "artifact.read", "resource": "artifact", "action": "read", "risk": "standard" },
+    { "id": "artifact.publish", "resource": "artifact", "action": "publish", "risk": "elevated" },
+    { "id": "mcp.project.read", "resource": "mcp_project", "action": "read", "risk": "standard" },
+    {
+      "id": "mcp.work_item.read",
+      "resource": "mcp_work_item",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "mcp.work_item.write",
+      "resource": "mcp_work_item",
+      "action": "write",
+      "risk": "elevated"
+    },
+    {
+      "id": "mcp.artifact.write",
+      "resource": "mcp_artifact",
+      "action": "write",
+      "risk": "elevated"
+    },
+    {
+      "id": "mcp.execution_context.read",
+      "resource": "mcp_execution_context",
+      "action": "read",
+      "risk": "standard"
+    },
+    { "id": "ticket.read", "resource": "ticket", "action": "read", "risk": "standard" },
+    { "id": "ticket.respond", "resource": "ticket", "action": "respond", "risk": "standard" },
+    {
+      "id": "ticket.internal_note",
+      "resource": "ticket",
+      "action": "internal_note",
+      "risk": "elevated"
+    },
+    {
+      "id": "remote.request",
+      "resource": "remote_session",
+      "action": "request",
+      "risk": "elevated"
+    },
+    { "id": "remote.view", "resource": "remote_session", "action": "view", "risk": "elevated" },
+    {
+      "id": "remote.control",
+      "resource": "remote_session",
+      "action": "control",
+      "risk": "critical"
+    },
+    {
+      "id": "remote.file_transfer",
+      "resource": "remote_session",
+      "action": "file_transfer",
+      "risk": "critical"
+    },
+    { "id": "audit.read", "resource": "audit", "action": "read", "risk": "elevated" },
+    { "id": "policy.manage", "resource": "policy", "action": "manage", "risk": "critical" },
+    { "id": "session.revoke", "resource": "session", "action": "revoke", "risk": "critical" }
+  ]
+}

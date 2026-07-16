@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "sourceId": "kroot",
+  "capabilities": [
+    {
+      "id": "project.crud_archive",
+      "source": ["src/domain/projects/entities/project.ts"],
+      "pieTarget": "Project",
+      "decision": "reimplement",
+      "stages": ["R4"]
+    },
+    {
+      "id": "project.master_sub",
+      "source": ["src/app/(dashboard)/master-projects"],
+      "pieTarget": "ProjectRelation",
+      "decision": "adopt_defer",
+      "stages": ["R6"]
+    },
+    {
+      "id": "project.member_role",
+      "source": ["src/shared/lib/permissions.ts"],
+      "pieTarget": "MembershipRole/ResourceGrant",
+      "decision": "reimplement",
+      "stages": ["R3", "R4"]
+    },
+    {
+      "id": "project.participating_organization",
+      "source": ["src/domain/projects"],
+      "pieTarget": "ParticipatingOrganization",
+      "decision": "replace",
+      "stages": ["R4", "R6"]
+    },
+    {
+      "id": "work_item.board_list",
+      "source": ["src/domain/todolists/entities.ts"],
+      "pieTarget": "WorkItem",
+      "decision": "reimplement",
+      "stages": ["R4"]
+    },
+    {
+      "id": "work_item.assignment_participant",
+      "source": ["src/domain/todolists/use-cases"],
+      "pieTarget": "WorkItemAssignment/Participant",
+      "decision": "adopt",
+      "stages": ["R4"]
+    },
+    {
+      "id": "work_item.subtask_dependency",
+      "source": ["src/domain/todolists/use-cases"],
+      "pieTarget": "WorkItemRelation",
+      "decision": "adopt",
+      "stages": ["R4"]
+    },
+    {
+      "id": "work_item.handoff_help",
+      "source": ["src/domain/todolists/use-cases"],
+      "pieTarget": "WorkItemCollaborationCommand",
+      "decision": "defer",
+      "stages": ["R6", "R7"]
+    },
+    {
+      "id": "work_item.recurrence_template",
+      "source": ["src/domain/todolists/policies"],
+      "pieTarget": "WorkItemTemplate/Schedule",
+      "decision": "defer",
+      "stages": ["R6"]
+    },
+    {
+      "id": "work_item.memo_read_receipt",
+      "source": ["src/domain/todolists/use-cases"],
+      "pieTarget": "Comment/Activity",
+      "decision": "selective",
+      "stages": ["R7"]
+    },
+    {
+      "id": "work_item.project_chat",
+      "source": ["src/domain/todolists/chat-events.ts"],
+      "pieTarget": "Conversation/Message",
+      "decision": "reimplement",
+      "stages": ["R7"]
+    },
+    {
+      "id": "notification",
+      "source": ["src/domain/todolists"],
+      "pieTarget": "Notification/Preference",
+      "decision": "reimplement",
+      "stages": ["R3", "R7"]
+    },
+    {
+      "id": "workflow.template",
+      "source": [
+        "src/domain/projects/entities/project-workflow-stage.ts",
+        "src/domain/projects/entities/project-workflow-binding.ts"
+      ],
+      "pieTarget": "WorkflowDefinitionVersion",
+      "decision": "reimplement",
+      "stages": ["R4", "R6"]
+    },
+    {
+      "id": "workflow.approval",
+      "source": ["src/domain/approval/entities.ts"],
+      "pieTarget": "ApprovalRequest/Decision",
+      "decision": "reimplement",
+      "stages": ["R4", "R6"]
+    },
+    {
+      "id": "workflow.required_artifact",
+      "source": ["src/domain/approval"],
+      "pieTarget": "EvidenceRule/ArtifactRevision",
+      "decision": "reimplement",
+      "stages": ["R5", "R6"]
+    },
+    {
+      "id": "workflow.stage_pages",
+      "source": ["src/app/(dashboard)/projects/[id]"],
+      "pieTarget": "WorkflowStageViews",
+      "decision": "information_architecture_only",
+      "stages": ["R6"]
+    },
+    {
+      "id": "project.progress_report",
+      "source": ["src/app/(dashboard)/projects/[id]"],
+      "pieTarget": "Projection/Report",
+      "decision": "reimplement",
+      "stages": ["R6", "R9"]
+    },
+    {
+      "id": "work_item.markdown_ingest",
+      "source": ["src/domain/todolists/ingest-contract.ts"],
+      "pieTarget": "ImportProfile/ImportRun",
+      "decision": "adopt",
+      "stages": ["R5", "R6"]
+    },
+    {
+      "id": "command.registry",
+      "source": ["src/domain/commands/command-registry.ts"],
+      "pieTarget": "CommandDefinitionVersion",
+      "decision": "harden_reimplement",
+      "stages": ["R5", "R8"]
+    },
+    {
+      "id": "command.result",
+      "source": ["src/domain/commands/entities.ts"],
+      "pieTarget": "CommandRun/Artifact",
+      "decision": "harden_reimplement",
+      "stages": ["R5", "R8"]
+    },
+    {
+      "id": "agent.claude_session_list",
+      "source": ["src/app/api/agents/projects/[projectId]/sessions/route.ts"],
+      "pieTarget": "AgentSessionProjection",
+      "decision": "replace_with_orca",
+      "stages": ["R5"]
+    },
+    {
+      "id": "agent.team_kanban",
+      "source": ["src/app/api/agents/teams"],
+      "pieTarget": "AgentRunOrchestrationView",
+      "decision": "evaluate_separately",
+      "stages": ["R5+"]
+    },
+    {
+      "id": "mcp.kroot_scaffold",
+      "source": ["packages/kroot-mcp-server/README.md"],
+      "pieTarget": "PieMcp",
+      "decision": "discard_and_rebuild",
+      "stages": ["R5"]
+    },
+    {
+      "id": "ui.web_dashboard",
+      "source": ["src/app/(dashboard)"],
+      "pieTarget": "ElectronRenderer",
+      "decision": "ux_reference_only",
+      "stages": ["R4+"]
+    }
+  ]
+}

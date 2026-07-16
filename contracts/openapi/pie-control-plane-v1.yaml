@@ -1,0 +1,525 @@
+openapi: 3.1.2
+info:
+  title: Pie Control Plane API
+  version: 0.1.0
+  description: Initial executable contract for instance discovery, session, organizations, projects, and work items.
+servers:
+  - url: https://api.pielab.ai
+security:
+  - PieOidc: []
+tags:
+  - name: Discovery
+  - name: Session
+  - name: Organizations
+  - name: Memberships
+  - name: Teams
+  - name: Projects
+  - name: WorkItems
+  - name: AgentIngest
+  - name: Artifacts
+  - name: Sync
+  - name: Operations
+paths:
+  /.well-known/pie:
+    get:
+      tags: [Discovery]
+      operationId: getInstanceDiscovery
+      security: []
+      responses:
+        '200':
+          description: Public instance bootstrap metadata.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/discovery/instance-discovery.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/session:
+    get:
+      tags: [Session]
+      operationId: getSessionState
+      responses:
+        '200':
+          description: Current Pie account, organization, and permission state without raw tokens.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/session-state.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations:
+    get:
+      tags: [Organizations]
+      operationId: listOrganizations
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Organizations available to the authenticated account.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/organization.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/projects:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Projects]
+      operationId: listProjects
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Projects visible in the organization.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/project.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Projects]
+      operationId: createProject
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/project-create.v1.schema.json
+      responses:
+        '201':
+          description: Project created.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/project.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/memberships:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Memberships]
+      operationId: listMemberships
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Memberships visible to the caller.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/membership.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/teams:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Teams]
+      operationId: listTeams
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Teams visible to the caller.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/team.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/projects/{projectId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Projects]
+      operationId: getProject
+      responses:
+        '200':
+          description: Project representation.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/project.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags: [Projects]
+      operationId: updateProject
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: ../schemas/resources/project-update.v1.schema.json
+      responses:
+        '200':
+          description: Project updated.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/project.v1.schema.json
+        '412':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/work-items:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [WorkItems]
+      operationId: listWorkItems
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            $ref: ../schemas/common/opaque-id.v1.schema.json
+      responses:
+        '200':
+          description: Work items visible in the organization.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/work-item.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [WorkItems]
+      operationId: createWorkItem
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/work-item-create.v1.schema.json
+      responses:
+        '201':
+          description: Work item created.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/work-item.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/work-items/{workItemId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/WorkItemId'
+    get:
+      tags: [WorkItems]
+      operationId: getWorkItem
+      responses:
+        '200':
+          description: Work item representation.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/work-item.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags: [WorkItems]
+      operationId: updateWorkItem
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: ../schemas/resources/work-item-update.v1.schema.json
+      responses:
+        '200':
+          description: Work item updated.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/work-item.v1.schema.json
+        '412':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-events:batch:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [AgentIngest]
+      operationId: ingestAgentEventBatch
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/events/agent-event-batch-request.v1.schema.json
+      responses:
+        '200':
+          description: Per-event ingest acknowledgement. Item rejection does not fail valid siblings.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/events/agent-event-batch-response.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/artifacts/upload-intents:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Artifacts]
+      operationId: createArtifactUploadIntent
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/artifact-upload-intent-request.v1.schema.json
+      responses:
+        '201':
+          description: Short-lived upload intent and pending artifact metadata.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/artifact-upload-intent-response.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/artifacts/uploads/{uploadSessionId}:finalize:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/UploadSessionId'
+    post:
+      tags: [Artifacts]
+      operationId: finalizeArtifactUpload
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/artifact-upload-finalize-request.v1.schema.json
+      responses:
+        '200':
+          description: Finalized artifact metadata, including quarantine outcome.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/artifact.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/changes:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Sync]
+      operationId: listResourceChanges
+      parameters:
+        - name: after
+          in: query
+          required: false
+          schema:
+            $ref: ../schemas/common/cursor.v1.schema.json
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Authoritative change delta used after realtime invalidation or reconnect.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/change-page.v1.schema.json
+        '410':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/operations/{operationId}:
+    parameters:
+      - $ref: '#/components/parameters/OperationId'
+    get:
+      tags: [Operations]
+      operationId: getOperation
+      responses:
+        '200':
+          description: Current asynchronous operation status.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/operation.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    PieOidc:
+      type: openIdConnect
+      openIdConnectUrl: https://auth.pielab.ai/realms/pie/.well-known/openid-configuration
+      description: The actual issuer is discovered from /.well-known/pie for each instance.
+  parameters:
+    OrganizationId:
+      name: organizationId
+      in: path
+      required: true
+      schema:
+        $ref: ../schemas/common/opaque-id.v1.schema.json
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        $ref: ../schemas/common/opaque-id.v1.schema.json
+    WorkItemId:
+      name: workItemId
+      in: path
+      required: true
+      schema:
+        $ref: ../schemas/common/opaque-id.v1.schema.json
+    UploadSessionId:
+      name: uploadSessionId
+      in: path
+      required: true
+      schema:
+        $ref: ../schemas/common/opaque-id.v1.schema.json
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      schema:
+        $ref: ../schemas/common/opaque-id.v1.schema.json
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 512
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^"[^" ]+"$'
+  headers:
+    ETag:
+      description: Strong entity tag for the returned resource version.
+      required: true
+      schema:
+        type: string
+        pattern: '^"[^" ]+"$'
+    Location:
+      description: Canonical path of the created resource.
+      required: true
+      schema:
+        type: string
+        pattern: '^/v1/'
+  responses:
+    Problem:
+      description: RFC 9457 problem with a stable Pie error code.
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem-details.v1.schema.json

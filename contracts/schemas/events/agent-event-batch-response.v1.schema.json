@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/agent-event-batch-response.v1.schema.json",
+  "title": "Agent event batch ingest response",
+  "type": "object",
+  "required": ["batchId", "results", "streamAcks"],
+  "properties": {
+    "batchId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": {
+            "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+          },
+          "status": {
+            "enum": ["accepted", "duplicate", "retryable_rejected", "permanent_rejected"]
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          },
+          "retryAfterMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000
+          }
+        }
+      }
+    },
+    "streamAcks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["streamId", "contiguousThrough", "gaps"],
+        "properties": {
+          "streamId": {
+            "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+          },
+          "contiguousThrough": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "gaps": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

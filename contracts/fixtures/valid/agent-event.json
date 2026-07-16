@@ -1,0 +1,40 @@
+{
+  "specversion": "1.0",
+  "id": "40000000-0000-4000-8000-000000000001",
+  "source": "urn:pie:installation:40000000-0000-4000-8000-000000000002:runtime:40000000-0000-4000-8000-000000000003",
+  "type": "ai.pielab.agent.turn.completed.v1",
+  "subject": "agent-sessions/40000000-0000-4000-8000-000000000004/turns/40000000-0000-4000-8000-000000000005",
+  "time": "2026-07-15T03:00:00.000Z",
+  "datacontenttype": "application/json",
+  "dataschema": "https://schemas.pielab.ai/events/agent-turn-completed.v1.schema.json",
+  "pieorgid": "10000000-0000-4000-8000-000000000001",
+  "piestream": "40000000-0000-4000-8000-000000000004",
+  "piesequence": 1,
+  "data": {
+    "context": {
+      "projectId": "10000000-0000-4000-8000-000000000002",
+      "workItemId": "10000000-0000-4000-8000-000000000003",
+      "workspaceId": "40000000-0000-4000-8000-000000000006",
+      "hostId": "30000000-0000-4000-8000-000000000004",
+      "launchId": "40000000-0000-4000-8000-000000000007",
+      "agentSessionId": "40000000-0000-4000-8000-000000000004",
+      "agentRunId": "40000000-0000-4000-8000-000000000008",
+      "turnId": "40000000-0000-4000-8000-000000000005"
+    },
+    "producer": {
+      "type": "transcript_reconciler",
+      "provider": "codex",
+      "parserVersion": "1.0.0",
+      "trustDomain": "client_observed"
+    },
+    "assertion": "observed",
+    "classification": "project_confidential",
+    "visibility": "internal",
+    "payload": {
+      "outcome": "completed"
+    },
+    "correlationId": "40000000-0000-4000-8000-000000000009",
+    "causationId": null,
+    "capturedAt": "2026-07-15T03:00:01.000Z"
+  }
+}

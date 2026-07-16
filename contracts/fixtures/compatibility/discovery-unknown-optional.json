@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "instanceId": "local-pie-dev",
+  "displayName": "Local Pie",
+  "deploymentType": "local_docker",
+  "apiBaseUrl": "http://127.0.0.1:7410/v1",
+  "auth": {
+    "protocol": "oidc",
+    "issuer": "http://127.0.0.1:7410/realms/pie",
+    "clientId": "pie-desktop",
+    "redirectModes": ["loopback"],
+    "futureAuthenticationHint": "ignored-by-v1"
+  },
+  "realtimeUrl": "ws://127.0.0.1:7410/realtime",
+  "protocol": {
+    "api": "1.0",
+    "realtime": "1.0"
+  },
+  "minimumClientVersion": "0.1.0",
+  "capabilities": {
+    "objectUpload": true,
+    "futureCapability": true
+  },
+  "expiresAt": "2026-07-15T12:00:00Z",
+  "futureOptionalField": {
+    "value": true
+  }
+}

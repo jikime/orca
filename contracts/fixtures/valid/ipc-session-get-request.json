@@ -1,0 +1,11 @@
+{
+  "requestId": "20000000-0000-4000-8000-000000000001",
+  "method": "session.getState",
+  "protocolVersion": "1.0",
+  "sessionContext": {
+    "instanceId": "20000000-0000-4000-8000-000000000002",
+    "sessionId": null,
+    "organizationId": null
+  },
+  "payload": {}
+}

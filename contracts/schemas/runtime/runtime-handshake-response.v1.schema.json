@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/runtime/runtime-handshake-response.v1.schema.json",
+  "title": "Runtime handshake response",
+  "type": "object",
+  "required": [
+    "type",
+    "requestId",
+    "protocolVersion",
+    "runtimeId",
+    "runtimeVersion",
+    "host",
+    "sqliteVersion",
+    "git",
+    "providerParsers",
+    "capabilities",
+    "limits"
+  ],
+  "properties": {
+    "type": {
+      "const": "runtime.welcome"
+    },
+    "requestId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "runtimeId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "runtimeVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "host": {
+      "$ref": "https://schemas.pielab.ai/common/execution-host.v1.schema.json"
+    },
+    "sqliteVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "git": {
+      "type": "object",
+      "required": ["baseline", "capabilities"],
+      "properties": {
+        "baseline": {
+          "const": "2.25"
+        },
+        "version": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]*$"
+          }
+        }
+      }
+    },
+    "providerParsers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.-]*$"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["maxRequestBytes", "maxFrameBytes", "maxConcurrentStreams"],
+      "properties": {
+        "maxRequestBytes": {
+          "type": "integer",
+          "minimum": 1024
+        },
+        "maxFrameBytes": {
+          "type": "integer",
+          "minimum": 1024
+        },
+        "maxConcurrentStreams": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-15T00:00:00.000Z",
+  "sources": [
+    {
+      "id": "orca",
+      "repository": "stablyai/orca",
+      "commit": "7baaf1911a74af87186c710cdb6192cab0430ee9"
+    },
+    {
+      "id": "kroot",
+      "repository": "kaonsoftlab/kroot",
+      "commit": "e0beb88d207f6faf940a10af26b242e62230cbe4"
+    },
+    {
+      "id": "cli-relay",
+      "repository": "local/cli-relay",
+      "commit": "af377ba74aa518ba683d986c8dc85b314486ea4d"
+    }
+  ]
+}

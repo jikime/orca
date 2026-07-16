@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/project-update.v1.schema.json",
+  "title": "Update project request",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "summary": {
+      "type": ["string", "null"],
+      "maxLength": 2000
+    },
+    "status": {
+      "enum": ["planned", "active", "paused", "completed", "cancelled"]
+    }
+  },
+  "additionalProperties": false
+}

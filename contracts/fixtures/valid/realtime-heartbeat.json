@@ -1,0 +1,6 @@
+{
+  "type": "heartbeat",
+  "schemaVersion": 1,
+  "direction": "ping",
+  "sentAt": "2026-07-15T04:00:00.000Z"
+}

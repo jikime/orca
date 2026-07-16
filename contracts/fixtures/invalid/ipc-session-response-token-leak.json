@@ -1,0 +1,10 @@
+{
+  "requestId": "20000000-0000-4000-8000-000000000001",
+  "protocolVersion": "1.0",
+  "ok": true,
+  "result": {
+    "status": "signed_out",
+    "instanceId": "20000000-0000-4000-8000-000000000002",
+    "accessToken": "forbidden-renderer-value"
+  }
+}

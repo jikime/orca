@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "entitlements": [
+    { "id": "core.projects", "unit": "project", "enforcement": "limit" },
+    { "id": "core.members", "unit": "active_member", "enforcement": "limit" },
+    { "id": "agent.capture", "unit": "enabled", "enforcement": "boolean" },
+    { "id": "object.storage_bytes", "unit": "byte", "enforcement": "limit" },
+    { "id": "support.remote_sessions", "unit": "monthly_session", "enforcement": "limit" },
+    { "id": "meeting.participants", "unit": "concurrent_participant", "enforcement": "limit" }
+  ],
+  "plans": [
+    {
+      "id": "personal",
+      "deploymentTypes": ["saas", "local_docker", "self_hosted"],
+      "grants": {
+        "core.projects": 10,
+        "core.members": 1,
+        "agent.capture": true,
+        "object.storage_bytes": 5368709120,
+        "support.remote_sessions": 0,
+        "meeting.participants": 0
+      }
+    },
+    {
+      "id": "team",
+      "deploymentTypes": ["saas", "local_docker", "self_hosted", "on_prem"],
+      "grants": {
+        "core.projects": 100,
+        "core.members": 50,
+        "agent.capture": true,
+        "object.storage_bytes": 107374182400,
+        "support.remote_sessions": 100,
+        "meeting.participants": 25
+      }
+    },
+    {
+      "id": "enterprise",
+      "deploymentTypes": ["saas", "self_hosted", "on_prem"],
+      "grants": {
+        "core.projects": null,
+        "core.members": null,
+        "agent.capture": true,
+        "object.storage_bytes": null,
+        "support.remote_sessions": null,
+        "meeting.participants": null
+      }
+    }
+  ]
+}

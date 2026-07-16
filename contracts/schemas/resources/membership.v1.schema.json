@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/membership.v1.schema.json",
+  "title": "Organization membership",
+  "type": "object",
+  "required": [
+    "id",
+    "organizationId",
+    "userId",
+    "status",
+    "roleIds",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "userId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "status": {
+      "enum": ["invited", "active", "suspended", "revoked"]
+    },
+    "roleIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.-]*$"
+      }
+    },
+    "version": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "updatedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

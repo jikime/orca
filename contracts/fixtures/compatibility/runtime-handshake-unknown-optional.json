@@ -1,0 +1,30 @@
+{
+  "type": "runtime.welcome",
+  "requestId": "30000000-0000-4000-8000-000000000001",
+  "protocolVersion": "1.0",
+  "runtimeId": "30000000-0000-4000-8000-000000000003",
+  "runtimeVersion": "0.1.0",
+  "host": {
+    "hostId": "30000000-0000-4000-8000-000000000004",
+    "type": "native",
+    "platform": "darwin",
+    "pathStyle": "posix",
+    "caseSensitivePaths": false,
+    "futureHostProperty": "ignored"
+  },
+  "sqliteVersion": "3.50.4",
+  "git": {
+    "baseline": "2.25",
+    "version": "2.49.0",
+    "capabilities": [],
+    "futureGitProperty": true
+  },
+  "providerParsers": {},
+  "capabilities": ["runtime.handshake_v1"],
+  "limits": {
+    "maxRequestBytes": 1048576,
+    "maxFrameBytes": 262144,
+    "maxConcurrentStreams": 16
+  },
+  "futureRuntimeProperty": "ignored"
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/common/session-context.v1.schema.json",
+  "title": "Pie session context",
+  "type": "object",
+  "required": ["instanceId", "sessionId", "organizationId"],
+  "properties": {
+    "instanceId": {
+      "$ref": "https://schemas.pielab.ai/common/instance-id.v1.schema.json"
+    },
+    "sessionId": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "organizationId": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

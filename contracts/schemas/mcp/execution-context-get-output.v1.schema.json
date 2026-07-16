@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/mcp/execution-context-get-output.v1.schema.json",
+  "title": "pie.execution_context.get output",
+  "type": "object",
+  "required": ["bound", "projectId", "workItemId", "workspaceId", "agentSessionId", "host"],
+  "properties": {
+    "bound": {
+      "type": "boolean"
+    },
+    "projectId": {
+      "$ref": "#/$defs/nullableId"
+    },
+    "workItemId": {
+      "$ref": "#/$defs/nullableId"
+    },
+    "workspaceId": {
+      "$ref": "#/$defs/nullableId"
+    },
+    "agentSessionId": {
+      "$ref": "#/$defs/nullableId"
+    },
+    "host": {
+      "$ref": "https://schemas.pielab.ai/common/execution-host.v1.schema.json"
+    }
+  },
+  "$defs": {
+    "nullableId": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

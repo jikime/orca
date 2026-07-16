@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "threatModel": "pie-docs/24-security-threat-model.md",
+  "gates": [
+    {
+      "threatId": "ELC-001",
+      "stage": "R1",
+      "gateType": "desktop_e2e",
+      "evidence": "electron-window-navigation-security"
+    },
+    {
+      "threatId": "ELC-002",
+      "stage": "R1",
+      "gateType": "contract_security",
+      "evidence": "typed-ipc-command-negative-suite"
+    },
+    {
+      "threatId": "ELC-003",
+      "stage": "R1",
+      "gateType": "desktop_e2e",
+      "evidence": "ipc-sender-frame-origin-suite"
+    },
+    {
+      "threatId": "ELC-004",
+      "stage": "R1",
+      "gateType": "security_misuse",
+      "evidence": "deep-link-malformed-corpus"
+    },
+    {
+      "threatId": "ELC-005",
+      "stage": "R1",
+      "gateType": "package",
+      "evidence": "fuse-asar-signature-gate"
+    },
+    {
+      "threatId": "AUT-001",
+      "stage": "R3",
+      "gateType": "security_misuse",
+      "evidence": "oidc-mixup-code-interception-suite"
+    },
+    {
+      "threatId": "AUT-002",
+      "stage": "R3",
+      "gateType": "integration",
+      "evidence": "refresh-token-family-reuse-suite"
+    },
+    {
+      "threatId": "AUT-003",
+      "stage": "R1",
+      "gateType": "contract_security",
+      "evidence": "native-client-secret-absence-scan"
+    },
+    {
+      "threatId": "AUT-004",
+      "stage": "R3",
+      "gateType": "integration",
+      "evidence": "invitation-replay-cross-tenant-suite"
+    },
+    {
+      "threatId": "AUT-005",
+      "stage": "R3",
+      "gateType": "desktop_e2e",
+      "evidence": "revoke-propagation-offline-suite"
+    },
+    {
+      "threatId": "AUT-006",
+      "stage": "R3",
+      "gateType": "security_misuse",
+      "evidence": "mfa-recovery-abuse-suite"
+    },
+    {
+      "threatId": "TEN-001",
+      "stage": "R2",
+      "gateType": "integration",
+      "evidence": "api-cross-tenant-endpoint-suite"
+    },
+    {
+      "threatId": "TEN-002",
+      "stage": "R2",
+      "gateType": "integration",
+      "evidence": "postgres-forced-rls-role-suite"
+    },
+    {
+      "threatId": "TEN-003",
+      "stage": "R2",
+      "gateType": "integration",
+      "evidence": "tenant-pool-reuse-concurrency-suite"
+    },
+    {
+      "threatId": "TEN-004",
+      "stage": "R4",
+      "gateType": "contract_security",
+      "evidence": "customer-field-projection-snapshots"
+    },
+    {
+      "threatId": "TEN-005",
+      "stage": "R3",
+      "gateType": "integration",
+      "evidence": "last-owner-concurrency-suite"
+    },
+    {
+      "threatId": "TEN-006",
+      "stage": "R3",
+      "gateType": "contract_security",
+      "evidence": "permission-entitlement-combination-matrix"
+    },
+    {
+      "threatId": "CAP-001",
+      "stage": "R5",
+      "gateType": "security_misuse",
+      "evidence": "capture-binding-host-scope-suite"
+    },
+    {
+      "threatId": "CAP-002",
+      "stage": "R5",
+      "gateType": "data",
+      "evidence": "seeded-secret-canary-scan"
+    },
+    {
+      "threatId": "CAP-003",
+      "stage": "R5",
+      "gateType": "fault_injection",
+      "evidence": "transcript-parser-bounds-fuzz"
+    },
+    {
+      "threatId": "CAP-004",
+      "stage": "R5",
+      "gateType": "contract",
+      "evidence": "transcript-mutation-reconciliation-suite"
+    },
+    {
+      "threatId": "CAP-005",
+      "stage": "R5",
+      "gateType": "contract",
+      "evidence": "assertion-trust-domain-suite"
+    },
+    {
+      "threatId": "CAP-006",
+      "stage": "R5",
+      "gateType": "integration",
+      "evidence": "outbox-current-authorization-suite"
+    },
+    {
+      "threatId": "CAP-007",
+      "stage": "R5",
+      "gateType": "operations",
+      "evidence": "restore-and-delete-drill"
+    },
+    {
+      "threatId": "CAP-008",
+      "stage": "R5",
+      "gateType": "security_misuse",
+      "evidence": "artifact-upload-file-mutation-suite"
+    },
+    {
+      "threatId": "MCP-001",
+      "stage": "R5",
+      "gateType": "security_misuse",
+      "evidence": "hostile-content-tool-approval-suite"
+    },
+    {
+      "threatId": "MCP-002",
+      "stage": "R5",
+      "gateType": "contract_security",
+      "evidence": "mcp-token-passthrough-absence-scan"
+    },
+    {
+      "threatId": "MCP-003",
+      "stage": "R5",
+      "gateType": "security_misuse",
+      "evidence": "mcp-false-annotation-permission-suite"
+    },
+    {
+      "threatId": "MCP-004",
+      "stage": "R5",
+      "gateType": "integration",
+      "evidence": "mcp-disconnect-after-commit-suite"
+    },
+    {
+      "threatId": "MCP-005",
+      "stage": "R5",
+      "gateType": "contract_security",
+      "evidence": "mcp-transport-binding-suite"
+    },
+    {
+      "threatId": "MCP-006",
+      "stage": "R5",
+      "gateType": "contract_security",
+      "evidence": "mcp-output-projection-size-suite"
+    },
+    {
+      "threatId": "REM-001",
+      "stage": "R8",
+      "gateType": "security_misuse",
+      "evidence": "remote-target-command-substitution-suite"
+    },
+    {
+      "threatId": "REM-002",
+      "stage": "R8",
+      "gateType": "security_misuse",
+      "evidence": "typed-command-metacharacter-property-suite"
+    },
+    {
+      "threatId": "REM-003",
+      "stage": "R8",
+      "gateType": "integration",
+      "evidence": "remote-capability-replay-suite"
+    },
+    {
+      "threatId": "REM-004",
+      "stage": "R8",
+      "gateType": "desktop_e2e",
+      "evidence": "remote-consent-indicator-suite"
+    },
+    {
+      "threatId": "REM-005",
+      "stage": "R8",
+      "gateType": "security_misuse",
+      "evidence": "relay-content-token-inspection-suite"
+    },
+    {
+      "threatId": "REM-006",
+      "stage": "R8",
+      "gateType": "fault_injection",
+      "evidence": "remote-pty-output-flood-suite"
+    },
+    {
+      "threatId": "REM-007",
+      "stage": "R8",
+      "gateType": "security_misuse",
+      "evidence": "remote-file-path-corpus"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "type": "runtime.welcome",
+  "requestId": "30000000-0000-4000-8000-000000000001",
+  "protocolVersion": "1.0",
+  "runtimeId": "30000000-0000-4000-8000-000000000003",
+  "runtimeVersion": "0.1.0",
+  "host": {
+    "hostId": "30000000-0000-4000-8000-000000000004",
+    "type": "ssh",
+    "platform": "linux",
+    "pathStyle": "posix",
+    "caseSensitivePaths": true,
+    "connectionId": "ssh-development"
+  },
+  "sqliteVersion": "3.50.4",
+  "git": {
+    "baseline": "2.25",
+    "version": "2.49.0",
+    "capabilities": ["worktree.list_porcelain"]
+  },
+  "providerParsers": {
+    "claude_code": "1.0.0",
+    "codex": "1.0.0"
+  },
+  "capabilities": ["runtime.handshake_v1", "runtime.bounded_streams"],
+  "limits": {
+    "maxRequestBytes": 1048576,
+    "maxFrameBytes": 262144,
+    "maxConcurrentStreams": 16
+  }
+}

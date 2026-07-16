@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-resource-changed.v1.schema.json",
+  "title": "Realtime resource changed notification",
+  "type": "object",
+  "required": [
+    "type",
+    "schemaVersion",
+    "eventId",
+    "cursor",
+    "organizationId",
+    "resourceType",
+    "resourceId",
+    "changeKind",
+    "version",
+    "occurredAt"
+  ],
+  "properties": {
+    "type": {
+      "const": "resource.changed"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "eventId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "resourceType": {
+      "enum": [
+        "organization",
+        "membership",
+        "team",
+        "project",
+        "work_item",
+        "artifact",
+        "agent_session",
+        "operation",
+        "permission"
+      ]
+    },
+    "resourceId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "changeKind": {
+      "enum": ["created", "updated", "archived", "deleted"]
+    },
+    "version": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

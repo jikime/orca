@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/runtime/runtime-handshake-request.v1.schema.json",
+  "title": "Runtime handshake request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "requestId",
+    "mainVersion",
+    "supportedProtocolVersions",
+    "sessionContext",
+    "capability"
+  ],
+  "properties": {
+    "type": {
+      "const": "runtime.handshake"
+    },
+    "requestId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "mainVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "supportedProtocolVersions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+$"
+      }
+    },
+    "sessionContext": {
+      "$ref": "https://schemas.pielab.ai/common/session-context.v1.schema.json"
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 8192,
+      "writeOnly": true
+    }
+  }
+}

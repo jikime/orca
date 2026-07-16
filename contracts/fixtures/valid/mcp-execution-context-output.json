@@ -1,0 +1,15 @@
+{
+  "bound": true,
+  "projectId": "10000000-0000-4000-8000-000000000002",
+  "workItemId": "10000000-0000-4000-8000-000000000003",
+  "workspaceId": "40000000-0000-4000-8000-000000000006",
+  "agentSessionId": "40000000-0000-4000-8000-000000000004",
+  "host": {
+    "hostId": "30000000-0000-4000-8000-000000000004",
+    "type": "ssh",
+    "platform": "linux",
+    "pathStyle": "posix",
+    "caseSensitivePaths": true,
+    "connectionId": "ssh-development"
+  }
+}

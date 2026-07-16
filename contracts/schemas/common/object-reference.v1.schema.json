@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/common/object-reference.v1.schema.json",
+  "title": "Immutable object reference",
+  "type": "object",
+  "required": ["objectId", "sha256", "sizeBytes"],
+  "properties": {
+    "objectId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10737418240
+    }
+  }
+}

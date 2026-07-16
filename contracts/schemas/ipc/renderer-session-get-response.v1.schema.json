@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/ipc/renderer-session-get-response.v1.schema.json",
+  "title": "Renderer session state response",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["requestId", "protocolVersion", "ok", "result"],
+      "properties": {
+        "requestId": {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "$ref": "https://schemas.pielab.ai/resources/session-state.v1.schema.json"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["requestId", "protocolVersion", "ok", "problem"],
+      "properties": {
+        "requestId": {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "ok": {
+          "const": false
+        },
+        "problem": {
+          "$ref": "https://schemas.pielab.ai/common/problem-details.v1.schema.json"
+        }
+      }
+    }
+  ]
+}

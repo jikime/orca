@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "name": "self-hosted discovery",
+      "schemaId": "https://schemas.pielab.ai/discovery/instance-discovery.v1.schema.json",
+      "document": "valid/discovery-self-hosted.json",
+      "expectedValid": true
+    },
+    {
+      "name": "signed-in session without token material",
+      "schemaId": "https://schemas.pielab.ai/resources/session-state.v1.schema.json",
+      "document": "valid/session-signed-in.json",
+      "expectedValid": true
+    },
+    {
+      "name": "signed-out session",
+      "schemaId": "https://schemas.pielab.ai/resources/session-state.v1.schema.json",
+      "document": "valid/session-signed-out.json",
+      "expectedValid": true
+    },
+    {
+      "name": "organization response",
+      "schemaId": "https://schemas.pielab.ai/resources/organization.v1.schema.json",
+      "document": "valid/organization.json",
+      "expectedValid": true
+    },
+    {
+      "name": "project response",
+      "schemaId": "https://schemas.pielab.ai/resources/project.v1.schema.json",
+      "document": "valid/project.json",
+      "expectedValid": true
+    },
+    {
+      "name": "project create request",
+      "schemaId": "https://schemas.pielab.ai/resources/project-create.v1.schema.json",
+      "document": "valid/project-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "work item response",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item.v1.schema.json",
+      "document": "valid/work-item.json",
+      "expectedValid": true
+    },
+    {
+      "name": "work item create request",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item-create.v1.schema.json",
+      "document": "valid/work-item-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "realtime client hello",
+      "schemaId": "https://schemas.pielab.ai/events/realtime-client-hello.v1.schema.json",
+      "document": "valid/realtime-client-hello.json",
+      "expectedValid": true
+    },
+    {
+      "name": "realtime resource change",
+      "schemaId": "https://schemas.pielab.ai/events/realtime-resource-changed.v1.schema.json",
+      "document": "valid/realtime-resource-changed.json",
+      "expectedValid": true
+    },
+    {
+      "name": "LAN HTTP discovery is forbidden",
+      "schemaId": "https://schemas.pielab.ai/discovery/instance-discovery.v1.schema.json",
+      "document": "invalid/discovery-lan-http.json",
+      "expectedValid": false
+    },
+    {
+      "name": "direct password protocol is forbidden",
+      "schemaId": "https://schemas.pielab.ai/discovery/instance-discovery.v1.schema.json",
+      "document": "invalid/discovery-direct-password.json",
+      "expectedValid": false
+    },
+    {
+      "name": "session token material is forbidden",
+      "schemaId": "https://schemas.pielab.ai/resources/session-state.v1.schema.json",
+      "document": "invalid/session-token-leak.json",
+      "expectedValid": false
+    },
+    {
+      "name": "project ID must be UUID",
+      "schemaId": "https://schemas.pielab.ai/resources/project.v1.schema.json",
+      "document": "invalid/project-malformed-id.json",
+      "expectedValid": false
+    },
+    {
+      "name": "project create rejects unknown input",
+      "schemaId": "https://schemas.pielab.ai/resources/project-create.v1.schema.json",
+      "document": "invalid/project-create-unknown-field.json",
+      "expectedValid": false
+    },
+    {
+      "name": "project update must change a field",
+      "schemaId": "https://schemas.pielab.ai/resources/project-update.v1.schema.json",
+      "document": "invalid/project-update-empty.json",
+      "expectedValid": false
+    },
+    {
+      "name": "work item create requires team",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item-create.v1.schema.json",
+      "document": "invalid/work-item-missing-team.json",
+      "expectedValid": false
+    },
+    {
+      "name": "resource event version starts at one",
+      "schemaId": "https://schemas.pielab.ai/events/realtime-resource-changed.v1.schema.json",
+      "document": "invalid/realtime-resource-version-zero.json",
+      "expectedValid": false
+    },
+    {
+      "name": "discovery accepts unknown optional fields",
+      "schemaId": "https://schemas.pielab.ai/discovery/instance-discovery.v1.schema.json",
+      "document": "compatibility/discovery-unknown-optional.json",
+      "expectedValid": true
+    },
+    {
+      "name": "project response accepts unknown optional fields",
+      "schemaId": "https://schemas.pielab.ai/resources/project.v1.schema.json",
+      "document": "compatibility/project-unknown-optional.json",
+      "expectedValid": true
+    },
+    {
+      "name": "realtime event accepts unknown optional fields",
+      "schemaId": "https://schemas.pielab.ai/events/realtime-resource-changed.v1.schema.json",
+      "document": "compatibility/realtime-resource-unknown-optional.json",
+      "expectedValid": true
+    },
+    {
+      "name": "membership response",
+      "schemaId": "https://schemas.pielab.ai/resources/membership.v1.schema.json",
+      "document": "valid/membership.json",
+      "expectedValid": true
+    },
+    {
+      "name": "team response",
+      "schemaId": "https://schemas.pielab.ai/resources/team.v1.schema.json",
+      "document": "valid/team.json",
+      "expectedValid": true
+    },
+    {
+      "name": "renderer session request",
+      "schemaId": "https://schemas.pielab.ai/ipc/renderer-session-get-request.v1.schema.json",
+      "document": "valid/ipc-session-get-request.json",
+      "expectedValid": true
+    },
+    {
+      "name": "renderer session response",
+      "schemaId": "https://schemas.pielab.ai/ipc/renderer-session-get-response.v1.schema.json",
+      "document": "valid/ipc-session-get-response.json",
+      "expectedValid": true
+    },
+    {
+      "name": "runtime handshake request",
+      "schemaId": "https://schemas.pielab.ai/runtime/runtime-handshake-request.v1.schema.json",
+      "document": "valid/runtime-handshake-request.json",
+      "expectedValid": true
+    },
+    {
+      "name": "runtime handshake response",
+      "schemaId": "https://schemas.pielab.ai/runtime/runtime-handshake-response.v1.schema.json",
+      "document": "valid/runtime-handshake-response.json",
+      "expectedValid": true
+    },
+    {
+      "name": "runtime RPC request",
+      "schemaId": "https://schemas.pielab.ai/runtime/runtime-rpc-request.v1.schema.json",
+      "document": "valid/runtime-rpc-request.json",
+      "expectedValid": true
+    },
+    {
+      "name": "runtime RPC response",
+      "schemaId": "https://schemas.pielab.ai/runtime/runtime-rpc-response.v1.schema.json",
+      "document": "valid/runtime-rpc-response.json",
+      "expectedValid": true
+    },
+    {
+      "name": "agent event envelope",
+      "schemaId": "https://schemas.pielab.ai/events/agent-event-envelope.v1.schema.json",
+      "document": "valid/agent-event.json",
+      "expectedValid": true
+    },
+    {
+      "name": "agent event batch request",
+      "schemaId": "https://schemas.pielab.ai/events/agent-event-batch-request.v1.schema.json",
+      "document": "valid/agent-event-batch-request.json",
+      "expectedValid": true
+    },
+    {
+      "name": "agent event batch response",
+      "schemaId": "https://schemas.pielab.ai/events/agent-event-batch-response.v1.schema.json",
+      "document": "valid/agent-event-batch-response.json",
+      "expectedValid": true
+    },
+    {
+      "name": "artifact upload intent request",
+      "schemaId": "https://schemas.pielab.ai/resources/artifact-upload-intent-request.v1.schema.json",
+      "document": "valid/artifact-upload-intent-request.json",
+      "expectedValid": true
+    },
+    {
+      "name": "MCP project list input",
+      "schemaId": "https://schemas.pielab.ai/mcp/projects-list-input.v1.schema.json",
+      "document": "valid/mcp-projects-list-input.json",
+      "expectedValid": true
+    },
+    {
+      "name": "MCP comment create input",
+      "schemaId": "https://schemas.pielab.ai/mcp/work-item-comment-create-input.v1.schema.json",
+      "document": "valid/mcp-work-item-comment-create-input.json",
+      "expectedValid": true
+    },
+    {
+      "name": "MCP execution context output",
+      "schemaId": "https://schemas.pielab.ai/mcp/execution-context-get-output.v1.schema.json",
+      "document": "valid/mcp-execution-context-output.json",
+      "expectedValid": true
+    },
+    {
+      "name": "renderer IPC request rejects unknown channel",
+      "schemaId": "https://schemas.pielab.ai/ipc/renderer-session-get-request.v1.schema.json",
+      "document": "invalid/ipc-session-request-unknown-field.json",
+      "expectedValid": false
+    },
+    {
+      "name": "renderer IPC response rejects token material",
+      "schemaId": "https://schemas.pielab.ai/ipc/renderer-session-get-response.v1.schema.json",
+      "document": "invalid/ipc-session-response-token-leak.json",
+      "expectedValid": false
+    },
+    {
+      "name": "runtime handshake requires bounded capability",
+      "schemaId": "https://schemas.pielab.ai/runtime/runtime-handshake-request.v1.schema.json",
+      "document": "invalid/runtime-handshake-short-capability.json",
+      "expectedValid": false
+    },
+    {
+      "name": "runtime cancel frame rejects credit",
+      "schemaId": "https://schemas.pielab.ai/runtime/runtime-stream-control.v1.schema.json",
+      "document": "invalid/runtime-stream-cancel-credit.json",
+      "expectedValid": false
+    },
+    {
+      "name": "agent event requires payload identity",
+      "schemaId": "https://schemas.pielab.ai/events/agent-event-envelope.v1.schema.json",
+      "document": "invalid/agent-event-missing-payload.json",
+      "expectedValid": false
+    },
+    {
+      "name": "artifact intent rejects local path",
+      "schemaId": "https://schemas.pielab.ai/resources/artifact-upload-intent-request.v1.schema.json",
+      "document": "invalid/artifact-upload-intent-local-path.json",
+      "expectedValid": false
+    },
+    {
+      "name": "MCP write requires idempotency key",
+      "schemaId": "https://schemas.pielab.ai/mcp/work-item-comment-create-input.v1.schema.json",
+      "document": "invalid/mcp-comment-missing-idempotency.json",
+      "expectedValid": false
+    },
+    {
+      "name": "MCP read rejects token passthrough",
+      "schemaId": "https://schemas.pielab.ai/mcp/projects-list-input.v1.schema.json",
+      "document": "invalid/mcp-projects-list-token-passthrough.json",
+      "expectedValid": false
+    },
+    {
+      "name": "renderer response accepts unknown safe optional fields",
+      "schemaId": "https://schemas.pielab.ai/ipc/renderer-session-get-response.v1.schema.json",
+      "document": "compatibility/ipc-session-response-unknown-optional.json",
+      "expectedValid": true
+    },
+    {
+      "name": "runtime welcome accepts unknown optional fields",
+      "schemaId": "https://schemas.pielab.ai/runtime/runtime-handshake-response.v1.schema.json",
+      "document": "compatibility/runtime-handshake-unknown-optional.json",
+      "expectedValid": true
+    },
+    {
+      "name": "agent event accepts unknown optional fields",
+      "schemaId": "https://schemas.pielab.ai/events/agent-event-envelope.v1.schema.json",
+      "document": "compatibility/agent-event-unknown-optional.json",
+      "expectedValid": true
+    },
+    {
+      "name": "MCP output accepts unknown optional fields",
+      "schemaId": "https://schemas.pielab.ai/mcp/execution-context-get-output.v1.schema.json",
+      "document": "compatibility/mcp-execution-context-unknown-optional.json",
+      "expectedValid": true
+    },
+    {
+      "name": "realtime heartbeat",
+      "schemaId": "https://schemas.pielab.ai/events/realtime-heartbeat.v1.schema.json",
+      "document": "valid/realtime-heartbeat.json",
+      "expectedValid": true
+    }
+  ]
+}

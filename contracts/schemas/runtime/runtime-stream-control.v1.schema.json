@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/runtime/runtime-stream-control.v1.schema.json",
+  "title": "Runtime stream control frame",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "protocolVersion", "action"],
+  "properties": {
+    "requestId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "action": {
+      "enum": ["add_credit", "cancel"]
+    },
+    "credit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "add_credit"
+          }
+        },
+        "required": ["action"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["credit"],
+        "properties": {
+          "credit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "type": "object",
+          "properties": {
+            "credit": true
+          },
+          "required": ["credit"]
+        }
+      }
+    }
+  ]
+}

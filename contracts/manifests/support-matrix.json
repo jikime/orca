@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-15T00:00:00.000Z",
+  "electron": {
+    "major": 43,
+    "packageRange": "^43.1.0",
+    "supportSource": "https://github.com/electron/electron/tree/v43.1.1#platform-support"
+  },
+  "platforms": [
+    {
+      "id": "macos-12-arm64",
+      "os": "macos",
+      "minimumVersion": "12",
+      "architecture": "arm64",
+      "gate": { "execution": "release", "automation": "manual" }
+    },
+    {
+      "id": "macos-12-x64",
+      "os": "macos",
+      "minimumVersion": "12",
+      "architecture": "x64",
+      "gate": { "execution": "nightly", "automation": "ci" }
+    },
+    {
+      "id": "windows-10-x64",
+      "os": "windows",
+      "minimumVersion": "10",
+      "architecture": "x64",
+      "gate": { "execution": "release", "automation": "ci" }
+    },
+    {
+      "id": "ubuntu-22.04-x64-x11",
+      "os": "linux",
+      "distribution": "ubuntu",
+      "minimumVersion": "22.04",
+      "architecture": "x64",
+      "displayServer": "x11",
+      "gate": { "execution": "pr", "automation": "ci" }
+    },
+    {
+      "id": "ubuntu-22.04-x64-wayland",
+      "os": "linux",
+      "distribution": "ubuntu",
+      "minimumVersion": "22.04",
+      "architecture": "x64",
+      "displayServer": "wayland",
+      "gate": { "execution": "release", "automation": "manual" }
+    }
+  ],
+  "executionHosts": [
+    {
+      "id": "native",
+      "version": "os-native",
+      "gate": { "execution": "pr", "automation": "ci" }
+    },
+    {
+      "id": "wsl",
+      "version": "2",
+      "gate": { "execution": "nightly", "automation": "ci" }
+    },
+    {
+      "id": "ssh",
+      "version": "protocol-2",
+      "gate": { "execution": "nightly", "automation": "ci" }
+    },
+    {
+      "id": "relay",
+      "version": "1.0",
+      "gate": { "execution": "release", "automation": "manual" }
+    }
+  ],
+  "gitVersions": [
+    {
+      "version": "2.25.0",
+      "purpose": "core-baseline",
+      "gate": { "execution": "pr", "automation": "ci" }
+    },
+    {
+      "version": "2.39.0",
+      "purpose": "capability-boundary",
+      "gate": { "execution": "nightly", "automation": "ci" }
+    },
+    {
+      "version": "2.55.0",
+      "purpose": "current-stable",
+      "source": "https://git-scm.com/",
+      "gate": { "execution": "release", "automation": "ci" }
+    }
+  ],
+  "agentProviders": [
+    {
+      "id": "claude-code",
+      "version": "2.1.206",
+      "fixturePolicy": ["known", "unknown-additive", "breaking"],
+      "gate": { "execution": "release", "automation": "manual" }
+    },
+    {
+      "id": "codex-cli",
+      "version": "0.144.1",
+      "fixturePolicy": ["known", "unknown-additive", "breaking"],
+      "gate": { "execution": "release", "automation": "manual" }
+    }
+  ]
+}

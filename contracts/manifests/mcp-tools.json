@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "2025-11-25",
+  "transport": "stdio",
+  "tools": [
+    {
+      "name": "pie.projects.list",
+      "inputSchemaId": "https://schemas.pielab.ai/mcp/projects-list-input.v1.schema.json",
+      "outputSchemaId": "https://schemas.pielab.ai/mcp/projects-list-output.v1.schema.json",
+      "sideEffect": false,
+      "requiredPermissions": ["mcp.project.read"],
+      "requiresIdempotencyKey": false,
+      "requiresExpectedVersion": false,
+      "maxOutputBytes": 262144
+    },
+    {
+      "name": "pie.work_items.get",
+      "inputSchemaId": "https://schemas.pielab.ai/mcp/work-item-get-input.v1.schema.json",
+      "outputSchemaId": "https://schemas.pielab.ai/mcp/work-item-get-output.v1.schema.json",
+      "sideEffect": false,
+      "requiredPermissions": ["mcp.work_item.read"],
+      "requiresIdempotencyKey": false,
+      "requiresExpectedVersion": false,
+      "maxOutputBytes": 131072
+    },
+    {
+      "name": "pie.work_items.search",
+      "inputSchemaId": "https://schemas.pielab.ai/mcp/work-items-search-input.v1.schema.json",
+      "outputSchemaId": "https://schemas.pielab.ai/mcp/work-items-search-output.v1.schema.json",
+      "sideEffect": false,
+      "requiredPermissions": ["mcp.work_item.read"],
+      "requiresIdempotencyKey": false,
+      "requiresExpectedVersion": false,
+      "maxOutputBytes": 262144
+    },
+    {
+      "name": "pie.work_items.comment.create",
+      "inputSchemaId": "https://schemas.pielab.ai/mcp/work-item-comment-create-input.v1.schema.json",
+      "outputSchemaId": "https://schemas.pielab.ai/mcp/work-item-comment-create-output.v1.schema.json",
+      "sideEffect": true,
+      "requiredPermissions": ["mcp.work_item.write", "work_item.comment"],
+      "requiresIdempotencyKey": true,
+      "requiresExpectedVersion": true,
+      "maxOutputBytes": 131072
+    },
+    {
+      "name": "pie.artifacts.register",
+      "inputSchemaId": "https://schemas.pielab.ai/mcp/artifact-register-input.v1.schema.json",
+      "outputSchemaId": "https://schemas.pielab.ai/mcp/artifact-register-output.v1.schema.json",
+      "sideEffect": true,
+      "requiredPermissions": ["mcp.artifact.write", "artifact.publish"],
+      "requiresIdempotencyKey": true,
+      "requiresExpectedVersion": true,
+      "maxOutputBytes": 131072
+    },
+    {
+      "name": "pie.execution_context.get",
+      "inputSchemaId": "https://schemas.pielab.ai/mcp/execution-context-get-input.v1.schema.json",
+      "outputSchemaId": "https://schemas.pielab.ai/mcp/execution-context-get-output.v1.schema.json",
+      "sideEffect": false,
+      "requiredPermissions": ["mcp.execution_context.read"],
+      "requiresIdempotencyKey": false,
+      "requiresExpectedVersion": false,
+      "maxOutputBytes": 65536
+    }
+  ]
+}

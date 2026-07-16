@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-session-revoked.v1.schema.json",
+  "title": "Realtime session revoked notification",
+  "type": "object",
+  "required": ["type", "schemaVersion", "reason", "effectiveAt"],
+  "properties": {
+    "type": {
+      "const": "session.revoked"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "reason": {
+      "enum": [
+        "user_logout",
+        "admin_revoke",
+        "account_disabled",
+        "membership_revoked",
+        "security_policy"
+      ]
+    },
+    "effectiveAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/session-state.v1.schema.json",
+  "title": "Pie desktop session state",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["status", "instanceId"],
+      "properties": {
+        "status": {
+          "const": "signed_out"
+        },
+        "instanceId": {
+          "$ref": "https://schemas.pielab.ai/common/instance-id.v1.schema.json"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "status",
+        "instanceId",
+        "userId",
+        "displayName",
+        "organizationId",
+        "permissions",
+        "expiresAt"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["signed_in", "reauth_required"]
+        },
+        "instanceId": {
+          "$ref": "https://schemas.pielab.ai/common/instance-id.v1.schema.json"
+        },
+        "userId": {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "organizationId": {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        "permissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_-]*$"
+          }
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  ],
+  "not": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "accessToken": true
+        },
+        "required": ["accessToken"]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "refreshToken": true
+        },
+        "required": ["refreshToken"]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "idToken": true
+        },
+        "required": ["idToken"]
+      }
+    ]
+  }
+}

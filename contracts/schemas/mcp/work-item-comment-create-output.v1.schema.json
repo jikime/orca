@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/mcp/work-item-comment-create-output.v1.schema.json",
+  "title": "pie.work_items.comment.create output",
+  "type": "object",
+  "required": ["comment", "workItemVersion", "correlationId"],
+  "properties": {
+    "comment": {
+      "$ref": "https://schemas.pielab.ai/resources/comment.v1.schema.json"
+    },
+    "workItemVersion": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "correlationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    }
+  }
+}

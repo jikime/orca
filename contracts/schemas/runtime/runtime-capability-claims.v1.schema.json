@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/runtime/runtime-capability-claims.v1.schema.json",
+  "title": "Runtime capability claims",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "issuer",
+    "audience",
+    "subject",
+    "sessionId",
+    "organizationId",
+    "host",
+    "operations",
+    "pathScopes",
+    "nonce",
+    "issuedAt",
+    "expiresAt"
+  ],
+  "properties": {
+    "issuer": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "audience": {
+      "type": "string",
+      "pattern": "^urn:pie:runtime:[0-9a-f-]{36}$"
+    },
+    "subject": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "sessionId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "host": {
+      "$ref": "https://schemas.pielab.ai/common/execution-host.v1.schema.json"
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.-]*$"
+      }
+    },
+    "pathScopes": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["root", "access"],
+        "properties": {
+          "root": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "access": {
+            "enum": ["read", "write"]
+          }
+        }
+      }
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "issuedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "expiresAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

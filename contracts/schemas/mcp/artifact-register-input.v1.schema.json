@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/mcp/artifact-register-input.v1.schema.json",
+  "title": "pie.artifacts.register input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workItemId",
+    "runtimeArtifactId",
+    "name",
+    "classification",
+    "visibility",
+    "expectedVersion",
+    "idempotencyKey"
+  ],
+  "properties": {
+    "projectId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "workItemId": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "runtimeArtifactId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "classification": {
+      "enum": ["public", "internal", "project_confidential", "restricted"]
+    },
+    "visibility": {
+      "enum": ["internal", "project", "customer"]
+    },
+    "expectedVersion": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "idempotencyKey": {
+      "$ref": "https://schemas.pielab.ai/common/idempotency-key.v1.schema.json"
+    }
+  }
+}

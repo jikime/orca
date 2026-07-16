@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/common/execution-host.v1.schema.json",
+  "title": "Execution host identity",
+  "type": "object",
+  "required": ["hostId", "type", "platform", "pathStyle", "caseSensitivePaths"],
+  "properties": {
+    "hostId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "type": {
+      "enum": ["native", "wsl", "ssh", "relay"]
+    },
+    "platform": {
+      "enum": ["darwin", "linux", "win32"]
+    },
+    "pathStyle": {
+      "enum": ["posix", "windows"]
+    },
+    "caseSensitivePaths": {
+      "type": "boolean"
+    },
+    "connectionId": {
+      "type": ["string", "null"],
+      "maxLength": 256
+    },
+    "wslDistribution": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "wsl"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["wslDistribution"],
+        "properties": {
+          "wslDistribution": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pathStyle": {
+            "const": "windows"
+          }
+        },
+        "required": ["pathStyle"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "const": "win32"
+          }
+        }
+      }
+    }
+  ]
+}

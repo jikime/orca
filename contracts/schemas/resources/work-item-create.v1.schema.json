@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/work-item-create.v1.schema.json",
+  "title": "Create work item request",
+  "type": "object",
+  "required": ["teamId", "title"],
+  "properties": {
+    "teamId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "projectId": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "description": {
+      "type": ["string", "null"],
+      "maxLength": 100000
+    },
+    "stateId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "priority": {
+      "enum": ["none", "urgent", "high", "medium", "low"]
+    },
+    "assigneeId": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+{
+  "bound": false,
+  "projectId": null,
+  "workItemId": null,
+  "workspaceId": null,
+  "agentSessionId": null,
+  "host": {
+    "hostId": "30000000-0000-4000-8000-000000000004",
+    "type": "native",
+    "platform": "linux",
+    "pathStyle": "posix",
+    "caseSensitivePaths": true
+  },
+  "futureBindingHint": "ignored"
+}

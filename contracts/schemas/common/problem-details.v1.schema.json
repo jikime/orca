@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/common/problem-details.v1.schema.json",
+  "title": "Pie Problem Details",
+  "type": "object",
+  "required": ["type", "title", "status", "code", "requestId"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "format": "uri"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "status": {
+      "type": "integer",
+      "minimum": 400,
+      "maximum": 599
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "instance": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]+$"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    }
+  }
+}

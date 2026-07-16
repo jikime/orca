@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "protocols": {
+    "discovery": {
+      "current": "1",
+      "supported": ["1"]
+    },
+    "api": {
+      "current": "1.0",
+      "supported": ["1.0"]
+    },
+    "realtime": {
+      "current": "1.0",
+      "supported": ["1.0"]
+    },
+    "ipc": {
+      "current": "1.0",
+      "supported": ["1.0"]
+    },
+    "runtime": {
+      "current": "1.0",
+      "supported": ["1.0"]
+    },
+    "agentIngest": {
+      "current": "1.0",
+      "supported": ["1.0"]
+    },
+    "relay": {
+      "current": "1.0",
+      "supported": ["1.0"]
+    },
+    "mcp": {
+      "current": "2025-11-25",
+      "supported": ["2025-11-25"]
+    }
+  },
+  "minimumClientVersion": "0.1.0"
+}

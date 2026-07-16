@@ -1,0 +1,44 @@
+{
+  "specversion": "1.0",
+  "id": "40000000-0000-4000-8000-000000000021",
+  "source": "urn:pie:runtime:40000000-0000-4000-8000-000000000003",
+  "type": "ai.pielab.agent.session.observed.v1",
+  "subject": "agent-sessions/40000000-0000-4000-8000-000000000004",
+  "time": "2026-07-15T03:00:00.000Z",
+  "datacontenttype": "application/json",
+  "dataschema": "https://schemas.pielab.ai/events/agent-session-observed.v1.schema.json",
+  "pieorgid": "10000000-0000-4000-8000-000000000001",
+  "piestream": "40000000-0000-4000-8000-000000000004",
+  "piesequence": 2,
+  "data": {
+    "context": {
+      "projectId": null,
+      "workItemId": null,
+      "workspaceId": null,
+      "hostId": "30000000-0000-4000-8000-000000000004",
+      "launchId": null,
+      "agentSessionId": "40000000-0000-4000-8000-000000000004",
+      "agentRunId": null,
+      "turnId": null,
+      "futureContext": "ignored"
+    },
+    "producer": {
+      "type": "runtime_observer",
+      "provider": "codex",
+      "parserVersion": "1.0.0",
+      "trustDomain": "client_observed",
+      "futureProducer": "ignored"
+    },
+    "assertion": "observed",
+    "classification": "internal",
+    "visibility": "internal",
+    "payload": {
+      "status": "active"
+    },
+    "correlationId": null,
+    "causationId": null,
+    "capturedAt": "2026-07-15T03:00:01.000Z",
+    "futureData": "ignored"
+  },
+  "futureEnvelope": "ignored"
+}

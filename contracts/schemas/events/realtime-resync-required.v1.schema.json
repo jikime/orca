@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-resync-required.v1.schema.json",
+  "title": "Realtime resynchronization required notification",
+  "type": "object",
+  "required": ["type", "schemaVersion", "reason", "cursor"],
+  "properties": {
+    "type": {
+      "const": "resync.required"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "reason": {
+      "enum": ["cursor_expired", "buffer_overflow", "schema_mismatch", "permission_changed"]
+    },
+    "cursor": {
+      "type": ["string", "null"],
+      "maxLength": 512
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/runtime/runtime-rpc-request.v1.schema.json",
+  "title": "Runtime RPC request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requestId",
+    "method",
+    "protocolVersion",
+    "sessionContext",
+    "executionHost",
+    "capability",
+    "deadlineAt",
+    "resumePolicy",
+    "stream",
+    "payload"
+  ],
+  "properties": {
+    "requestId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "method": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+    },
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "sessionContext": {
+      "$ref": "https://schemas.pielab.ai/common/session-context.v1.schema.json"
+    },
+    "executionHost": {
+      "$ref": "https://schemas.pielab.ai/common/execution-host.v1.schema.json"
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 8192,
+      "writeOnly": true
+    },
+    "deadlineAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "resumePolicy": {
+      "enum": ["fail_on_disconnect", "query_operation"]
+    },
+    "stream": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": {
+              "const": "unary"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "initialCredit", "maxFrameBytes"],
+          "properties": {
+            "mode": {
+              "const": "stream"
+            },
+            "initialCredit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "maxFrameBytes": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 16777216
+            }
+          }
+        }
+      ]
+    },
+    "payload": true
+  }
+}

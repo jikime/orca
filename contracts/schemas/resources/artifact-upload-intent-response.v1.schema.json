@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/artifact-upload-intent-response.v1.schema.json",
+  "title": "Artifact upload intent response",
+  "type": "object",
+  "required": [
+    "uploadSessionId",
+    "artifact",
+    "method",
+    "uploadEndpoint",
+    "expiresAt",
+    "maxPartBytes"
+  ],
+  "properties": {
+    "uploadSessionId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "artifact": {
+      "$ref": "https://schemas.pielab.ai/resources/artifact.v1.schema.json"
+    },
+    "method": {
+      "enum": ["single", "multipart"]
+    },
+    "uploadEndpoint": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "expiresAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "maxPartBytes": {
+      "type": "integer",
+      "minimum": 5242880,
+      "maximum": 5368709120
+    }
+  }
+}

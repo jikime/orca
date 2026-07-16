@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-client-hello.v1.schema.json",
+  "title": "Realtime client hello",
+  "type": "object",
+  "required": ["type", "schemaVersion", "protocolVersion", "instanceId", "organizationId"],
+  "properties": {
+    "type": {
+      "const": "client.hello"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "instanceId": {
+      "$ref": "https://schemas.pielab.ai/common/instance-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "lastCursor": {
+      "type": ["string", "null"],
+      "maxLength": 512
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    }
+  }
+}

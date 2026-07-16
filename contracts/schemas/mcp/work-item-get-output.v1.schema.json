@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/mcp/work-item-get-output.v1.schema.json",
+  "title": "pie.work_items.get output",
+  "type": "object",
+  "required": ["workItem"],
+  "properties": {
+    "workItem": {
+      "$ref": "https://schemas.pielab.ai/resources/work-item.v1.schema.json"
+    }
+  }
+}

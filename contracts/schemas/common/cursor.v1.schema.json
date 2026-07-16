@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/common/cursor.v1.schema.json",
+  "title": "Opaque pagination or event cursor",
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 512
+}

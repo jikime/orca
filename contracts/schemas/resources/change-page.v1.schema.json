@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/change-page.v1.schema.json",
+  "title": "Resource change delta page",
+  "type": "object",
+  "required": ["items", "nextCursor", "hasMore"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/events/realtime-resource-changed.v1.schema.json"
+      }
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/cursor.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hasMore": {
+      "type": "boolean"
+    }
+  }
+}

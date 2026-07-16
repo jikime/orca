@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/operation.v1.schema.json",
+  "title": "Asynchronous operation",
+  "type": "object",
+  "required": ["id", "organizationId", "kind", "status", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "status": {
+      "enum": ["pending", "running", "succeeded", "failed", "cancelled"]
+    },
+    "resultResourceId": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "problem": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/problem-details.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "updatedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

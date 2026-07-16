@@ -1,0 +1,8 @@
+{
+  "projectId": "10000000-0000-4000-8000-000000000002",
+  "workItemId": "10000000-0000-4000-8000-000000000003",
+  "body": "Contract validation completed.",
+  "visibility": "internal",
+  "expectedVersion": 1,
+  "idempotencyKey": "mcp-comment-0001"
+}

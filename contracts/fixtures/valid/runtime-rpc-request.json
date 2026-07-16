@@ -1,0 +1,28 @@
+{
+  "requestId": "30000000-0000-4000-8000-000000000011",
+  "method": "workspace.status",
+  "protocolVersion": "1.0",
+  "sessionContext": {
+    "instanceId": "20000000-0000-4000-8000-000000000002",
+    "sessionId": "30000000-0000-4000-8000-000000000002",
+    "organizationId": "10000000-0000-4000-8000-000000000001"
+  },
+  "executionHost": {
+    "hostId": "30000000-0000-4000-8000-000000000004",
+    "type": "wsl",
+    "platform": "linux",
+    "pathStyle": "posix",
+    "caseSensitivePaths": true,
+    "connectionId": "wsl-development",
+    "wslDistribution": "Ubuntu"
+  },
+  "capability": "synthetic-runtime-capability-not-a-real-credential",
+  "deadlineAt": "2026-07-15T02:01:00.000Z",
+  "resumePolicy": "fail_on_disconnect",
+  "stream": {
+    "mode": "unary"
+  },
+  "payload": {
+    "workspaceId": "30000000-0000-4000-8000-000000000012"
+  }
+}

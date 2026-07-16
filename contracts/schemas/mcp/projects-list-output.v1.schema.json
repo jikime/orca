@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/mcp/projects-list-output.v1.schema.json",
+  "title": "pie.projects.list output",
+  "type": "object",
+  "required": ["items", "nextCursor"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/project.v1.schema.json"
+      }
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/cursor.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

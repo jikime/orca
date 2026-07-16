@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-heartbeat.v1.schema.json",
+  "title": "Realtime heartbeat",
+  "type": "object",
+  "required": ["type", "schemaVersion", "direction", "sentAt"],
+  "properties": {
+    "type": {
+      "const": "heartbeat"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "direction": {
+      "enum": ["ping", "pong"]
+    },
+    "sentAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

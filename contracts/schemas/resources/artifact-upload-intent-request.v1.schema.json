@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/artifact-upload-intent-request.v1.schema.json",
+  "title": "Artifact upload intent request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workItemId",
+    "name",
+    "contentType",
+    "sizeBytes",
+    "sha256",
+    "classification",
+    "visibility"
+  ],
+  "properties": {
+    "projectId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "workItemId": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "contentType": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]+/[a-z0-9][a-z0-9!#$&^_.+-]+$",
+      "maxLength": 255
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10737418240
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "classification": {
+      "enum": ["public", "internal", "project_confidential", "restricted"]
+    },
+    "visibility": {
+      "enum": ["internal", "project", "customer"]
+    }
+  }
+}

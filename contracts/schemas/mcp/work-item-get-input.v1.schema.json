@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/mcp/work-item-get-input.v1.schema.json",
+  "title": "pie.work_items.get input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workItemId"],
+  "properties": {
+    "workItemId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    }
+  }
+}

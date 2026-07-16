@@ -1,0 +1,12 @@
+{
+  "type": "runtime.handshake",
+  "requestId": "30000000-0000-4000-8000-000000000001",
+  "mainVersion": "0.1.0",
+  "supportedProtocolVersions": ["1.0"],
+  "sessionContext": {
+    "instanceId": "20000000-0000-4000-8000-000000000002",
+    "sessionId": "30000000-0000-4000-8000-000000000002",
+    "organizationId": "10000000-0000-4000-8000-000000000001"
+  },
+  "capability": "too-short"
+}

@@ -1,0 +1,61 @@
+asyncapi: 3.0.0
+info:
+  title: Pie Realtime API
+  version: 0.1.0
+  description: Change notification and session invalidation protocol. REST remains the recovery authority.
+defaultContentType: application/json
+servers:
+  production:
+    host: realtime.pielab.ai
+    protocol: wss
+channels:
+  realtime:
+    address: /v1/realtime
+    messages:
+      ClientHello:
+        name: ClientHello
+        payload:
+          $ref: ../schemas/events/realtime-client-hello.v1.schema.json
+      ServerWelcome:
+        name: ServerWelcome
+        payload:
+          $ref: ../schemas/events/realtime-server-welcome.v1.schema.json
+      ResourceChanged:
+        name: ResourceChanged
+        payload:
+          $ref: ../schemas/events/realtime-resource-changed.v1.schema.json
+      SessionRevoked:
+        name: SessionRevoked
+        payload:
+          $ref: ../schemas/events/realtime-session-revoked.v1.schema.json
+      ResyncRequired:
+        name: ResyncRequired
+        payload:
+          $ref: ../schemas/events/realtime-resync-required.v1.schema.json
+      Heartbeat:
+        name: Heartbeat
+        payload:
+          $ref: ../schemas/events/realtime-heartbeat.v1.schema.json
+      ConnectionClosing:
+        name: ConnectionClosing
+        payload:
+          $ref: ../schemas/events/realtime-connection-closing.v1.schema.json
+operations:
+  sendClientMessages:
+    action: send
+    channel:
+      $ref: '#/channels/realtime'
+    messages:
+      - $ref: '#/channels/realtime/messages/ClientHello'
+      - $ref: '#/channels/realtime/messages/Heartbeat'
+  receiveServerMessages:
+    action: receive
+    channel:
+      $ref: '#/channels/realtime'
+    messages:
+      - $ref: '#/channels/realtime/messages/ServerWelcome'
+      - $ref: '#/channels/realtime/messages/ResourceChanged'
+      - $ref: '#/channels/realtime/messages/SessionRevoked'
+      - $ref: '#/channels/realtime/messages/ResyncRequired'
+      - $ref: '#/channels/realtime/messages/Heartbeat'
+      - $ref: '#/channels/realtime/messages/ConnectionClosing'

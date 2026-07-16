@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "instanceId": "company-pie-prod",
+  "displayName": "Company Pie",
+  "deploymentType": "self_hosted",
+  "apiBaseUrl": "https://pie.company.internal/v1",
+  "auth": {
+    "protocol": "oidc",
+    "issuer": "https://pie.company.internal/realms/pie",
+    "clientId": "pie-desktop",
+    "redirectModes": ["loopback", "private_uri_scheme"]
+  },
+  "realtimeUrl": "wss://pie.company.internal/realtime",
+  "relayUrl": "wss://relay.company.internal",
+  "mediaUrl": "https://media.company.internal",
+  "protocol": {
+    "api": "1.0",
+    "realtime": "1.0",
+    "relay": "1.0"
+  },
+  "minimumClientVersion": "0.1.0",
+  "capabilities": {
+    "objectUpload": true,
+    "remoteSupport": true,
+    "videoMeeting": true
+  },
+  "expiresAt": "2026-07-15T12:00:00Z"
+}
