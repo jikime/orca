@@ -38,8 +38,34 @@ export type ResourceChangeCloudEvent = {
   datacontenttype: 'application/json'
   pieorgid: string
   piestream: string
+  // W3C Trace Context (doc 23:46) carried as the CloudEvents distributed-tracing
+  // extension, so a request is traceable from mutation through Worker to gateway.
+  traceparent?: string
   // occurredAt lives in the envelope `time`; eventId is the envelope `id`.
   data: Omit<ResourceChangeData, 'eventId' | 'occurredAt'>
+}
+
+const TRACEPARENT_PATTERN = /^[0-9a-f]{2}-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/
+
+/** Extracts the 32-hex trace-id from a W3C traceparent (for log correlation). */
+export function traceIdFromTraceparent(traceparent: string | undefined): string | null {
+  if (!traceparent) {
+    return null
+  }
+  const match = TRACEPARENT_PATTERN.exec(traceparent)
+  const traceId = match?.[1]
+  return traceId && !/^0+$/.test(traceId) ? traceId : null
+}
+
+/** Reads the traceparent extension from a stored outbox payload, if present. */
+export function traceparentFromPayload(payload: unknown): string | undefined {
+  if (payload && typeof payload === 'object') {
+    const value = (payload as { traceparent?: unknown }).traceparent
+    if (typeof value === 'string') {
+      return value
+    }
+  }
+  return undefined
 }
 
 export type ResourceChangedMessage = {
@@ -91,6 +117,7 @@ export function buildResourceChangeCloudEvent(input: {
   changeKind: ResourceChangeKind
   version: number
   occurredAt: string
+  traceparent?: string
 }): ResourceChangeCloudEvent {
   return {
     specversion: '1.0',
@@ -102,6 +129,7 @@ export function buildResourceChangeCloudEvent(input: {
     datacontenttype: 'application/json',
     pieorgid: input.organizationId,
     piestream: input.organizationId,
+    ...(input.traceparent ? { traceparent: input.traceparent } : {}),
     data: {
       resourceType: input.resourceType,
       resourceId: input.resourceId,
@@ -116,6 +144,7 @@ export function buildOrganizationUpdatedCloudEvent(input: {
   eventId: string
   version: number
   occurredAt: string
+  traceparent?: string
 }): ResourceChangeCloudEvent {
   return buildResourceChangeCloudEvent({
     organizationId: input.organizationId,
@@ -124,7 +153,8 @@ export function buildOrganizationUpdatedCloudEvent(input: {
     resourceId: input.organizationId,
     changeKind: 'updated',
     version: input.version,
-    occurredAt: input.occurredAt
+    occurredAt: input.occurredAt,
+    traceparent: input.traceparent
   })
 }
 

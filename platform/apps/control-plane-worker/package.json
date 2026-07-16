@@ -3,12 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./outbox-claim-loop": "./src/outbox-claim-loop.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@pie/persistence": "workspace:*"
+    "@pie/persistence": "workspace:*",
+    "pino": "^9.5.0"
   }
 }

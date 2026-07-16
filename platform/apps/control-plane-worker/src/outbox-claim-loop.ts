@@ -3,8 +3,19 @@ import {
   PoisonOutboxEventError,
   publishClaimedEvent,
   requeueFailedEvent,
+  traceIdFromTraceparent,
+  traceparentFromPayload,
   type PieDatabase
 } from '@pie/persistence'
+
+// pino-compatible subset so the loop emits structured logs and tests can capture.
+export type StructuredLogger = {
+  info: (fields: Record<string, unknown>, message?: string) => void
+  warn: (fields: Record<string, unknown>, message?: string) => void
+  error: (fields: Record<string, unknown>, message?: string) => void
+}
+
+const NOOP_LOGGER: StructuredLogger = { info: () => {}, warn: () => {}, error: () => {} }
 
 export type OutboxBatchSummary = {
   claimed: number
@@ -23,7 +34,7 @@ export type OutboxClaimLoopOptions = {
   maxAttempts: number
   baseBackoffMs: number
   maxBackoffMs: number
-  log?: (message: string) => void
+  logger?: StructuredLogger
   onBatchProcessed?: (summary: OutboxBatchSummary) => void
 }
 
@@ -43,7 +54,7 @@ const EMPTY_SUMMARY: OutboxBatchSummary = {
 }
 
 export function createOutboxClaimLoop(options: OutboxClaimLoopOptions): OutboxClaimLoop {
-  const log = options.log ?? (() => {})
+  const logger = options.logger ?? NOOP_LOGGER
   let timer: ReturnType<typeof setTimeout> | null = null
   let stopped = false
 
@@ -55,10 +66,16 @@ export function createOutboxClaimLoop(options: OutboxClaimLoopOptions): OutboxCl
     })
     const summary: OutboxBatchSummary = { ...EMPTY_SUMMARY, claimed: claimed.length }
     for (const event of claimed) {
+      // Carry the request's trace id from the event envelope into the log line.
+      const traceId = traceIdFromTraceparent(traceparentFromPayload(event.payload))
       try {
         const result = await publishClaimedEvent(options.db, event)
         if (result.outcome === 'published') {
           summary.published += 1
+          logger.info(
+            { event: 'outbox.published', outboxId: event.id, sequence: result.sequence, traceId },
+            'outbox published'
+          )
         } else {
           summary.alreadyPublished += 1
         }
@@ -71,9 +88,16 @@ export function createOutboxClaimLoop(options: OutboxClaimLoopOptions): OutboxCl
         })
         if (outcome === 'parked') {
           summary.parked += 1
-          log(`[control-plane-worker] parked outbox event ${event.id} (${code})`)
+          logger.warn(
+            { event: 'outbox.parked', outboxId: event.id, code, traceId },
+            'outbox parked'
+          )
         } else {
           summary.requeued += 1
+          logger.warn(
+            { event: 'outbox.requeued', outboxId: event.id, code, traceId },
+            'outbox requeued'
+          )
         }
       }
     }
@@ -90,7 +114,7 @@ export function createOutboxClaimLoop(options: OutboxClaimLoopOptions): OutboxCl
         .catch((error) => {
           // A whole-batch failure (e.g. DB blip) must not kill the loop; the next
           // tick retries, and claimed rows fall back to reclaim on lease expiry.
-          log(`[control-plane-worker] claim batch failed: ${String(error)}`)
+          logger.error({ event: 'outbox.batch_failed', error: String(error) }, 'claim batch failed')
         })
         .finally(scheduleNext)
     }, options.pollIntervalMs)

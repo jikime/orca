@@ -3,13 +3,20 @@ import {
   decodeResourceChangedNotification,
   encodeCursor,
   getLatestPublishedSequence,
+  getResourceChangeAtSequence,
   listResourceChanges,
   RESOURCE_CHANGED_CHANNEL,
+  traceIdFromTraceparent,
   type PieDatabase
 } from '@pie/persistence'
 import { randomUUID } from 'node:crypto'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { createPostgresListenSource, type ListenSource } from './postgres-listen-source'
+
+// pino-compatible subset (matches the worker's logger) for structured delivery logs.
+export type GatewayLogger = {
+  info: (fields: Record<string, unknown>, message?: string) => void
+}
 
 // Minimal transport surface so the gateway is testable with a fake socket and
 // adapts cleanly to @fastify/websocket's ws socket.
@@ -30,6 +37,7 @@ export type RealtimeGatewayOptions = {
   // instead of a live delta (client then converges via listResourceChanges).
   resyncWindow?: number
   newConnectionId?: () => string
+  logger?: GatewayLogger
 }
 
 export type RealtimeGateway = {
@@ -38,6 +46,7 @@ export type RealtimeGateway = {
   broadcastClosing: (reason: string) => void
   catchUpAllAfterReconnect: () => Promise<void>
   connectionCount: () => number
+  deliveredMessageCount: () => number
   stop: () => Promise<void>
 }
 
@@ -58,6 +67,7 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
   const now = options.now ?? (() => Date.now())
   const newConnectionId = options.newConnectionId ?? (() => randomUUID())
   const orgConnections = new Map<string, Set<GatewayConnection>>()
+  let deliveredMessages = 0
 
   const listenSource: ListenSource = createPostgresListenSource({
     connectionString: options.listenConnectionString,
@@ -147,19 +157,29 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
     if (!set || set.size === 0) {
       return
     }
-    // Fetch the org-scoped change at this sequence (RLS keeps it tenant-safe).
-    const result = await listResourceChanges(options.db, organizationId, {
-      afterCursor: encodeCursor(sequence - 1),
-      limit: 1
-    })
-    if (!result.ok || result.page.items.length === 0) {
+    // Fetch the org-scoped change + its traceparent (RLS keeps it tenant-safe).
+    const change = await getResourceChangeAtSequence(options.db, organizationId, sequence)
+    if (!change) {
       return
     }
-    const message = result.page.items[0]!
+    const traceId = traceIdFromTraceparent(change.traceparent)
     for (const connection of set) {
       if (sequence > connection.lastDeliveredSequence) {
-        send(connection, 'resource.changed', message)
+        send(connection, 'resource.changed', change.message)
         connection.lastDeliveredSequence = sequence
+        deliveredMessages += 1
+        // The WS message carries no trace field (contract unchanged); the trace
+        // id is logged server-side so the request is followable to delivery.
+        options.logger?.info(
+          {
+            event: 'realtime.delivered',
+            organizationId,
+            sequence,
+            traceId,
+            connectionId: connection.id
+          },
+          'realtime delivered'
+        )
       }
     }
   }
@@ -273,6 +293,7 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
       }
       return total
     },
+    deliveredMessageCount: () => deliveredMessages,
     stop: async () => {
       for (const set of orgConnections.values()) {
         for (const connection of set) {

@@ -5,6 +5,7 @@ import {
   decodeCursor,
   encodeCursor,
   parseResourceChangeCloudEvent,
+  traceparentFromPayload,
   type ResourceChangedMessage
 } from './resource-change-event'
 import { withTenantTransaction } from './tenant-transaction'
@@ -76,6 +77,38 @@ export async function listResourceChanges(
   })
 
   return { ok: true, page }
+}
+
+/** Fetches the published change at a specific sequence plus its traceparent, so
+ *  the gateway can deliver the message and log delivery under the request's trace. */
+export async function getResourceChangeAtSequence(
+  db: Kysely<Database>,
+  organizationId: string,
+  sequence: number
+): Promise<{ message: ResourceChangedMessage; traceparent: string | undefined } | null> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const row = await trx
+      .selectFrom('operations.outbox_events')
+      .select(['payload', 'stream_sequence'])
+      .where('published_at', 'is not', null)
+      .where(sql<boolean>`stream_sequence = ${sequence}`)
+      .executeTakeFirst()
+    if (!row) {
+      return null
+    }
+    const change = parseResourceChangeCloudEvent(row.payload)
+    if (!change) {
+      return null
+    }
+    return {
+      message: buildResourceChangedMessage(
+        organizationId,
+        change,
+        encodeCursor(row.stream_sequence ?? sequence)
+      ),
+      traceparent: traceparentFromPayload(row.payload)
+    }
+  })
 }
 
 /** The highest published sequence for the org (0 if none) — the current cursor

@@ -223,6 +223,17 @@ pie-instance-discovery.ts`(Electron repo) 순수 함수로 supported/limited/nee
 discovery fixture + old/current/future 버전으로 세 상태를 검증한다. observability 대시보드·dead-letter
 일반화·공개 인증 페이지는 후속으로 남는다.
 
+2026-07-19 slice 5로 관측성과 end-to-end trace 종료 조건을 닫았다. **판독:** OTel은 observability deploy
+profile(Collector+backend)이라 앱은 W3C traceparent 전파 + 구조적 pino 로그 + JSON 메트릭만 정직히
+구현하고 OTel exporter는 후속. traceparent가 mutation/finalize→audit trace_id + outbox CloudEvents 봉투
+확장 필드(doc 23:46)→Worker가 봉투에서 trace-id를 꺼내 구조적 로그→gateway가 DB 봉투에서 trace-id로
+delivery 로그. `resource.changed`에 trace 필드가 없어 client 상관은 gateway까지(계약 미확장, 문서화).
+worker는 pino 구조적 로그+주기 메트릭. API `GET /internal/metrics`(JSON: outbox published/pending/parked·
+claim lag·realtime clients/delivered; outbox는 pie_worker cross-tenant 집계, 내용 미노출) + 빌드 없는
+정적 `GET /internal/ops` 대시보드. e2e trace 테스트가 같은 trace-id가 audit·outbox 봉투·worker publish
+로그·gateway delivery 로그에 나타남을 검증한다. dead-letter table·job queue 일반화·공개 인증 페이지는
+후속 R2, OTel exporter/Grafana는 deploy profile로 남는다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |
