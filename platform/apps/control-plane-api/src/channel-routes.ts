@@ -1,14 +1,19 @@
 import {
+  addChannelMember,
   addReaction,
   createChannel,
+  createDm,
   getChannelForMember,
+  getChannelKind,
   getMessageWithReactions,
   getReadCursor,
+  isOrgMember,
   listChannelMessages,
   listChannels,
   markChannelRead,
   postMessage,
   removeReaction,
+  type ChannelKind,
   type ChannelResource,
   type ChannelVisibility,
   type MessageResource,
@@ -23,10 +28,12 @@ import { authorizeOrgPermission } from './route-authorization'
 
 const CHANNEL_SCHEMA_ID = 'https://schemas.pielab.ai/resources/channel.v1.schema.json'
 const CHANNEL_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/channel-create.v1.schema.json'
+const DM_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/dm-create.v1.schema.json'
 const MESSAGE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message.v1.schema.json'
 const MESSAGE_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-create.v1.schema.json'
 const READ_CURSOR_SCHEMA_ID = 'https://schemas.pielab.ai/resources/read-cursor.v1.schema.json'
 const CHANNELS_ROUTE = '/v1/organizations/{organizationId}/channels'
+const DMS_ROUTE = '/v1/organizations/{organizationId}/dms'
 const CHANNEL_MESSAGES_ROUTE = '/v1/organizations/{organizationId}/channels/{channelId}/messages'
 const CHANNEL_REACTIONS_ROUTE =
   '/v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/reactions'
@@ -84,7 +91,17 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       'channel.read'
     )
     if (!authz) return reply
-    const items = authz.userId ? await listChannels(deps.db, organizationId, authz.userId) : []
+    const { kind } = request.query as { kind?: string }
+    if (kind !== undefined && kind !== 'channel' && kind !== 'dm')
+      return problem(reply, request, 400, 'BAD_REQUEST', 'invalid kind')
+    const items = authz.userId
+      ? await listChannels(
+          deps.db,
+          organizationId,
+          authz.userId,
+          kind ? { kind: kind as ChannelKind } : {}
+        )
+      : []
     for (const item of items) assertResponse(deps.registry, CHANNEL_SCHEMA_ID, item)
     return { items, nextCursor: null }
   })
@@ -173,6 +190,115 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
     assertResponse(deps.registry, CHANNEL_SCHEMA_ID, result.channel)
     return result.channel
   })
+
+  // Find-or-create the DM between the caller and one other org member (idempotent via
+  // dm_key). 201 when created, 200 when it already existed. A DM is a channel — every
+  // messaging feature works in it with no DM-specific code.
+  app.post('/v1/organizations/:organizationId/dms', async (request, reply) => {
+    const principal = await app.requireAuthenticatedSubject(request, reply)
+    if (!principal) return reply
+    const { organizationId } = request.params as { organizationId: string }
+    if (!UUID_PATTERN.test(organizationId))
+      return problem(reply, request, 400, 'BAD_REQUEST', 'invalid organizationId')
+    const authz = await authorizeOrgPermission(
+      deps.db,
+      request,
+      reply,
+      principal,
+      organizationId,
+      'channel.create'
+    )
+    if (!authz || !authz.userId) return authz ? reply.code(403).send() : reply
+    if (!validates(deps.registry, DM_CREATE_SCHEMA_ID, request.body))
+      return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid dm create request')
+    const gate = await beginIdempotency(
+      deps.db,
+      request,
+      reply,
+      { organizationId, principalId: principal.subject, method: 'POST', route: DMS_ROUTE },
+      request.body
+    )
+    if (!gate) return reply
+    const respondDm = (channel: ChannelResource, created: boolean): ChannelResource => {
+      assertResponse(deps.registry, CHANNEL_SCHEMA_ID, channel)
+      void reply
+        .code(created ? 201 : 200)
+        .header('location', `/v1/organizations/${organizationId}/channels/${channel.id}`)
+      return channel
+    }
+    if (gate.priorResourceId) {
+      const existing = await getChannelForMember(
+        deps.db,
+        organizationId,
+        gate.priorResourceId,
+        authz.userId
+      )
+      if (existing.ok) return respondDm(existing.channel, false)
+    }
+    const { otherUserId } = request.body as { otherUserId: string }
+    const result = await createDm(deps.db, {
+      organizationId,
+      actorUserId: authz.userId,
+      otherUserId
+    })
+    if ('error' in result) {
+      await gate.release()
+      return problem(
+        reply,
+        request,
+        422,
+        'INVALID_DM_TARGET',
+        'the other user is not a member of this org'
+      )
+    }
+    await gate.complete(result.channel.id)
+    return respondDm(result.channel, result.created)
+  })
+
+  // Add an org member to a NORMAL channel (channel.manage). Denied on a DM (409) — a
+  // DM's roster is fixed. Idempotent (204); no key reserved.
+  app.post(
+    '/v1/organizations/:organizationId/channels/:channelId/members',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId } = request.params as {
+        organizationId: string
+        channelId: string
+      }
+      if (!UUID_PATTERN.test(organizationId) || !UUID_PATTERN.test(channelId))
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'channel.manage'
+      )
+      if (!authz) return reply
+      const body = request.body as { userId?: string }
+      if (typeof body?.userId !== 'string' || !UUID_PATTERN.test(body.userId))
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'userId is required')
+      const kind = await getChannelKind(deps.db, organizationId, channelId)
+      if (kind === null) return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
+      // Moderation deny-list: channel.manage-type ops are rejected on a DM regardless
+      // of role (a DM's roster is fixed at its participants). Group DM is later.
+      if (kind === 'dm')
+        return problem(
+          reply,
+          request,
+          409,
+          'DM_ROSTER_FIXED',
+          'a direct message roster cannot be changed'
+        )
+      if (!(await isOrgMember(deps.db, organizationId, body.userId)))
+        return problem(reply, request, 422, 'NOT_ORG_MEMBER', 'user is not a member of this org')
+      await addChannelMember(deps.db, { organizationId, channelId, userId: body.userId })
+      void reply.code(204).send()
+      return reply
+    }
+  )
 
   app.post(
     '/v1/organizations/:organizationId/channels/:channelId/messages',

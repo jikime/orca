@@ -555,7 +555,16 @@ paths:
     get:
       tags: [Collaboration]
       operationId: listChannels
-      description: Channels the caller is a member of.
+      description: >-
+        Channels the caller is a member of. DMs (kind='dm') appear here too; the
+        optional kind filter narrows to DMs or normal channels (canonical resource,
+        not a separate list).
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema:
+            enum: [channel, dm]
       responses:
         '200':
           description: The caller's channels.
@@ -610,6 +619,74 @@ paths:
       responses:
         '200':
           description: Channel representation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/members:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Collaboration]
+      operationId: addChannelMember
+      description: >-
+        Adds an org member to a normal channel (channel.manage). Rejected on a DM
+        (409) — a DM's roster is fixed at its participants. Idempotent (204).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              additionalProperties: false
+              properties:
+                userId:
+                  $ref: ../schemas/common/opaque-id.v1.schema.json
+      responses:
+        '204':
+          description: Member added (or already present).
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/dms:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Collaboration]
+      operationId: createDm
+      description: >-
+        Find-or-create the DM between the caller and one other org member. Idempotent
+        via a deterministic dm_key: createDm(A,B) and createDm(B,A) return the same
+        channel (201 when created, 200 when it already existed).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/dm-create.v1.schema.json
+      responses:
+        '200':
+          description: The existing DM channel.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel.v1.schema.json
+        '201':
+          description: The newly created DM channel.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
           content:
             application/json:
               schema:

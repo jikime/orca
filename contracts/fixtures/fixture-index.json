@@ -426,6 +426,12 @@
       "schemaId": "https://schemas.pielab.ai/resources/message-create.v1.schema.json",
       "document": "valid/message-create-mention.json",
       "expectedValid": true
+    },
+    {
+      "name": "start dm request",
+      "schemaId": "https://schemas.pielab.ai/resources/dm-create.v1.schema.json",
+      "document": "valid/dm-create.json",
+      "expectedValid": true
     }
   ]
 }

@@ -981,6 +981,29 @@ platform 227 tests green, typecheck 4/4·lint 0(136 files)·check:contracts gree
 미변경, 두 lockfile clean. **worker/gateway 변경 0 재확인.** 후속: DM→presence/typing(@channel/@here 포함)→첨부→
 search→채널 invite→DND 또는 Planning Gate.
 
+2026-07-17 chat slice 4 `feat/pie-chat-dm`에서 direct messages(DM)를 구현했다(platform 전용, root src 미변경,
+design-reference-only). **핵심 결정: DM은 `kind='dm'` 플래그가 붙은 평범한 channel이지 별도 엔티티/테이블이 아님 —
+DM 프라이버시는 channel_members roster(멤버십)에서 나오지 전용 dm.view permission이 아님**(접근 경계가 이미 저장된
+멤버십으로 함의되면 병렬 permission을 만들지 않는다는 교훈). migration `20260801090001`: channels에 `kind`
+(channel|dm, 기존 행 default 'channel')·nullable `dm_key` + **kind='dm'에만 걸리는 partial unique index**(정상 채널은
+무제약) additive 추가. **결정(dm_key): 정렬된 참가자 user-id 조인**(`[a,b].sort().join(':')`) — createDm(A,B)와
+createDm(B,A)가 같은 key→같은 채널, group DM(N>2)도 같은 정렬-조인(이 slice는 2-party). **결정(생성 라우트): 전용
+`POST .../dms`가 {otherUserId}로 find-or-create**(kind=dm로 채널 만드는 것보다 결정적 find-or-create에 명확). 201
+생성/200 기존, 동시 double-create는 partial unique index로 하나만 생성(loser가 winner 행 재조회). **결정(list 필터):
+listChannels에 `?kind=dm` query filter**(별도 리소스 아님, canonical-resource 일관). **DM 메시징은 slice 1-3 전부
+재사용 — postMessage/threads/reactions/mentions/read cursor/notifications가 DM에서 코드 0 추가로 동작**(DM=channel,
+roster가 게이트; 테스트로 증명). **결정(moderation deny): kind='dm' 채널에서 channel.manage류 op(멤버 추가 등)를 역할
+무관하게 4xx 거부**(DM roster는 참가자에 고정) — 대표 op로 `POST .../channels/{id}/members`(channel.manage, 정상
+채널엔 org 멤버 추가=deferred slice-1 invite 겸함, DM엔 409 DM_ROSTER_FIXED) 신설·재사용 가드; **2-party DM만, group
+DM은 후속.** **NO dm.view/dm.post permission — 멤버십 + 기존 message.post/read + createDm은 channel.create.** 조직
+밖 유저 DM 금지(otherUserId가 active org 멤버여야, 아니면 422). createDm은 beginIdempotency로도 감쌈(dm_key 자연
+idempotent에 더해 같은-key-다른-payload 409). 테스트: dm-store(computeDmKey 순서무관·createDm 양방향 동일 채널·동시
+1채널·참가자 멤버십·비org멤버 거부·**DM에서 post/list/react/mention 동작**·kind 필터), chat-dm-vertical(idempotent
+201→200·양쪽 메시징+제3자 403·DM 프라이버시[C가 ?kind=dm에서 못 봄·메시지 못 읽음]·조직밖 422·**moderation 정상 채널
+204 vs DM 409**·?kind=dm). platform 239 tests green, typecheck 4/4·lint 0(138 files)·check:contracts green(72 schema/
+72 fixture/39 op), root src 미변경, 두 lockfile clean. **worker/gateway 변경 0 재확인.** 후속: presence/typing(@channel/
+@here, 휘발성 broadcast=신규 경로)→첨부→search→group DM→DND 또는 Planning Gate.
+
 ## R8: 서비스 데스크·원격지원·자산
 
 ### 범위
