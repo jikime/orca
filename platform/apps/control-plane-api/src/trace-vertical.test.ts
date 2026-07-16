@@ -183,10 +183,12 @@ describe('end-to-end trace', () => {
     const metrics = await fetch(`${baseUrl}/internal/metrics`)
     expect(metrics.status).toBe(200)
     const body = (await metrics.json()) as {
-      outbox: { published: number; pending: number; parked: number; claimLagSeconds: number }
+      outbox: { published: number; pending: number; claimLagSeconds: number }
+      deadLetter: { parked: number }
       realtime: { connectedClients: number; deliveredMessages: number }
     }
     expect(body.outbox.published).toBeGreaterThanOrEqual(1)
+    expect(typeof body.deadLetter.parked).toBe('number')
     expect(typeof body.realtime.deliveredMessages).toBe('number')
 
     const ops = await fetch(`${baseUrl}/internal/ops`)

@@ -52,6 +52,25 @@ export interface OutboxEventsTable {
   parked_at: NullableTimestampColumn
 }
 
+export interface DeadLetterEventsTable {
+  id: string
+  organization_id: string
+  aggregate_type: string
+  aggregate_id: string
+  aggregate_version: BigIntColumn
+  event_type: string
+  event_schema_version: number
+  payload: JsonbColumn
+  occurred_at: TimestampColumn
+  attempt_count: number
+  last_error_code: string | null
+  parked_at: TimestampColumn
+  status: Generated<string>
+  requeue_count: Generated<number>
+  requeued_at: NullableTimestampColumn
+  requeued_by: string | null
+}
+
 export interface StreamCursorsTable {
   organization_id: string
   last_sequence: DefaultedBigIntColumn
@@ -156,6 +175,7 @@ export interface ArtifactUploadSessionsTable {
 export interface Database {
   'identity.organizations': OrganizationsTable
   'operations.outbox_events': OutboxEventsTable
+  'operations.dead_letter_events': DeadLetterEventsTable
   'operations.idempotency_records': IdempotencyRecordsTable
   'operations.stream_cursors': StreamCursorsTable
   'operations.operations': OperationsTable

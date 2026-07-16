@@ -234,6 +234,26 @@ claim lag·realtime clients/delivered; outbox는 pie_worker cross-tenant 집계,
 로그·gateway delivery 로그에 나타남을 검증한다. dead-letter table·job queue 일반화·공개 인증 페이지는
 후속 R2, OTel exporter/Grafana는 deploy profile로 남는다.
 
+2026-07-20 slice 6으로 마지막 R2-범위 종료 조건(dead-letter table·작업 큐 일반화, 공개 인증 utility
+page 셸·이메일 pipeline 셸)을 닫았다. **dead-letter:** doc 30에 전용 table이 없어 정직한 최소로
+`operations.dead_letter_events`(outbox 봉투 전부 + park 사실 + 재큐 트레일, 표준 RLS)를 추가했다. parking은
+in-place가 아니라 relocate — 예산 초과 row를 한 worker tx에서 dead_letter로 옮기고 hot outbox에서 삭제해
+pending-claim index를 작게 유지하고 dead letter를 가시화한다(pie_worker에 outbox DELETE grant).
+operator 재큐(UI 없음)는 attempt 0으로 outbox에 되돌리고 dead-letter row는 `status=requeued` 트레일로 남기며
+감사 이벤트를 남긴다. `/internal/metrics`에 deadLetter 카운트 추가. **작업 큐 일반화:** outbox가 유일 소비자라
+범용 framework 대신 SKIP LOCKED 역학만 추출했다(순수 재시도 정책 `queue-retry-policy` + table-agnostic 폴링
+드라이버 `queue-polling-loop`, outbox가 첫 소비자, 새 job type이 재사용 — 투기적 추상화 금지). **공개 인증
+셸:** credential 흐름은 Keycloak, Control Plane은 결과·랜딩·안내만 소유한다(doc 16:11-19). `/public/*`에
+verify-email·reset-password·invite·sso-callback 결과 셸을 프레임워크 없이 정적 서빙하고 응답마다 엄격한
+CSP(script 전면 차단·inline 없음)를 세우며 `pie://`로 앱에 넘긴다. 셸은 쿼리 토큰을 읽지도 로그하지도 않는다
+(실제 토큰 검증은 R3). **이메일 셸:** 발송 seam(`PieEmailSender` 타입 + dev no-op 로그, 실제 발송 없음)만
+정의했다 — Pie는 초대·보안 경고만, Keycloak이 가입·확인·재설정 소유(doc 17:126), 실제 SMTP·템플릿·발송 큐는
+R3. 테스트는 relocation·재큐→republish→realtime·poison 격리·dead-letter 메트릭·새 table RLS 음성·공개 페이지
+CSP·이메일 seam 로그를 검증한다. 이로써 R2 범위 코드 구현이 종료 조건을 모두 실행형 증거로 닫았고, 남는
+것은 코드가 아니라 deploy/ops 관심사(OTel Collector·Grafana, 실제 Keycloak·SMTP, WAL/PITR, instance
+discovery 자동 연결, compose `core` profile 배포)와 R3 이후 기능(artifact multipart·삭제·quarantine·download
+presign, 실제 authn)이다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

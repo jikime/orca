@@ -1,4 +1,4 @@
-import { collectOutboxMetrics, type PieDatabase } from '@pie/persistence'
+import { collectDeadLetterMetrics, collectOutboxMetrics, type PieDatabase } from '@pie/persistence'
 import type { FastifyInstance } from 'fastify'
 import type { RealtimeGateway } from './realtime-gateway'
 
@@ -36,10 +36,10 @@ async function refresh(){
   const ready=await j('/readyz');
   document.getElementById('ready').textContent=ready.ok?'ready':'NOT READY ('+ready.status+')';
   const m=await j('/internal/metrics');
-  if(m.ok){const o=m.body.outbox,rt=m.body.realtime;
+  if(m.ok){const o=m.body.outbox,dl=m.body.deadLetter,rt=m.body.realtime;
     document.getElementById('metrics').innerHTML=[
       tile('outbox published',o.published),tile('outbox pending',o.pending),
-      tile('outbox parked',o.parked),tile('claim lag (s)',o.claimLagSeconds),
+      tile('dead letters',dl.parked),tile('claim lag (s)',o.claimLagSeconds),
       tile('realtime clients',rt.connectedClients),tile('delivered',rt.deliveredMessages)
     ].join('');}
   const d=await j('/.well-known/pie');
@@ -53,9 +53,11 @@ export function registerMetricsRoutes(app: FastifyInstance, deps: MetricsRoutesD
   // Internal, auth-free pre-R3 (documented). R3 puts these behind operator authz.
   app.get('/internal/metrics', async () => {
     const outbox = await collectOutboxMetrics(deps.db)
+    const deadLetter = await collectDeadLetterMetrics(deps.db)
     return {
       collectedAt: new Date().toISOString(),
       outbox,
+      deadLetter,
       realtime: {
         connectedClients: deps.gateway.connectionCount(),
         deliveredMessages: deps.gateway.deliveredMessageCount()

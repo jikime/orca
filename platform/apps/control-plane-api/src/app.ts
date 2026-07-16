@@ -13,6 +13,7 @@ import { registerDiscoveryRoute } from './discovery-route'
 import { registerMetricsRoutes } from './metrics-routes'
 import { registerHealthRoutes, type HealthDeps } from './health-routes'
 import { registerProblemDetails } from './problem-details'
+import { registerPublicPagesRoutes } from './public-pages-routes'
 import type { RealtimeGateway, RealtimeSocket } from './realtime-gateway'
 import { resolveTraceContext } from './request-correlation'
 
@@ -69,6 +70,8 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
 
   registerProblemDetails(app)
   registerHealthRoutes(app, deps)
+  // Public utility page shell — no dependencies, no business data.
+  registerPublicPagesRoutes(app)
 
   // Ajv 2020-12 consumption proof: this route's body schema declares the 2020-12
   // dialect and is compiled by the Ajv2020 instance above. No business logic yet.
