@@ -126,6 +126,7 @@ beforeAll(async () => {
   const team = await jsonOf<{ id: string }>(
     await owner(`/v1/organizations/${orgId}/teams`, {
       method: 'POST',
+      headers: { 'idempotency-key': randomUUID() },
       body: JSON.stringify({ key: 'CORE', name: 'Core' })
     })
   )

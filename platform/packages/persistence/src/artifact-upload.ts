@@ -145,6 +145,29 @@ export async function completeIdempotencyKey(
   })
 }
 
+/**
+ * Releases an in-progress reservation whose mutation failed a business rule (e.g.
+ * entitlement 402, key-taken 409). Only ever deletes a still-in_progress row, so a
+ * completed replay is never destroyed; freeing it lets the caller retry the same
+ * key instead of being stuck on IDEMPOTENCY_IN_PROGRESS forever.
+ */
+export async function releaseIdempotencyKey(
+  db: Kysely<Database>,
+  scope: IdempotencyScope
+): Promise<void> {
+  await withTenantTransaction(db, scope.organizationId, async (trx) => {
+    await trx
+      .deleteFrom('operations.idempotency_records')
+      .where('organization_id', '=', scope.organizationId)
+      .where('principal_id', '=', scope.principalId)
+      .where('request_method', '=', scope.method)
+      .where('request_route', '=', scope.route)
+      .where('idempotency_key', '=', scope.key)
+      .where('status', '=', 'in_progress')
+      .execute()
+  })
+}
+
 // ── Intent + finalize ─────────────────────────────────────────────────────────
 
 export type CreateArtifactUploadIntentInput = {

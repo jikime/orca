@@ -131,6 +131,22 @@ export async function createComment(
   })
 }
 
+/** Fetches one comment by id (used for idempotent-replay of createComment). */
+export async function getComment(
+  db: Kysely<Database>,
+  organizationId: string,
+  commentId: string
+): Promise<CommentResource | null> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const row = await trx
+      .selectFrom('delivery.comments')
+      .selectAll()
+      .where('id', '=', commentId)
+      .executeTakeFirst()
+    return row ? mapComment(row) : null
+  })
+}
+
 /** Lists a work item's comments oldest first. Audience projection (external role →
  *  only customer-visible) is applied by the caller via projectCommentsForAudience. */
 export async function listComments(

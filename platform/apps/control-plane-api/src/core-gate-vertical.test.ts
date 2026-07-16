@@ -244,6 +244,41 @@ describe('r4-core-gate', () => {
       expect(body.toLowerCase(), path).not.toContain('bearer ')
     }
 
+    // Gate condition (doc 28:328): duplicate request. A retried create with the same
+    // Idempotency-Key + payload returns the SAME resource (one row); a same key with
+    // a different payload → 409. This is what closes the gate fully.
+    const dupKey = randomUUID()
+    const dupBody = JSON.stringify({ teamId: team.id, title: 'Duplicate-guarded' })
+    const listBefore = await jsonOf<{ items: unknown[] }>(
+      await bearerFetch('gate-owner', `/v1/organizations/${orgId}/work-items`)
+    )
+    const dupHeaders = { 'idempotency-key': dupKey, 'content-type': 'application/json' }
+    const firstCreate = await bearerFetch('gate-owner', `/v1/organizations/${orgId}/work-items`, {
+      method: 'POST',
+      headers: dupHeaders,
+      body: dupBody
+    })
+    const secondCreate = await bearerFetch('gate-owner', `/v1/organizations/${orgId}/work-items`, {
+      method: 'POST',
+      headers: dupHeaders,
+      body: dupBody
+    })
+    expect(firstCreate.status).toBe(201)
+    expect(secondCreate.status).toBe(201)
+    expect((await jsonOf<{ id: string }>(secondCreate)).id).toBe(
+      (await jsonOf<{ id: string }>(firstCreate)).id
+    )
+    const listAfter = await jsonOf<{ items: unknown[] }>(
+      await bearerFetch('gate-owner', `/v1/organizations/${orgId}/work-items`)
+    )
+    expect(listAfter.items.length).toBe(listBefore.items.length + 1)
+    const reused = await bearerFetch('gate-owner', `/v1/organizations/${orgId}/work-items`, {
+      method: 'POST',
+      headers: dupHeaders,
+      body: JSON.stringify({ teamId: team.id, title: 'Changed payload' })
+    })
+    expect(reused.status).toBe(409)
+
     // Gate condition: stale ETag → 412 (conflict is surfaced, not last-write-wins).
     const stale = await bearerFetch(
       'gate-owner',

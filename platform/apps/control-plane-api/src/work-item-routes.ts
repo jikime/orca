@@ -2,6 +2,7 @@ import {
   assignWorkItem,
   createComment,
   createWorkItem,
+  getComment,
   getWorkItem,
   listComments,
   listTeamWorkflow,
@@ -11,14 +12,25 @@ import {
   projectCommentsForAudience,
   resolveAudience,
   updateWorkItem,
+  type CommentResource,
   type CommentVisibility,
   type PieDatabase,
-  type WorkItemPriority
+  type WorkItemPriority,
+  type WorkItemResource
 } from '@pie/persistence'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
+import { beginIdempotency } from './idempotent-mutation'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
 import { authorizeOrgPermission, authorizeResourcePermission } from './route-authorization'
+
+// Canonical route templates scope an Idempotency-Key (doc 23:89-99). This slice
+// dedups the create mutations; the If-Match-guarded mutations (updateWorkItem,
+// :move-state, :assign) already reject a duplicate as a 412 via optimistic
+// concurrency, so they are not key-deduped here.
+const WORK_ITEMS_ROUTE = '/v1/organizations/{organizationId}/work-items'
+const WORK_ITEM_COMMENTS_ROUTE =
+  '/v1/organizations/{organizationId}/work-items/{workItemId}/comments'
 
 const WORK_ITEM_SCHEMA_ID = 'https://schemas.pielab.ai/resources/work-item.v1.schema.json'
 const WORK_ITEM_CREATE_SCHEMA_ID =
@@ -164,6 +176,26 @@ export function registerWorkItemRoutes(app: FastifyInstance, deps: WorkItemRoute
     if (!authz) return reply
     if (!validates(deps.registry, WORK_ITEM_CREATE_SCHEMA_ID, request.body))
       return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid work item create request')
+    const gate = await beginIdempotency(
+      deps.db,
+      request,
+      reply,
+      { organizationId, principalId: principal.subject, method: 'POST', route: WORK_ITEMS_ROUTE },
+      request.body
+    )
+    if (!gate) return reply
+    const respondCreated = (workItem: WorkItemResource): WorkItemResource => {
+      assertResponse(deps.registry, WORK_ITEM_SCHEMA_ID, workItem)
+      void reply
+        .code(201)
+        .header('etag', workItemEtag(workItem.version))
+        .header('location', `/v1/organizations/${organizationId}/work-items/${workItem.id}`)
+      return workItem
+    }
+    if (gate.priorResourceId) {
+      const existing = await getWorkItem(deps.db, organizationId, gate.priorResourceId)
+      if (existing) return respondCreated(existing)
+    }
     const body = request.body as {
       teamId: string
       projectId?: string | null
@@ -185,18 +217,15 @@ export function registerWorkItemRoutes(app: FastifyInstance, deps: WorkItemRoute
       assigneeId: body.assigneeId
     })
     if (!result.ok) {
+      await gate.release()
       if (result.reason === 'team_not_found')
         return problem(reply, request, 409, 'NO_TEAM', 'team not found for work item')
       if (result.reason === 'project_not_found')
         return problem(reply, request, 409, 'NO_PROJECT', 'project not found for work item')
       return problem(reply, request, 422, 'INVALID_STATE', 'state is not in the team workflow')
     }
-    assertResponse(deps.registry, WORK_ITEM_SCHEMA_ID, result.workItem)
-    void reply
-      .code(201)
-      .header('etag', workItemEtag(result.workItem.version))
-      .header('location', `/v1/organizations/${organizationId}/work-items/${result.workItem.id}`)
-    return result.workItem
+    await gate.complete(result.workItem.id)
+    return respondCreated(result.workItem)
   })
 
   app.get('/v1/organizations/:organizationId/work-items/:workItemId', async (request, reply) => {
@@ -408,6 +437,33 @@ export function registerWorkItemRoutes(app: FastifyInstance, deps: WorkItemRoute
       if (!authz) return reply
       if (!validates(deps.registry, COMMENT_CREATE_SCHEMA_ID, request.body))
         return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid comment create request')
+      const gate = await beginIdempotency(
+        deps.db,
+        request,
+        reply,
+        {
+          organizationId,
+          principalId: principal.subject,
+          method: 'POST',
+          route: WORK_ITEM_COMMENTS_ROUTE
+        },
+        request.body
+      )
+      if (!gate) return reply
+      const respondComment = (comment: CommentResource): CommentResource => {
+        assertResponse(deps.registry, COMMENT_SCHEMA_ID, comment)
+        void reply
+          .code(201)
+          .header(
+            'location',
+            `/v1/organizations/${organizationId}/work-items/${workItemId}/comments/${comment.id}`
+          )
+        return comment
+      }
+      if (gate.priorResourceId) {
+        const existing = await getComment(deps.db, organizationId, gate.priorResourceId)
+        if (existing) return respondComment(existing)
+      }
       const body = request.body as { body: string; visibility?: CommentVisibility }
       const result = await createComment(deps.db, {
         organizationId,
@@ -416,15 +472,12 @@ export function registerWorkItemRoutes(app: FastifyInstance, deps: WorkItemRoute
         body: body.body,
         visibility: body.visibility
       })
-      if (!result.ok) return problem(reply, request, 404, 'NOT_FOUND', 'work item not found')
-      assertResponse(deps.registry, COMMENT_SCHEMA_ID, result.comment)
-      void reply
-        .code(201)
-        .header(
-          'location',
-          `/v1/organizations/${organizationId}/work-items/${workItemId}/comments/${result.comment.id}`
-        )
-      return result.comment
+      if (!result.ok) {
+        await gate.release()
+        return problem(reply, request, 404, 'NOT_FOUND', 'work item not found')
+      }
+      await gate.complete(result.comment.id)
+      return respondComment(result.comment)
     }
   )
 
