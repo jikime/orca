@@ -358,6 +358,24 @@ merge-patch+If-Match/ETag→412. **getProject=authorizeResourcePermission(projec
 Project(realtime·402·412·narrow 거부). platform 167 tests green(+11), lint 0, contracts green, root src 미변경.
 slice 2=WorkItem+Board, slice 3=My Work+Core Gate.
 
+2026-07-27 R4 slice 2(WorkItem aggregate + Team WorkItem Workflow + Board move) 구현(platform 전용, root src
+미변경). **contracts additive:** `moveWorkItemState`(`.../work-items/{id}:move-state`)·`listTeamWorkflowStates`
+op + `work-item-move-state.v1`·`workflow-state.v1` 스키마+fixture, work-item.v1에 `workflowVersion`/`sortKey`
+optional 추가(required 아님→하위호환), check:contracts green(22 op/62 schema/54 fixture). **migration
+`20260727090001`:** teams에 `workflow_version` 컬럼, `workflow_states`(팀 소유, 고정 category enum, 같은 팀
+(org_id,team_id,id) unique로 work_items가 같은 팀 상태만 FK), `work_items`(teamId 필수·projectId nullable,
+human key=team.key+'-'+sequence). **식별자 원자성:** `team_counters` UPDATE ... RETURNING(next_sequence-1)이
+행 잠금으로 동시 생성을 직렬화→gap/dup 없는 순차 식별자(APP-1·APP-2). 식별자는 Orca Worktree/Workspace/task
+ID와 **별개 네임스페이스**(UUID가 PK, human key는 조회용). **두 Workflow 분리(doc 27:137-146):** 이 slice는
+Team WorkItem Workflow만 구현하고 Delivery Workflow는 만들지 않으며 WorkItem 상태 이동이 어떤 Delivery Stage도
+자동 진행하지 않음(코드·주석·"move가 project row 무변경" 테스트로 경계 명시). **결정: 전용 `:move-state` op**
+(updateWorkItem 병합 아님) — doc 23:118-119의 fromStateId·toStateId·workflowVersion·expectedVersion 4중 검증을
+명시적 액션으로. stale workflowVersion/expectedVersion/fromState→412, workflow 밖 toState→422. PATCH는 stateId
+변경 거부(→:move-state 유도)로 workflowVersion 검증 우회 차단. 기본 팀 provisioning(slice1 insertTeamRow)을
+확장해 팀 생성 시 기본 Workflow(Todo→In Progress→In Review→Done) seed(같은 1 tx). getWorkItem=
+authorizeResourcePermission(work_item.read)으로 ResourceGrant도 소비. platform 182 tests green(+15), lint 0,
+contracts green, root src 미변경. slice 3=My Work + comments/Activity + Core Gate automation.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

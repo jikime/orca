@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/work-item-move-state.v1.schema.json",
+  "title": "Move work item state request",
+  "description": "Board move (doc 23:118-119): validates the work item's expectedVersion AND the team's workflowVersion so a stale board is rejected rather than silently overwriting.",
+  "type": "object",
+  "required": ["fromStateId", "toStateId", "workflowVersion", "expectedVersion"],
+  "properties": {
+    "fromStateId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "toStateId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "workflowVersion": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "expectedVersion": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    }
+  },
+  "additionalProperties": false
+}

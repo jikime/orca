@@ -1,6 +1,7 @@
 import type { Kysely, Transaction } from 'kysely'
 import type { Database } from './database-schema'
 import { withTenantTransaction } from './tenant-transaction'
+import { seedDefaultWorkflow } from './workflow-store'
 
 export const DEFAULT_TEAM_KEY = 'CORE'
 
@@ -10,6 +11,7 @@ export type TeamResource = {
   key: string
   name: string
   version: number
+  workflowVersion: number
   createdAt: string
   updatedAt: string
 }
@@ -20,6 +22,7 @@ function mapTeam(row: {
   key: string
   name: string
   version: string | number
+  workflow_version: string | number
   created_at: Date | string
   updated_at: Date | string
 }): TeamResource {
@@ -29,14 +32,16 @@ function mapTeam(row: {
     key: row.key,
     name: row.name,
     version: Number(row.version),
+    workflowVersion: Number(row.workflow_version),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
   }
 }
 
 /**
- * Inserts a team + its WorkItem sequence counter inside an existing transaction.
- * Shared by createTeam and by owner provisioning's default-team bootstrap.
+ * Inserts a team + its WorkItem sequence counter + default WorkItem Workflow inside
+ * an existing transaction. Shared by createTeam and by owner provisioning's
+ * default-team bootstrap, so every team is born with a workflow in the same one tx.
  */
 export async function insertTeamRow(
   trx: Transaction<Database>,
@@ -51,6 +56,7 @@ export async function insertTeamRow(
     .insertInto('delivery.team_counters')
     .values({ organization_id: input.organizationId, team_id: team.id })
     .execute()
+  await seedDefaultWorkflow(trx, input.organizationId, team.id)
   return mapTeam(team)
 }
 

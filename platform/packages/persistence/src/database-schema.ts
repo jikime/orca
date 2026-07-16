@@ -315,6 +315,39 @@ export interface TeamsTable {
   key: string
   name: string
   version: DefaultedBigIntColumn
+  workflow_version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface WorkflowStatesTable {
+  organization_id: string
+  id: Generated<string>
+  team_id: string
+  key: string
+  name: string
+  category: string
+  sort_key: BigIntColumn
+  created_at: TimestampColumn
+}
+
+export interface WorkItemsTable {
+  organization_id: string
+  id: Generated<string>
+  team_id: string
+  project_id: string | null
+  sequence: BigIntColumn
+  identifier: string
+  title: string
+  description: string | null
+  state_id: string
+  workflow_version: BigIntColumn
+  assignee_id: string | null
+  creator_id: string
+  priority: Generated<string>
+  sort_key: BigIntColumn
+  version: DefaultedBigIntColumn
+  archived_at: NullableTimestampColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
 }
@@ -371,6 +404,8 @@ export interface Database {
   'audit.authorization_denials': AuthorizationDenialsTable
   'delivery.teams': TeamsTable
   'delivery.team_counters': TeamCountersTable
+  'delivery.workflow_states': WorkflowStatesTable
+  'delivery.work_items': WorkItemsTable
   'delivery.projects': ProjectsTable
   'delivery.project_teams': ProjectTeamsTable
   'agent.objects': ObjectsTable

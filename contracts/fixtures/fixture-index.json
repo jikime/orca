@@ -306,6 +306,24 @@
       "schemaId": "https://schemas.pielab.ai/events/realtime-heartbeat.v1.schema.json",
       "document": "valid/realtime-heartbeat.json",
       "expectedValid": true
+    },
+    {
+      "name": "work item move state request",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item-move-state.v1.schema.json",
+      "document": "valid/work-item-move-state.json",
+      "expectedValid": true
+    },
+    {
+      "name": "work item move state missing workflowVersion",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item-move-state.v1.schema.json",
+      "document": "invalid/work-item-move-state-missing-workflow-version.json",
+      "expectedValid": false
+    },
+    {
+      "name": "workflow state response",
+      "schemaId": "https://schemas.pielab.ai/resources/workflow-state.v1.schema.json",
+      "document": "valid/workflow-state.json",
+      "expectedValid": true
     }
   ]
 }
