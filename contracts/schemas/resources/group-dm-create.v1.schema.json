@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/group-dm-create.v1.schema.json",
+  "title": "Start group direct message request",
+  "description": "Find-or-create the N-party group DM among the caller and the listed org members. The caller is implicit and need not be listed. Idempotent via a deterministic dm_key over the full participant set.",
+  "type": "object",
+  "required": ["participantUserIds"],
+  "properties": {
+    "participantUserIds": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 49,
+      "items": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

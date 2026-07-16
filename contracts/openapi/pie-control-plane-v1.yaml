@@ -693,6 +693,44 @@ paths:
                 $ref: ../schemas/resources/channel.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/group-dms:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Collaboration]
+      operationId: createGroupDm
+      description: >-
+        Find-or-create the N-party group DM among the caller and the listed org members.
+        The caller is implicit and need not be listed. Idempotent via a deterministic
+        dm_key over the full participant set, so {A,B,C} is a different channel than the
+        1:1 {A,B} (201 when created, 200 when it already existed). The roster is fixed at
+        creation; a group DM is a channel with kind='dm'.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/group-dm-create.v1.schema.json
+      responses:
+        '200':
+          description: The existing group DM channel.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel.v1.schema.json
+        '201':
+          description: The newly created group DM channel.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/channels/{channelId}/messages:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

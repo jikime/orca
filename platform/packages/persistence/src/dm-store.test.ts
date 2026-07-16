@@ -67,6 +67,15 @@ describe('collaboration: DM find-or-create', () => {
     expect(computeDmKey([x, y])).toBe(computeDmKey([y, x]))
   })
 
+  it('computeDmKey is order-independent for N>2 (group DM)', () => {
+    const x = randomUUID()
+    const y = randomUUID()
+    const z = randomUUID()
+    expect(computeDmKey([x, y, z])).toBe(computeDmKey([z, x, y]))
+    // A 3-party key differs from any of its 2-party subsets.
+    expect(computeDmKey([x, y, z])).not.toBe(computeDmKey([x, y]))
+  })
+
   it('createDm(A,B) and createDm(B,A) resolve to the SAME channel', async (ctx) => {
     if (!harness) return ctx.skip()
     const { orgId, a, b } = await freshOrg()
