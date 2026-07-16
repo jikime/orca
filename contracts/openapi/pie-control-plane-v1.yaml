@@ -1013,6 +1013,41 @@ paths:
                 $ref: ../schemas/resources/read-cursor.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/mute:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    put:
+      tags: [Collaboration]
+      operationId: muteChannel
+      description: >-
+        Mutes a channel for the caller (member-gated). Suppresses @channel/@here
+        broadcast notifications from the channel; a direct @mention still notifies the
+        caller. Idempotent — a repeat PUT is a no-op 204, not an error.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Channel muted (or was already muted).
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [Collaboration]
+      operationId: unmuteChannel
+      description: >-
+        Unmutes a channel for the caller (member-gated). Idempotent — unmuting a
+        channel that is not muted is a no-op 204, not an error.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Channel unmuted (or was already not muted).
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/notifications:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

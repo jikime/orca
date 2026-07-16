@@ -7,6 +7,7 @@ import {
 } from './attachment-store'
 import type { Database } from './database-schema'
 import { emitCollaborationChange, isChannelMemberTx } from './channel-store'
+import { mutedUserIdsForChannelTx } from './channel-mute-store'
 import { withTenantTransaction } from './tenant-transaction'
 
 export type MessageVisibility = 'internal' | 'project' | 'customer'
@@ -166,21 +167,40 @@ async function channelMemberMentionTargets(
 }
 
 /**
+ * A mention target set split by PROVENANCE, so the resolver can apply channel mute:
+ *  - explicit: names the user deliberately typed (@user). ALWAYS notifies, even muted.
+ *  - broadcast: users swept up by a group scope (@channel ∪ @here). Suppressed for a
+ *    user who has MUTED the channel (mute kills group noise, not direct pings).
+ */
+type MentionTargets = { explicit: readonly string[]; broadcast: readonly string[] }
+
 /**
  * Resolves the message's mentions ONCE at post time (never recomputed on edit): each
  * mentioned user must be a channel member; non-members are silently dropped. Writes
  * a message_mentions row and a durable per-user notification (+ its own realtime
  * invalidation) for each valid mention — all inside the caller's message tx.
+ *
+ * Channel mute is applied here by PROVENANCE: a direct @mention (explicit) always
+ * pierces a mute, while a user reached ONLY by a broadcast (@channel/@here) who has
+ * muted the channel is dropped from BOTH the notification and the message_mentions row
+ * (they were never individually pinged, only swept up). Dedup keeps one row per user:
+ * a user in both scopes is notified via the explicit path and never double-counted.
  */
 async function resolveMentions(
   trx: Transaction<Database>,
   organizationId: string,
   channelId: string,
   messageId: string,
-  mentions: readonly string[]
+  targets: MentionTargets
 ): Promise<void> {
-  const unique = [...new Set(mentions)]
-  for (const mentionedUserId of unique) {
+  const explicit = new Set(targets.explicit)
+  // Broadcast-only = reached solely by a group scope (not also a deliberate direct ping).
+  const broadcastOnly = [...new Set(targets.broadcast)].filter((id) => !explicit.has(id))
+  const muted = await mutedUserIdsForChannelTx(trx, channelId, broadcastOnly)
+  // Single notify set: every explicit target + broadcast-only targets that are NOT muted.
+  // The two inputs are disjoint and each deduped, so no user appears twice.
+  const notifiable = [...explicit, ...broadcastOnly.filter((id) => !muted.has(id))]
+  for (const mentionedUserId of notifiable) {
     if (!(await isChannelMemberTx(trx, channelId, mentionedUserId))) {
       continue
     }
@@ -291,11 +311,13 @@ export async function postMessage(
       })
       .returningAll()
       .executeTakeFirstOrThrow()
-    // Union explicit mentions[] (unchanged — may include the author for a deliberate
-    // self-mention) with the server-resolved @channel and @here scopes (both exclude the
-    // author). One deduped Set → one resolveMentions pass → exactly one notification and
-    // one message_mentions row per user, however many scopes cover them.
-    const mentionTargets = new Set<string>(input.mentions ?? [])
+    // Split targets by provenance so mute suppresses group noise without silencing a
+    // direct ping. explicit = mentions[] (unchanged — may include the author for a
+    // deliberate self-mention); broadcast = the server-resolved @channel ∪ @here scopes
+    // (both exclude the author). resolveMentions dedups + mute-filters into one pass, so a
+    // user in both scopes still gets exactly one notification + one message_mentions row.
+    const explicit = input.mentions ?? []
+    const broadcast = new Set<string>()
     if (input.mentionChannel) {
       for (const id of await channelMemberMentionTargets(
         trx,
@@ -303,20 +325,21 @@ export async function postMessage(
         input.authorUserId,
         input.logger
       )) {
-        mentionTargets.add(id)
+        broadcast.add(id)
       }
     }
     if (input.mentionHere && input.presentUserIds) {
       for (const id of input.presentUserIds) {
         if (id !== input.authorUserId) {
-          mentionTargets.add(id)
+          broadcast.add(id)
         }
       }
     }
-    if (mentionTargets.size > 0) {
-      await resolveMentions(trx, input.organizationId, input.channelId, message.id, [
-        ...mentionTargets
-      ])
+    if (explicit.length > 0 || broadcast.size > 0) {
+      await resolveMentions(trx, input.organizationId, input.channelId, message.id, {
+        explicit,
+        broadcast: [...broadcast]
+      })
     }
     if (input.attachmentIds && input.attachmentIds.length > 0) {
       const linked = await linkAttachmentsTx(trx, input.channelId, message.id, input.attachmentIds)

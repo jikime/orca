@@ -477,6 +477,13 @@ export interface NotificationsTable {
   created_at: TimestampColumn
 }
 
+export interface ChannelMutesTable {
+  organization_id: string
+  channel_id: string
+  user_id: string
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -517,6 +524,7 @@ export interface Database {
   'collaboration.message_mentions': MessageMentionsTable
   'collaboration.message_attachments': MessageAttachmentsTable
   'collaboration.notifications': NotificationsTable
+  'collaboration.channel_mutes': ChannelMutesTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable
