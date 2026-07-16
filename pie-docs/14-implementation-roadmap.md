@@ -745,6 +745,39 @@ workflow/invalid toState)·cross-tenant RLS·move가 project row 무변경·real
 narrow 거부. platform 182 tests green(+15), lint 0, check:contracts green, root src 미변경. **slice 3이 다음:**
 My Work + comment/Activity + Core Gate 자동화.
 
+2026-07-28 slice 3 `feat/pie-r4-mywork-activity-coregate`에서 My Work + comments/Activity + assignment + Core
+Gate 자동화 + TEN-004를 구현해 **R4 Core Gate를 닫았다**(platform 전용, root src 미변경). **contracts additive:**
+`createWorkItemComment`/`listWorkItemComments`(nested `/comments`)·`listWorkItemActivity`(`/activity`)·
+`assignWorkItem`(`:assign`) OpenAPI op + listWorkItems에 `assignee` query param, `comment-create.v1`·
+`work-item-activity-entry.v1`·`work-item-assign.v1` 스키마 + fixture 6개, check:contracts green(26 op/65 schema/
+60 fixture). **migration `20260728090001`:** `delivery.comments`(work_item 같은 tenant 복합 FK, visibility
+internal|project|customer, RLS 쌍) + **My Work index** `work_items_assignee_idx (org, assignee_id, state_id,
+sort_key, id) where archived_at is null and assignee_id is not null`(doc 30:352 거대 OR 금지, targeted index).
+**My Work URL 결정: `GET .../work-items?assignee=me`** — canonical work-items 리소스의 권한 적용 query filter(doc
+23:148-150 별도 nested URL 금지), `me` sentinel을 서버가 토큰 subject의 Pie userId로 해소(타 유저 유출 없음,
+org-scoped). **comment realtime 결정: work_item.updated invalidation**(comment는 work-item child→aggregate root
+invalidation이 정직 최소 신호, comment 이벤트 타입 신설 안 함). **Activity source 결정: audit.audit_events 필터
+읽기**(target_type='work_item'+target_id, 순서 occurred_at; dedicated projection 연기, audit이 SoT, cross-item/
+cross-tenant 노출 없음). **assignment 결정: 전용 `:assign` 액션(work_item.assign)** — assignee는 doc 27:437
+online mutation이고 자체 권한을 가지므로 PATCH(work_item.update)에서 분리; PATCH는 assignee 변경을 거부
+(USE_ASSIGN 409)해 update 권한만으로 재배정하는 구멍 차단(member는 update 있고 assign 없음→라이브 403). create-time
+assigneeId는 work_item.create로 허용(생성 속성), 재배정만 :assign. move-state colon-dispatch 라우트를 action으로
+분기(move-state|assign). **TEN-004(customer-field-projection-snapshots):** `resource-projection.ts` — audience
+(멤버십 역할이 전부 external이면 external, 하나라도 internal이면 internal, 멤버십 없으면 최다제한 external),
+projectWorkItemForAudience(external→assigneeId·priority·sortKey·workflowVersion **필드 삭제**)·
+projectProjectForAudience(external→summary·status 삭제)·projectCommentsForAudience(external→customer visibility만).
+**customer-org-on-project 관계는 Planning Gate라 이 slice는 org-level customer_approver 멤버십 fixture로 projection을
+증명**(정직 최소, 문서화); listComments가 라이브로 audience 필터 적용. **Core Gate 통합 테스트 `r4-core-gate`:**
+provision→CORE team→project→WorkItem(CORE-1)→assign→My Work(내 것만)→board move→comment→Activity(created·
+assigned·state_moved·commented) 전체 관통 + 게이트 조건(cross-tenant 403·stale ETag 412·**응답 본문에 access/
+refresh token·bearer 노출 0**·WorkItem opaque UUID id ≠ human key CORE-N 네임스페이스[Orca Worktree/task ID와
+별개, 종료 조건 676]). **R5 인계 포트(doc 28:509-521): WorkItem opaque id + stateId 노출만 확인, R5는 안 만듦.**
+platform 188 tests green(병렬 컨테이너 포트 고갈로 일부 파일 transient skip→격리 재실행으로 전부 통과 확인),
+typecheck 4/4·lint 0(121 files)·check:contracts green, root src 미변경, 두 lockfile clean. **R4 Core Gate 종결
+→ R5 AI Workspace 착수 가능.** **남은 R4 = Planning Gate**(Cycle/Initiative/Milestone/ProjectUpdate/Intake/
+SavedView/offline-cache/search/external-refs). **플래그: delivery 라우트 런타임 idempotency dedup 미배선**(헤더는
+계약 필수, 저장 dedup 후속).
+
 ## R5: AI 실행 추적과 개발 Workspace
 
 ### 목표

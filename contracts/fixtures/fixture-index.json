@@ -324,6 +324,42 @@
       "schemaId": "https://schemas.pielab.ai/resources/workflow-state.v1.schema.json",
       "document": "valid/workflow-state.json",
       "expectedValid": true
+    },
+    {
+      "name": "work item comment response",
+      "schemaId": "https://schemas.pielab.ai/resources/comment.v1.schema.json",
+      "document": "valid/comment.json",
+      "expectedValid": true
+    },
+    {
+      "name": "work item comment create request",
+      "schemaId": "https://schemas.pielab.ai/resources/comment-create.v1.schema.json",
+      "document": "valid/comment-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "work item comment create empty body",
+      "schemaId": "https://schemas.pielab.ai/resources/comment-create.v1.schema.json",
+      "document": "invalid/comment-create-empty-body.json",
+      "expectedValid": false
+    },
+    {
+      "name": "work item activity entry",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item-activity-entry.v1.schema.json",
+      "document": "valid/work-item-activity-entry.json",
+      "expectedValid": true
+    },
+    {
+      "name": "work item assign request",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item-assign.v1.schema.json",
+      "document": "valid/work-item-assign.json",
+      "expectedValid": true
+    },
+    {
+      "name": "work item assign missing version",
+      "schemaId": "https://schemas.pielab.ai/resources/work-item-assign.v1.schema.json",
+      "document": "invalid/work-item-assign-missing-version.json",
+      "expectedValid": false
     }
   ]
 }

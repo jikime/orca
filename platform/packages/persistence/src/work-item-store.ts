@@ -238,12 +238,16 @@ export async function getWorkItem(
 export async function listWorkItems(
   db: Kysely<Database>,
   organizationId: string,
-  filter: { projectId?: string } = {}
+  filter: { projectId?: string; assigneeId?: string } = {}
 ): Promise<WorkItemResource[]> {
   return withTenantTransaction(db, organizationId, async (trx) => {
     let query = trx.selectFrom('delivery.work_items').selectAll().where('archived_at', 'is', null)
     if (filter.projectId) {
       query = query.where('project_id', '=', filter.projectId)
+    }
+    // My Work: assignee-keyed, backed by work_items_assignee_idx (doc 30:352).
+    if (filter.assigneeId) {
+      query = query.where('assignee_id', '=', filter.assigneeId)
     }
     const rows = await query.orderBy('sort_key').execute()
     return rows.map(mapWorkItem)
@@ -252,13 +256,22 @@ export async function listWorkItems(
 
 export type UpdateWorkItemResult =
   | { ok: true; workItem: WorkItemResource }
-  | { ok: false; reason: 'not_found' | 'project_not_found' | 'state_change_requires_move' }
+  | {
+      ok: false
+      reason:
+        | 'not_found'
+        | 'project_not_found'
+        | 'state_change_requires_move'
+        | 'assignee_change_requires_assign'
+    }
   | { ok: false; reason: 'version_conflict'; currentVersion: number }
 
 /**
- * Merge-patches the mergeable fields under If-Match optimistic concurrency. A
- * stateId change is intentionally rejected here: state transitions must go through
- * moveWorkItemState so the team's workflowVersion is validated (doc 23:118-119).
+ * Merge-patches the mergeable fields under If-Match optimistic concurrency. Two
+ * changes are intentionally rejected here and routed to their own actions so their
+ * distinct permission and validation apply: a stateId change must go through
+ * moveWorkItemState (validates the team's workflowVersion, doc 23:118-119), and an
+ * assigneeId change must go through assignWorkItem (carries work_item.assign).
  */
 export async function updateWorkItem(
   db: Kysely<Database>,
@@ -293,6 +306,9 @@ export async function updateWorkItem(
     if (input.patch.stateId !== undefined && input.patch.stateId !== current.state_id) {
       return { ok: false, reason: 'state_change_requires_move' }
     }
+    if (input.patch.assigneeId !== undefined && input.patch.assigneeId !== current.assignee_id) {
+      return { ok: false, reason: 'assignee_change_requires_assign' }
+    }
     if (input.patch.projectId) {
       const project = await trx
         .selectFrom('delivery.projects')
@@ -311,8 +327,6 @@ export async function updateWorkItem(
         description:
           input.patch.description === undefined ? current.description : input.patch.description,
         priority: input.patch.priority ?? current.priority,
-        assignee_id:
-          input.patch.assigneeId === undefined ? current.assignee_id : input.patch.assigneeId,
         project_id:
           input.patch.projectId === undefined ? current.project_id : input.patch.projectId,
         version: newVersion,
@@ -421,5 +435,96 @@ export async function moveWorkItemState(
     )
     await emitWorkItemChange(trx, input.organizationId, input.workItemId, newVersion, 'updated')
     return { ok: true, workItem: mapWorkItem(updated) }
+  })
+}
+
+export type AssignWorkItemResult =
+  | { ok: true; workItem: WorkItemResource }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'version_conflict'; currentVersion: number }
+
+/**
+ * Changes a work item's assignee under optimistic concurrency (doc 27:437). Its
+ * own action because assignment carries work_item.assign, distinct from the
+ * work_item.update that a field PATCH needs. One tenant tx: assignee + version bump
+ * + audit + realtime invalidation.
+ */
+export async function assignWorkItem(
+  db: Kysely<Database>,
+  input: {
+    organizationId: string
+    workItemId: string
+    actorUserId: string
+    assigneeId: string | null
+    expectedVersion: number
+  }
+): Promise<AssignWorkItemResult> {
+  return withTenantTransaction(db, input.organizationId, async (trx) => {
+    const current = await trx
+      .selectFrom('delivery.work_items')
+      .selectAll()
+      .where('id', '=', input.workItemId)
+      .forUpdate()
+      .executeTakeFirst()
+    if (!current) {
+      return { ok: false, reason: 'not_found' }
+    }
+    if (Number(current.version) !== input.expectedVersion) {
+      return { ok: false, reason: 'version_conflict', currentVersion: Number(current.version) }
+    }
+    const newVersion = Number(current.version) + 1
+    const updated = await trx
+      .updateTable('delivery.work_items')
+      .set({ assignee_id: input.assigneeId, version: newVersion, updated_at: sql`now()` })
+      .where('id', '=', input.workItemId)
+      .returningAll()
+      .executeTakeFirstOrThrow()
+    await auditWorkItem(
+      trx,
+      input.organizationId,
+      input.actorUserId,
+      input.workItemId,
+      'work_item.assigned'
+    )
+    await emitWorkItemChange(trx, input.organizationId, input.workItemId, newVersion, 'updated')
+    return { ok: true, workItem: mapWorkItem(updated) }
+  })
+}
+
+export type WorkItemActivityEntry = {
+  id: string
+  workItemId: string
+  action: string
+  actorId: string | null
+  occurredAt: string
+}
+
+/**
+ * The work item's Activity timeline = its slice of the audit trail (state moves,
+ * assignments, comments, field changes), oldest first. audit.audit_events is the
+ * source of truth; this is a filtered read (a dedicated projection is a deferred
+ * optimization). Work-item-scoped only — never cross-item or cross-tenant.
+ */
+export async function listWorkItemActivity(
+  db: Kysely<Database>,
+  organizationId: string,
+  workItemId: string
+): Promise<WorkItemActivityEntry[]> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const rows = await trx
+      .selectFrom('audit.audit_events')
+      .select(['id', 'action', 'actor_id', 'target_id', 'occurred_at'])
+      .where('target_type', '=', 'work_item')
+      .where('target_id', '=', workItemId)
+      .orderBy('occurred_at')
+      .orderBy('id')
+      .execute()
+    return rows.map((row) => ({
+      id: row.id,
+      workItemId,
+      action: row.action,
+      actorId: row.actor_id,
+      occurredAt: new Date(row.occurred_at).toISOString()
+    }))
   })
 }

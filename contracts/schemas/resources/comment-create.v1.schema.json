@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/comment-create.v1.schema.json",
+  "title": "Create work item comment request",
+  "description": "A committed comment on a work item. The Control Plane snapshot is authoritative; local drafts (doc 27:435) are a client concern. visibility gates who sees it (internal|project|customer).",
+  "type": "object",
+  "required": ["body"],
+  "properties": {
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20000
+    },
+    "visibility": {
+      "enum": ["internal", "project", "customer"]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/work-item-assign.v1.schema.json",
+  "title": "Assign work item request",
+  "description": "Changes a work item's assignee (doc 27:437 online mutation). A distinct action from a field PATCH because assignment carries its own work_item.assign permission. expectedVersion is the work item's ETag.",
+  "type": "object",
+  "required": ["assigneeId", "expectedVersion"],
+  "properties": {
+    "assigneeId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "expectedVersion": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    }
+  },
+  "additionalProperties": false
+}

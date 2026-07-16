@@ -278,6 +278,17 @@ paths:
           required: false
           schema:
             $ref: ../schemas/common/opaque-id.v1.schema.json
+        - name: assignee
+          in: query
+          required: false
+          description: >-
+            My Work filter (doc 30:352). A user id, or the sentinel `me` which
+            the server resolves to the authenticated subject's Pie user id.
+            assignee is a query filter on the canonical work-items resource, not
+            a separate resource URL (doc 23:148-150).
+          schema:
+            type: string
+            maxLength: 64
       responses:
         '200':
           description: Work items visible in the organization.
@@ -427,6 +438,115 @@ paths:
                       $ref: ../schemas/resources/workflow-state.v1.schema.json
                   workflowVersion:
                     $ref: ../schemas/common/resource-version.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/work-items/{workItemId}/comments:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/WorkItemId'
+    get:
+      tags: [WorkItems]
+      operationId: listWorkItemComments
+      description: >-
+        Committed comments on a work item, audience-projected: an external role
+        sees only customer-visible comments (TEN-004).
+      responses:
+        '200':
+          description: Comments on the work item.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/comment.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [WorkItems]
+      operationId: createWorkItemComment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/comment-create.v1.schema.json
+      responses:
+        '201':
+          description: Comment created.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/comment.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/work-items/{workItemId}/activity:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/WorkItemId'
+    get:
+      tags: [WorkItems]
+      operationId: listWorkItemActivity
+      description: >-
+        The work item's Activity timeline — its audit history (state moves,
+        assignments, comments, field changes), work-item-scoped only.
+      responses:
+        '200':
+          description: Activity entries for the work item, most recent last.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/work-item-activity-entry.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/work-items/{workItemId}:assign:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/WorkItemId'
+    post:
+      tags: [WorkItems]
+      operationId: assignWorkItem
+      description: >-
+        Changes the assignee (doc 27:437). A distinct action carrying its own
+        work_item.assign permission, validated against the item's expectedVersion.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/work-item-assign.v1.schema.json
+      responses:
+        '200':
+          description: Assignee changed.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/work-item.v1.schema.json
+        '412':
+          $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/agent-events:batch:
