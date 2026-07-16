@@ -1411,7 +1411,13 @@ export type PreloadApi = {
     onClearBufferRequest: (callback: (data: { ptyId: string }) => void) => () => void
     sendSerializedBuffer: (
       requestId: string,
-      snapshot: { data: string; cols: number; rows: number; seq?: number; lastTitle?: string } | null
+      snapshot: {
+        data: string
+        cols: number
+        rows: number
+        seq?: number
+        lastTitle?: string
+      } | null
     ) => void
     declarePendingPaneSerializer: (paneKey: string) => Promise<number>
     settlePaneSerializer: (paneKey: string, gen: number) => Promise<void>

@@ -1142,7 +1142,13 @@ const api = {
 
     sendSerializedBuffer: (
       requestId: string,
-      snapshot: { data: string; cols: number; rows: number; seq?: number; lastTitle?: string } | null
+      snapshot: {
+        data: string
+        cols: number
+        rows: number
+        seq?: number
+        lastTitle?: string
+      } | null
     ): void => {
       ipcRenderer.send('pty:serializeBuffer:response', { requestId, snapshot })
     },

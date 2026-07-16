@@ -6205,11 +6205,7 @@ describe('registerPtyHandlers', () => {
       paneKey
     })) as number
     await spawn()
-    const ready = spawnController.waitForRendererSerializer?.(
-      reusedPtyId,
-      priorGeneration,
-      1_000
-    )
+    const ready = spawnController.waitForRendererSerializer?.(reusedPtyId, priorGeneration, 1_000)
     clearProviderPtyState(reusedPtyId)
     clearProviderPtyState(reusedPtyId)
     await handlers.get('pty:settlePaneSerializer')!(null, { paneKey, gen: secondGen })

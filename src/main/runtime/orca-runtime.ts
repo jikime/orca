@@ -19311,13 +19311,10 @@ export class OrcaRuntimeService {
     timeoutMs?: number,
     signal?: AbortSignal
   ): Promise<boolean> {
-    return this.ptyController?.waitForRendererSerializer?.(
-      ptyId,
-      afterGeneration,
-      timeoutMs,
-      signal
-    ) ??
+    return (
+      this.ptyController?.waitForRendererSerializer?.(ptyId, afterGeneration, timeoutMs, signal) ??
       Promise.resolve(false)
+    )
   }
 
   // Why: a leaf appears in the graph before its PTY spawns. If we issue a
