@@ -9,6 +9,9 @@ import { registerArtifactRoutes } from './artifact-routes'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { registerControlPlaneRoutes } from './control-plane-routes'
 import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
+import { registerIdentityRoutes } from './identity-routes'
+import type { KeycloakTokenVerifier } from './keycloak-token-verifier'
+import { registerRequestAuthentication } from './request-authentication'
 import { registerDiscoveryRoute } from './discovery-route'
 import { registerMetricsRoutes } from './metrics-routes'
 import { registerHealthRoutes, type HealthDeps } from './health-routes'
@@ -33,6 +36,9 @@ export type BuildAppDeps = HealthDeps & {
   gateway?: RealtimeGateway
   objectStorage?: ObjectStorage
   discoveryConfig?: DiscoveryConfig
+  // Enables the token-authenticated identity routes (session/memberships/
+  // provisioning). Omitted by the dependency-light unit tests.
+  tokenVerifier?: KeycloakTokenVerifier
 }
 
 function adaptWebSocket(socket: WebSocket): RealtimeSocket {
@@ -105,6 +111,15 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
 
   if (deps.db && deps.registry) {
     registerControlPlaneRoutes(app, { db: deps.db, registry: deps.registry })
+  }
+
+  if (deps.db && deps.registry && deps.tokenVerifier) {
+    registerRequestAuthentication(app, deps.tokenVerifier)
+    registerIdentityRoutes(app, {
+      db: deps.db,
+      registry: deps.registry,
+      instanceId: (deps.discoveryConfig ?? loadDiscoveryConfig()).instanceId
+    })
   }
 
   if (deps.db && deps.registry && deps.objectStorage) {

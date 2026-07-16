@@ -254,6 +254,27 @@ CSP·이메일 seam 로그를 검증한다. 이로써 R2 범위 코드 구현이
 discovery 자동 연결, compose `core` profile 배포)와 R3 이후 기능(artifact multipart·삭제·quarantine·download
 presign, 실제 authn)이다.
 
+2026-07-21 R3 시작. slice 1로 서버 identity 기반을 구현했다(platform+deploy, root 미변경). dev
+Keycloak(`deploy/compose/dev-keycloak.yml` + realm import `pie-realm.json`: realm pie, PUBLIC
+`pie-desktop`(secret 없음)·PKCE S256·loopback+`pie://auth/callback`·verifyEmail; realm 파일은 compose와
+testcontainers 공용 단일 소스). identity migration: `user_accounts`(issuer+subject→user id, 비밀번호 없음),
+`memberships`(org-scoped), role 어휘(`roles`/`permissions`/`role_permissions`/`role_manifest_seed`). RLS:
+memberships는 표준 tenant isolation; **user_accounts는 global이라 공유-membership 조인 정책으로 cross-tenant
+user 열거 차단**; role 어휘는 global read-only. **결정: manifest(roles.json+permissions.json)가 소스 오브
+트루스, app 계층 검증·해석; seed loader가 DB로 checksum과 함께 물질화(self-contained+drift 검출, idempotent).**
+jose로 Keycloak JWT 검증(JWKS·서명·issuer·audience·expiry, **issuer는 config 고정**), `requireAuthenticatedSubject`
+/`tryAuthenticate` decoration. stand-in 라우트는 **이 slice에서 안 뒤집음(slice 3)**. 실사용 소비자
+`GET /v1/session`(3상태; 멤버십 없는 검증 토큰=signed_out — 스키마에 org-less 없음)·`GET .../memberships`
+(active 멤버만, 비회원 403). **소유자 provisioning**: email-verified subject로 UserAccount+Org+owner
+Membership+audit+outbox를 한 Pie tx로 생성, issuer+subject 멱등(분산 tx 없음, ADR-0009 §12). **CONTRACT
+GAP: OpenAPI에 provisioning operation 없음 → `POST /v1/provisioning`를 to-be-contracted 내부 라우트로 구현+
+플래그(다음 contracts slice).** `organization.created` outbox는 slice-2 경로로 realtime 전달. **AUT-003
+(`native-client-secret-absence-scan`) 종료**: realm이 pie-desktop을 public·secret 없음으로 표기하고 소스에
+desktop client 결합 secret 부재를 검사하는 명명된 실행형 테스트. 실 Keycloak+실 Postgres 테스트로 토큰
+accept/reject(tampered·expired·wrong-issuer·wrong-audience)·session 3상태·memberships cross-org·provisioning
+멱등/1-tx/realtime·user 열거 차단·seed drift 검증. platform 97 tests green. slice 2가 Electron PKCE 수직을
+이 기반에 연결한다.
+
 ## 결정이 필요한 항목
 
 | 결정                            | 확인 방법                                                   | 차단 단계     |

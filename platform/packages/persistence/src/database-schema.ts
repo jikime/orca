@@ -32,6 +32,52 @@ export interface OrganizationsTable {
   updated_at: TimestampColumn
 }
 
+export interface UserAccountsTable {
+  id: Generated<string>
+  issuer: string
+  subject: string
+  email: string
+  email_verified: Generated<boolean>
+  display_name: string
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MembershipsTable {
+  id: Generated<string>
+  organization_id: string
+  user_id: string
+  status: Generated<string>
+  role_ids: ColumnType<string[], string[] | undefined, string[]>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface RolesTable {
+  id: string
+  scope: string
+  external: Generated<boolean>
+}
+
+export interface PermissionsTable {
+  id: string
+  resource: string
+  action: string
+  risk: string
+}
+
+export interface RolePermissionsTable {
+  role_id: string
+  permission_id: string
+}
+
+export interface RoleManifestSeedTable {
+  id: Generated<boolean>
+  checksum: string
+  seeded_at: TimestampColumn
+}
+
 export interface OutboxEventsTable {
   id: string
   organization_id: string
@@ -174,6 +220,12 @@ export interface ArtifactUploadSessionsTable {
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
+  'identity.user_accounts': UserAccountsTable
+  'identity.memberships': MembershipsTable
+  'identity.roles': RolesTable
+  'identity.permissions': PermissionsTable
+  'identity.role_permissions': RolePermissionsTable
+  'identity.role_manifest_seed': RoleManifestSeedTable
   'operations.outbox_events': OutboxEventsTable
   'operations.dead_letter_events': DeadLetterEventsTable
   'operations.idempotency_records': IdempotencyRecordsTable

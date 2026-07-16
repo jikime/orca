@@ -59,6 +59,9 @@ importers:
       fastify:
         specifier: ^5.1.0
         version: 5.10.0
+      jose:
+        specifier: ^5.9.6
+        version: 5.10.0
       pg:
         specifier: ^8.13.0
         version: 8.22.0
@@ -78,6 +81,9 @@ importers:
       '@types/ws':
         specifier: ^8.5.13
         version: 8.18.1
+      testcontainers:
+        specifier: ^10.28.0
+        version: 10.28.0
 
   apps/control-plane-worker:
     dependencies:
@@ -1094,6 +1100,9 @@ packages:
 
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
+
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
   js-levenshtein@1.1.6:
     resolution: {integrity: sha512-X2BB11YZtrRqY4EnQcLX5Rh373zbK4alC1FW7D7MBhL2gtcC17cTnr6DmfHZeS0s2rTHjUTMMHfG7gO8SSdw+g==}
@@ -2734,6 +2743,8 @@ snapshots:
       '@isaacs/cliui': 8.0.2
     optionalDependencies:
       '@pkgjs/parseargs': 0.11.0
+
+  jose@5.10.0: {}
 
   js-levenshtein@1.1.6: {}
 
