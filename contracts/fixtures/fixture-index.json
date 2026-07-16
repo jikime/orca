@@ -428,6 +428,12 @@
       "expectedValid": true
     },
     {
+      "name": "message create with @channel group mention",
+      "schemaId": "https://schemas.pielab.ai/resources/message-create.v1.schema.json",
+      "document": "valid/message-create-group-mention.json",
+      "expectedValid": true
+    },
+    {
       "name": "message search result page",
       "schemaId": "https://schemas.pielab.ai/resources/message-search-result.v1.schema.json",
       "document": "valid/message-search-result.json",

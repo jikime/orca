@@ -14,6 +14,14 @@
       "maxItems": 100,
       "items": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
     },
+    "mentionChannel": {
+      "description": "When true, server-resolves a durable @channel mention to every current channel member except the author. Deduped with mentions[].",
+      "type": "boolean"
+    },
+    "mentionHere": {
+      "description": "When true, server-resolves a best-effort @here mention to channel members currently present on the realtime gateway (this node), except the author. Deduped with mentions[] and @channel.",
+      "type": "boolean"
+    },
     "attachmentIds": {
       "description": "Ids of already-uploaded attachment intents to link to this message (max 10).",
       "type": "array",

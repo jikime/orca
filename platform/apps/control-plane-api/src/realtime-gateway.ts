@@ -64,6 +64,8 @@ export type RealtimeGateway = {
   catchUpAllAfterReconnect: () => Promise<void>
   connectionCount: () => number
   deliveredMessageCount: () => number
+  // Distinct userIds currently connected to THIS gateway node (for @here resolution).
+  presentUserIds: (organizationId: string) => string[]
   stop: () => Promise<void>
 }
 
@@ -296,6 +298,32 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
     }
   }
 
+  /**
+   * Distinct non-null userIds with a live connection to THIS gateway node — the
+   * resolved set for an @here mention. Read-only over orgConnections; does not touch
+   * delivery, connection lifecycle, or presence semantics.
+   *
+   * BEST-EFFORT / PER-NODE: orgConnections holds ONLY the sockets attached to this
+   * process. Across horizontally-scaled gateways, this node does not know users
+   * connected to other nodes — the ephemeral NOTIFY path broadcasts presence
+   * transitions for display, but each node's orgConnections holds only its own
+   * sockets. So @here is complete only in a single-node deployment; in a multi-gateway
+   * cluster it resolves to this node's present set. It is NOT cluster-global.
+   */
+  function presentUserIds(organizationId: string): string[] {
+    const set = orgConnections.get(organizationId)
+    if (!set) {
+      return []
+    }
+    const ids = new Set<string>()
+    for (const connection of set) {
+      if (connection.userId !== null) {
+        ids.add(connection.userId)
+      }
+    }
+    return [...ids]
+  }
+
   function startHeartbeat(connection: GatewayConnection): void {
     const timer = setInterval(() => {
       send(connection, 'heartbeat', {
@@ -445,6 +473,7 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
       return total
     },
     deliveredMessageCount: () => deliveredMessages,
+    presentUserIds,
     stop: async () => {
       for (const set of orgConnections.values()) {
         for (const connection of set) {

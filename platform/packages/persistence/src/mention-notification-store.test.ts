@@ -101,6 +101,91 @@ describe('collaboration: mentions', () => {
   })
 })
 
+describe('collaboration: group mentions (@channel / @here)', () => {
+  it('@channel notifies every member except the author', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const { orgId, poster, mentioned, channelId } = await freshChannel()
+    const third = await member(orgId, 'third')
+    await addChannelMember(db, { organizationId: orgId, channelId, userId: third })
+    const posted = await postMessage(db, {
+      organizationId: orgId,
+      channelId,
+      authorUserId: poster,
+      body: 'all hands @channel',
+      mentionChannel: true
+    })
+    expect(posted.ok).toBe(true)
+    if (!posted.ok) return
+    const rows = await withTenantTransaction(db, orgId, (trx) =>
+      trx
+        .selectFrom('collaboration.message_mentions')
+        .select('mentioned_user_id')
+        .where('message_id', '=', posted.message.id)
+        .execute()
+    )
+    const ids = rows.map((r) => r.mentioned_user_id).sort()
+    // Both other members, never the author.
+    expect(ids).toEqual([mentioned, third].sort())
+    expect(ids).not.toContain(poster)
+    expect((await listNotifications(db, orgId, poster)).items.length).toBe(0)
+    expect((await listNotifications(db, orgId, mentioned)).items.length).toBe(1)
+    expect((await listNotifications(db, orgId, third)).items.length).toBe(1)
+  })
+
+  it('explicit mention + @channel dedup to exactly ONE mention row and ONE notification', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const { orgId, poster, mentioned, channelId } = await freshChannel()
+    const posted = await postMessage(db, {
+      organizationId: orgId,
+      channelId,
+      authorUserId: poster,
+      body: 'both ways @mentioned @channel',
+      mentions: [mentioned],
+      mentionChannel: true
+    })
+    expect(posted.ok).toBe(true)
+    if (!posted.ok) return
+    const rows = await withTenantTransaction(db, orgId, (trx) =>
+      trx
+        .selectFrom('collaboration.message_mentions')
+        .select('mentioned_user_id')
+        .where('message_id', '=', posted.message.id)
+        .where('mentioned_user_id', '=', mentioned)
+        .execute()
+    )
+    expect(rows.length).toBe(1)
+    expect((await listNotifications(db, orgId, mentioned)).items.length).toBe(1)
+  })
+
+  it('@here uses the present set: keeps present members, drops non-members and the author', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const { orgId, poster, mentioned, channelId } = await freshChannel()
+    const presentNonMember = randomUUID()
+    const posted = await postMessage(db, {
+      organizationId: orgId,
+      channelId,
+      authorUserId: poster,
+      body: 'who is around @here',
+      mentionHere: true,
+      // Present set includes a present member, a present non-member, and the author.
+      presentUserIds: [mentioned, presentNonMember, poster]
+    })
+    expect(posted.ok).toBe(true)
+    if (!posted.ok) return
+    const rows = await withTenantTransaction(db, orgId, (trx) =>
+      trx
+        .selectFrom('collaboration.message_mentions')
+        .select('mentioned_user_id')
+        .where('message_id', '=', posted.message.id)
+        .execute()
+    )
+    // Only the present member: non-member dropped by the member gate, author excluded.
+    expect(rows.map((r) => r.mentioned_user_id)).toEqual([mentioned])
+    expect((await listNotifications(db, orgId, mentioned)).items.length).toBe(1)
+    expect((await listNotifications(db, orgId, poster)).items.length).toBe(0)
+  })
+})
+
 describe('collaboration: notification per-user isolation (security)', () => {
   it("an org peer cannot read or mark another user's notifications", async (ctx) => {
     if (!harness) return ctx.skip()

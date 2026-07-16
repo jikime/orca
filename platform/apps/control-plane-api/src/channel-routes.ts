@@ -25,6 +25,7 @@ import {
 import type { ObjectStorage } from '@pie/object-storage-adapter'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
+import type { RealtimeGateway } from './realtime-gateway'
 import { beginIdempotency } from './idempotent-mutation'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
 import { authorizeOrgPermission } from './route-authorization'
@@ -50,6 +51,8 @@ export type ChannelRoutesDeps = {
   // Present when object storage is configured; required to HEAD-verify attachments a
   // post links. A post WITHOUT attachments needs no object storage.
   objectStorage?: ObjectStorage
+  // The in-process realtime gateway; its per-node present set resolves @here mentions.
+  gateway?: RealtimeGateway
 }
 
 function problem(
@@ -375,6 +378,8 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         visibility?: ChannelVisibility
         threadRootMessageId?: string
         mentions?: string[]
+        mentionChannel?: boolean
+        mentionHere?: boolean
         attachmentIds?: string[]
       }
       // attach-at-post: HEAD-verify each referenced attachment (exists + declared size)
@@ -416,14 +421,22 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
           }
         }
       }
+      // @here reads the in-process gateway's per-node present set (best-effort; see
+      // presentUserIds). Only computed when requested and a gateway is registered.
+      const presentUserIds =
+        body.mentionHere && deps.gateway ? deps.gateway.presentUserIds(organizationId) : undefined
       const result = await postMessage(deps.db, {
         organizationId,
         channelId,
         authorUserId: userId,
         body: body.body,
         visibility: body.visibility,
+        logger: request.log,
         ...(body.threadRootMessageId ? { threadRootMessageId: body.threadRootMessageId } : {}),
         ...(body.mentions ? { mentions: body.mentions } : {}),
+        ...(body.mentionChannel ? { mentionChannel: true } : {}),
+        ...(body.mentionHere ? { mentionHere: true } : {}),
+        ...(presentUserIds ? { presentUserIds } : {}),
         ...(body.attachmentIds ? { attachmentIds: body.attachmentIds } : {})
       })
       if (!result.ok) {
