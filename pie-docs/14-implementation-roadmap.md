@@ -132,7 +132,16 @@ fallback OIDC callback인 `pie://auth/callback` 하나뿐이다. callback은 원
 authorization code, state와 IdP 오류 설명은 로그나 Renderer로 전달하지 않는다. 실제 PKCE 생성,
 시스템 브라우저 실행과 code 교환은 R3 인증 수직 흐름에서 이 broker에 연결한다.
 
-R1 전체가 완료된 것은 아니다. OS 보안 저장소 adapter, Fuses·ASAR·서명 gate, 기존 프로필 migration
+같은 날 세 번째 slice `feat/pie-r1-secure-session-store`에서 Main 전용 `SessionSecretStore` 계약과
+Electron `safeStorage` adapter를 구현했다. refresh token만 instance·profile·account별로 격리된
+디렉터리에 암호화해 저장하고(atomic write, 파일 권한 제한, scope segment는 SHA-256으로 경로·대소문자
+충돌 차단), access token은 Main 메모리에만 둔다. Linux `basic_text`·미확인 backend와 암호화 불가
+환경은 저장을 거부하고 로그인 유지만 비활성화한다. 손상된 ciphertext는 읽기 시점에 폐기해 재로그인을
+강제한다. `PieSessionTokenLifecycle`이 로그인 저장, rotation 교체, 로그아웃·계정 제거 삭제를 Session
+Broker와 연결하며 조직 전환은 secret store를 읽지 않아 다른 계정 token을 재사용할 수 없다. preload와
+Renderer에는 어떤 token API도 노출하지 않았다.
+
+R1 전체가 완료된 것은 아니다. Fuses·ASAR·서명 gate, 기존 프로필 migration
 dry-run과 안전 모드는 후속 R1 slice로 남아 있다.
 
 ### 종료 조건
