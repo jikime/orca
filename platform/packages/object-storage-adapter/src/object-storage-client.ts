@@ -1,5 +1,6 @@
 import {
   CreateBucketCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -28,8 +29,15 @@ export type ObjectHeadResult =
   | { exists: false }
   | { exists: true; sizeBytes: number; contentType: string | null }
 
+export type PresignGetOptions = {
+  expiresInSeconds?: number
+}
+
 export type ObjectStorage = {
   presignPut: (storageKey: string, options: PresignPutOptions) => Promise<string>
+  // Short-lived download URL. Re-issued through the caller's access gate each time,
+  // so a revoked member simply stops being able to obtain one (same property as R2).
+  presignGet: (storageKey: string, options?: PresignGetOptions) => Promise<string>
   head: (storageKey: string) => Promise<ObjectHeadResult>
   ensureBucket: () => Promise<void>
   // Dev/test convenience: production clients upload via the presigned URL.
@@ -65,6 +73,10 @@ export function createObjectStorage(config: ObjectStorageConfig): ObjectStorage 
         }),
         { expiresIn: options.expiresInSeconds ?? 900 }
       ),
+    presignGet: (storageKey, options) =>
+      getSignedUrl(client, new GetObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
+        expiresIn: options?.expiresInSeconds ?? 300
+      }),
     head: async (storageKey) => {
       try {
         const result = await client.send(

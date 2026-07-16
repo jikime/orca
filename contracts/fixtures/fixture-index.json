@@ -432,6 +432,30 @@
       "schemaId": "https://schemas.pielab.ai/resources/dm-create.v1.schema.json",
       "document": "valid/dm-create.json",
       "expectedValid": true
+    },
+    {
+      "name": "attachment intent create",
+      "schemaId": "https://schemas.pielab.ai/resources/attachment-intent-create.v1.schema.json",
+      "document": "valid/attachment-intent-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "attachment intent create oversize",
+      "schemaId": "https://schemas.pielab.ai/resources/attachment-intent-create.v1.schema.json",
+      "document": "invalid/attachment-intent-create-oversize.json",
+      "expectedValid": false
+    },
+    {
+      "name": "attachment intent response",
+      "schemaId": "https://schemas.pielab.ai/resources/attachment-intent.v1.schema.json",
+      "document": "valid/attachment-intent.json",
+      "expectedValid": true
+    },
+    {
+      "name": "attachment download response",
+      "schemaId": "https://schemas.pielab.ai/resources/attachment-download.v1.schema.json",
+      "document": "valid/attachment-download.json",
+      "expectedValid": true
     }
   ]
 }

@@ -13,6 +13,12 @@
       "type": "array",
       "maxItems": 100,
       "items": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+    },
+    "attachmentIds": {
+      "description": "Ids of already-uploaded attachment intents to link to this message (max 10).",
+      "type": "array",
+      "maxItems": 10,
+      "items": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
     }
   },
   "additionalProperties": false

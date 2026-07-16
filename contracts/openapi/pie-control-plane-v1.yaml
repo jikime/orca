@@ -841,6 +841,69 @@ paths:
           description: Signal accepted (or coalesced by the rate cap).
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/attachments/intents:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Collaboration]
+      operationId: createAttachmentUploadIntent
+      description: >-
+        Reserves a tenant-scoped key in the attachments zone and returns a presigned
+        PUT (member-gated). Reuses the R2 object-storage machinery — not a second
+        uploader. The client PUTs the bytes, then references the intent id in a post.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/attachment-intent-create.v1.schema.json
+      responses:
+        '201':
+          description: Upload intent with a presigned PUT URL.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/attachment-intent.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/attachments/{attachmentId}/download:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: getAttachmentDownload
+      description: >-
+        A short-lived presigned GET for an attachment, member-gated — so a revoked
+        member can no longer obtain one (URLs are re-issued through the gate).
+      responses:
+        '200':
+          description: A short-lived download URL.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/attachment-download.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/channels/{channelId}/read:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

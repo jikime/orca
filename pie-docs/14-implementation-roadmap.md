@@ -1032,6 +1032,31 @@ changed 전달. platform 244 tests green, typecheck 4/4·lint 0(139 files)·chec
 40 op/9 realtime msg), root typecheck:node·pie-realtime-contract 테스트·root lint green, **worker/outbox-publish
 무변경 확인**, 두 lockfile clean. 후속: 첨부→search→group DM→DND→@channel/@here→per-channel presence 또는 Planning Gate.
 
+2026-07-17 chat slice 6 `feat/pie-chat-attachments`에서 메시지 첨부를 구현했다 — **R2 object-storage/artifact
+intent→presigned-PUT→finalize + tenant-key + presign 파이프라인 재사용(두 번째 업로더 안 만듦).** platform 전용,
+root src 미변경, design-reference-only. **결정((a) 일반화 vs (b) thin adapter): (b) — 공유 S3 머신(object-storage-
+adapter의 tenant key-builder·presignPut·head)은 그대로 쓰되 도메인 row는 collaboration.message_attachments로 분리.**
+artifact intent는 agent.artifacts aggregate에 결합돼 있어 그걸 첨부에 일반화하면 artifact 도메인이 chat에 오염되므로,
+공유 머신 위에 얇은 collaboration 어댑터를 얹는 게 옳음(S3 presign/HEAD/key 로직은 무중복 — 어댑터 재사용). object-
+storage-client에 `presignGet` 추가(다운로드용, 공유 어댑터의 재사용-확장이지 두 번째 S3 경로 아님). migration
+`20260802090001`: **`collaboration.message_attachments` 한 테이블에 nullable message_id** — pending intent(message_id
+NULL, channel_id로 member-gate)로 시작해 post가 finalize할 때 message_id+status='linked'로 전환(같은 tenant 복합 FK로
+in-tenant·in-channel). **결정(attach-at-post vs 별도 finalize): attach-at-post** — postMessage가 attachmentIds를 받아
+**라우트에서 HEAD-verify(존재+선언 크기 일치)** 후 한 tenant tx에서 링크(S3 HEAD는 라우트, store는 검증된 id만 링크;
+message.v1에 attachments 요약 반환). "message with N files"에 깔끔. 흐름: createAttachmentUploadIntent(member-gated,
+Idempotency-Key, **서버가 tenant key-builder로 attachments zone 키 생성 — 클라 경로 절대 안 받음**, presignPut 반환) →
+클라가 presigned PUT으로 바이트 업로드 → postMessage(attachmentIds, HEAD-verify+link). **다운로드: 짧은 presignGet(300s),
+member-gated** — 멤버십 회수가 짧은 URL+매번 게이트 재발급으로 전파(R2 artifact와 동일 속성). **message.v1에 additive
+optional `attachments` 요약({id,filename,contentType,byteSize}) — raw storage key 절대 노출 안 함**(다운로드는 별도
+member-gated 엔드포인트). **bounds:** byteSize ≤25MB(schema)·filename ≤255·attachmentIds ≤10(schema)·path/scheme
+filename 거부·클라 경로는 additionalProperties:false로 구조적 거부·post에서 HEAD 크기 불일치→422. **재사용/불변: 첨부는
+message.created realtime을 타서 worker/gateway 변경 0(확인); DM에서도 코드 0으로 동작(DM=channel).** 테스트(real
+Postgres + real S3[SeaweedFS harness]): intent→실제 PUT→post→다운로드 URL GET 바이트 왕복·키가 org/{org}/attachments/
+아래·비멤버 intent/download 403·oversize/path filename 400·크기 불일치 422·DM 첨부 동작·message read에 raw key 없음.
+platform 248 tests green, typecheck 4/4·lint 0(142 files)·check:contracts green(77 schema/76 fixture/42 op), root src
+미변경, worker/gateway/outbox-publish 무변경 확인, 두 lockfile clean. 후속: search→group DM→DND→@channel/@here→
+per-channel presence 또는 Planning Gate.
+
 ## R8: 서비스 데스크·원격지원·자산
 
 ### 범위
