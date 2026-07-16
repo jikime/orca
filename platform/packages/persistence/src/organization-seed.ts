@@ -49,6 +49,25 @@ export async function seedOrganizationFixture(
   })
 }
 
+/** Dev/test fixture: assigns a plan to an org (a subscription row). Enables
+ *  entitlement enforcement for that org. */
+export async function seedSubscriptionFixture(
+  db: Kysely<Database>,
+  input: { organizationId: string; planId: string; deploymentType?: string }
+): Promise<void> {
+  await withoutTenantContext(db, (trx) =>
+    trx
+      .insertInto('identity.subscriptions')
+      .values({
+        organization_id: input.organizationId,
+        plan_id: input.planId,
+        deployment_type: input.deploymentType ?? 'saas'
+      })
+      .onConflict((oc) => oc.column('organization_id').doUpdateSet({ plan_id: input.planId }))
+      .execute()
+  )
+}
+
 export type MembershipSeedInput = {
   organizationId: string
   issuer: string

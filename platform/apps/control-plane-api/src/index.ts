@@ -2,6 +2,7 @@ import {
   createDatabase,
   createDatabasePool,
   pingDatabase,
+  seedEntitlementManifest,
   seedRoleManifest
 } from '@pie/persistence'
 import pino from 'pino'
@@ -41,6 +42,7 @@ async function main(): Promise<void> {
   // Materialize the role/permission vocabulary so the DB is self-contained and
   // manifest drift is detectable (idempotent — no-op when already current).
   await seedRoleManifest(db)
+  await seedEntitlementManifest(db)
   const app = buildApp({
     ping: () => pingDatabase(pool),
     logger: true,

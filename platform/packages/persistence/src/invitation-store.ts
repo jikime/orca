@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { sql, type Kysely } from 'kysely'
 import type { Database } from './database-schema'
+import { memberEntitlementDecision } from './entitlement-check'
 import { buildResourceChangeCloudEvent } from './resource-change-event'
 import { loadRoleManifestCatalog, type RoleManifestCatalog } from './role-manifest-catalog'
 import { withoutTenantContext, withTenantTransaction } from './tenant-transaction'
@@ -129,7 +130,14 @@ export type AcceptInvitationResult =
   | { ok: true; organizationId: string; membershipId: string; userId: string }
   | {
       ok: false
-      reason: 'invalid_token' | 'expired' | 'not_pending' | 'email_mismatch' | 'email_unverified'
+      reason:
+        | 'invalid_token'
+        | 'expired'
+        | 'not_pending'
+        | 'email_mismatch'
+        | 'email_unverified'
+        // Distinct from a permission denial: the ORG is at its member limit.
+        | 'entitlement_shortfall'
     }
 
 /**
@@ -195,6 +203,33 @@ export async function acceptInvitation(
       .returning('id')
       .executeTakeFirstOrThrow()
     const userId = account.id
+
+    // Entitlement gate (doc 11:52 order: org entitlement BEFORE the membership is
+    // created). Skip when the invitee is already an active member (no new seat).
+    const alreadyActive = await trx
+      .selectFrom('identity.memberships')
+      .select('id')
+      .where('organization_id', '=', invite.organization_id)
+      .where('user_id', '=', userId)
+      .where('status', '=', 'active')
+      .executeTakeFirst()
+    if (!alreadyActive) {
+      const entitlement = await memberEntitlementDecision(trx, invite.organization_id)
+      if (!entitlement.allowed) {
+        await trx
+          .insertInto('audit.audit_events')
+          .values({
+            organization_id: invite.organization_id,
+            actor_id: userId,
+            // Distinct audit code from authz.denied.* — an entitlement shortfall.
+            action: 'entitlement.shortfall.core_members',
+            target_type: 'core.members',
+            target_id: invite.id
+          })
+          .execute()
+        return { ok: false, reason: 'entitlement_shortfall' }
+      }
+    }
 
     const membership = await trx
       .insertInto('identity.memberships')
