@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/driver.v1.schema.json",
+  "title": "Current remote session driver",
+  "description": "The single active driver of a remote session (doc 34 A3). `driver` is null when no participant currently holds the driver role. capabilityId is the A2 capability that authorized the takeover, when one was supplied.",
+  "type": "object",
+  "required": ["driver"],
+  "properties": {
+    "driver": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "grantId",
+            "sessionId",
+            "operatorParticipantId",
+            "operatorUserId",
+            "approverUserId",
+            "capabilityId",
+            "grantedAt"
+          ],
+          "properties": {
+            "grantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+            "sessionId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+            "operatorParticipantId": {
+              "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+            },
+            "operatorUserId": {
+              "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+            },
+            "approverUserId": {
+              "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+            },
+            "capabilityId": {
+              "oneOf": [
+                { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+                { "type": "null" }
+              ]
+            },
+            "grantedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

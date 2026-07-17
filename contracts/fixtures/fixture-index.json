@@ -606,6 +606,30 @@
       "schemaId": "https://schemas.pielab.ai/resources/capability-issue.v1.schema.json",
       "document": "invalid/capability-issue-unknown-field.json",
       "expectedValid": false
+    },
+    {
+      "name": "driver grant request",
+      "schemaId": "https://schemas.pielab.ai/resources/driver-grant.v1.schema.json",
+      "document": "valid/driver-grant.json",
+      "expectedValid": true
+    },
+    {
+      "name": "current driver response",
+      "schemaId": "https://schemas.pielab.ai/resources/driver.v1.schema.json",
+      "document": "valid/driver.json",
+      "expectedValid": true
+    },
+    {
+      "name": "current driver response with no driver",
+      "schemaId": "https://schemas.pielab.ai/resources/driver.v1.schema.json",
+      "document": "valid/driver-none.json",
+      "expectedValid": true
+    },
+    {
+      "name": "driver grant rejects unknown field",
+      "schemaId": "https://schemas.pielab.ai/resources/driver-grant.v1.schema.json",
+      "document": "invalid/driver-grant-unknown-field.json",
+      "expectedValid": false
     }
   ]
 }

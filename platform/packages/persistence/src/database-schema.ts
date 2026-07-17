@@ -584,6 +584,23 @@ export interface RemoteSessionCapabilitiesTable {
   created_at: TimestampColumn
 }
 
+// A driver-change history/audit row (R8 slice A3, doc 34 §슬라이스 A3 / §보안 제약 #2). The CURRENT
+// driver is denormalized on RemoteSessionParticipantsTable.is_driver; this table records every
+// grant (a handoff revokes the prior, a revoke stamps revoked_at). A partial unique index enforces
+// at most one active (revoked_at is null) grant per session. approver_user_id must differ from the
+// operator's user (approver≠operator) — enforced in the store.
+export interface RemoteSessionDriverGrantsTable {
+  organization_id: string
+  id: Generated<string>
+  session_id: string
+  operator_participant_id: string
+  approver_user_id: string
+  capability_id: string | null
+  granted_at: TimestampColumn
+  revoked_at: NullableTimestampColumn
+  revoke_reason: string | null
+}
+
 // FK-free best-effort audit stream (mirrors audit.authorization_denials). No session FK so an
 // audit write can never fail the main mutation tx.
 export interface RemoteSessionAuditTable {
@@ -647,5 +664,6 @@ export interface Database {
   'support.remote_session_participants': RemoteSessionParticipantsTable
   'support.remote_session_consents': RemoteSessionConsentsTable
   'support.remote_session_capabilities': RemoteSessionCapabilitiesTable
+  'support.remote_session_driver_grants': RemoteSessionDriverGrantsTable
   'support.remote_session_audit': RemoteSessionAuditTable
 }

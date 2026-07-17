@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/driver-grant.v1.schema.json",
+  "title": "Grant driver role request",
+  "description": "Grants (or hands off) the single exclusive driver role of a remote session to an operator participant (doc 34 A3, §보안 제약 #2 approver≠operator). The approver is the authenticated host/admin and must differ from the operator's user. capabilityId optionally references the A2 control capability that authorized this takeover.",
+  "type": "object",
+  "required": ["operatorParticipantId"],
+  "properties": {
+    "operatorParticipantId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "capabilityId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

@@ -5,6 +5,9 @@ import type { Database } from './database-schema'
 // This module<->capability-store cycle is import-safe: both sides only call across the boundary
 // inside function bodies, never at module top level.
 import { revokeCapabilitiesForSessionTx } from './remote-session-capability-store'
+// Slice A3: ending a session also revokes its active driver in the same tx (doc 34 §슬라이스 A3).
+// Same import-safe cycle as the capability store: the call lives inside applyTransition's body only.
+import { revokeActiveDriverForSessionTx } from './remote-session-driver-store'
 import { buildResourceChangeCloudEvent } from './resource-change-event'
 import { withTenantTransaction } from './tenant-transaction'
 
@@ -101,6 +104,8 @@ export type RemoteSessionAuditEventType =
   | 'participant_left'
   | 'grade_changed'
   | 'driver_changed'
+  | 'driver_granted'
+  | 'driver_revoked'
   | 'consent_granted'
   | 'consent_revoked'
   | 'capability_issued'
@@ -357,11 +362,21 @@ async function applyTransition(
   // choke point every `ended` transition flows through, so revoking here — inside the same tx —
   // covers both paths without a second code path.
   if (input.toStatus === 'ended') {
+    const endedAt = new Date()
     await revokeCapabilitiesForSessionTx(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       reason: 'session_ended',
-      now: new Date()
+      now: endedAt
+    })
+    // A3: the exclusive operator role must not survive the session — clear it at the SAME choke
+    // point (single tx) so the emergency-stop and consent-revoke paths both drop the driver.
+    await revokeActiveDriverForSessionTx(trx, {
+      organizationId: input.organizationId,
+      sessionId: session.id,
+      reason: 'session_ended',
+      actorUserId: input.actorUserId,
+      now: endedAt
     })
   }
   await emitRemoteSessionChange(trx, input.organizationId, session.id, newVersion, 'updated')

@@ -1809,6 +1809,76 @@ paths:
           $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}/driver:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [RemoteSessions]
+      operationId: getRemoteSessionDriver
+      description: >-
+        The single current driver of the session, or null (doc 34 A3 single-
+        operator arbitration). Resource-gated remote.control.
+      responses:
+        '200':
+          description: The current driver (or null when none holds the role).
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/driver.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      tags: [RemoteSessions]
+      operationId: grantRemoteSessionDriver
+      description: >-
+        Grants or hands off the single exclusive driver role to an operator
+        (doc 34 A3, §보안 제약 #2 approver≠operator — all takeover audited). The
+        approver is the authenticated host/admin and must differ from the
+        operator's user. Resource-gated remote.control. A terminal session is
+        409, forbidden 403, an ineligible operator 422, and an approver granting
+        themselves 409.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/driver-grant.v1.schema.json
+      responses:
+        '200':
+          description: Driver granted; the active driver is returned.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/driver.v1.schema.json
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [RemoteSessions]
+      operationId: revokeRemoteSessionDriver
+      description: >-
+        Clears the active driver (doc 07 조작권 회수). The host/an admin, or the
+        driver revoking themselves, may revoke. Idempotent. Resource-gated
+        remote.control.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Driver revoked (or already absent).
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     PieOidc:
