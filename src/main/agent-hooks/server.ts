@@ -452,6 +452,9 @@ export class AgentHookServer {
   private onAgentStatus: ((payload: EnrichedAgentHookEventPayload) => void) | null = null
   private onPaneStatusCleared: PaneStatusClearListener | null = null
   private statusChangeListeners = new Set<StatusChangeListener>()
+  // Why: additive tap for the dev-gated agent-execution-tracking pipeline. Empty by default so the
+  // notify is a no-op and agent-status behavior is unchanged when nothing subscribes.
+  private agentHookEventListeners = new Set<(payload: AgentHookEventPayload) => void>()
   // Why: directory that holds the on-disk endpoint file. Set via start()'s
   // `userDataPath` option so the class has no direct Electron dependency
   // (keeps it mockable in the vitest node environment).
@@ -510,6 +513,29 @@ export class AgentHookServer {
     this.statusChangeListeners.add(listener)
     return () => {
       this.statusChangeListeners.delete(listener)
+    }
+  }
+
+  /** Additive live tap of applied hook events for the dev-gated agent-execution-tracking pipeline.
+   *  Fires the enriched payload for each committed status transition (same point as the IPC fanout).
+   *  Inert until a subscriber registers and never alters agent-status behavior. */
+  subscribeAgentHookEvents(listener: (payload: AgentHookEventPayload) => void): () => void {
+    this.agentHookEventListeners.add(listener)
+    return () => {
+      this.agentHookEventListeners.delete(listener)
+    }
+  }
+
+  private notifyAgentHookEventListeners(payload: AgentHookEventPayload): void {
+    if (this.agentHookEventListeners.size === 0) {
+      return
+    }
+    for (const listener of this.agentHookEventListeners) {
+      try {
+        listener(payload)
+      } catch (err) {
+        console.error('[agent-hooks] agent-hook-event tap listener threw', err)
+      }
     }
   }
 
@@ -853,6 +879,9 @@ export class AgentHookServer {
     this.scheduleStatusPersist()
     this.notifyStatusChangeListeners()
     this.onAgentStatus?.(enriched)
+    // Additive tap: feed the committed event to the dev-gated tracking pipeline. Runs after the IPC
+    // fanout and cannot change any agent-status state above it.
+    this.notifyAgentHookEventListeners(enriched)
     return enriched
   }
 

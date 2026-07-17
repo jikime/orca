@@ -1168,9 +1168,9 @@ function openMainWindow(): BrowserWindow {
   }
   // Why: dev-gated R5 agent-execution-tracking pipeline. startAgentTrackingIfEnabled is a no-op
   // unless PIE_AGENT_TRACKING=1, safe mode has not disabled 'pie-agent-tracking', AND a signed-in
-  // org is present; guarded so a macOS window re-open does not start a second one. This slice feeds
-  // the reconciler from the transcript scanner only — TODO(pie-r5-hooklive) adds the live hook
-  // receiver as a second producer and a per-launch getActiveLaunch for signed ExecutionContexts.
+  // org is present; guarded so a macOS window re-open does not start a second one. It feeds the
+  // reconciler from the transcript scanner AND the live managed-hook tap (subscribeAgentHookEvents),
+  // with a per-launch getActiveLaunch derived from the hook stream for signed ExecutionContexts.
   if (!pieAgentTrackingStarted) {
     pieAgentTrackingStarted = true
     startAgentTrackingIfEnabled({
@@ -1182,6 +1182,8 @@ function openMainWindow(): BrowserWindow {
       scanTranscripts: createLocalTranscriptScanner({
         getOrganizationId: getPieAuthOrganizationId
       }),
+      // Additive tap onto the existing hook pipeline; inert until this subsystem subscribes.
+      subscribeAgentHookEvents: (cb) => agentHookServer.subscribeAgentHookEvents(cb),
       log: (message, meta) => console.warn(message, meta ?? {})
     })
   }

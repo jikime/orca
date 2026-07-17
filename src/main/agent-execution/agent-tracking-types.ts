@@ -1,5 +1,10 @@
 import type { ExecutionContextHostType } from '../../shared/execution-context-contract'
-import type { NormalizedTranscriptRecord } from '../agent-reconcile/agent-reconcile-types'
+import type {
+  NormalizedHookEvent,
+  NormalizedTranscriptRecord
+} from '../agent-reconcile/agent-reconcile-types'
+import type { AgentHookEventSubscribe } from './hook-event-tap'
+import type { LaunchResolveInput } from './active-launch-registry'
 import type { AgentEventOutboxStore } from '../agent-outbox/agent-event-outbox-store'
 import type { AgentEventUploadClient } from '../agent-outbox/agent-event-upload-client'
 import type { SqliteGuardResult } from '../agent-outbox/agent-event-outbox-sqlite-guard'
@@ -39,11 +44,21 @@ export type StartAgentTrackingDeps = {
   safeStorage: InstallationSigningKeyOptions['safeStorage']
   getUserDataPath: () => string
   platform?: NodeJS.Platform
-  // Transcript producer (CAP-001 complete source). TODO(pie-r5-hooklive): the live managed-hook
-  // receiver joins as a second producer feeding hookEvents into the same reconciler.
+  // Transcript producer (CAP-001 complete source).
   scanTranscripts: () => Promise<readonly NormalizedTranscriptRecord[]>
-  // The launch to sign a context for; omitted → identity-only ingest until a live launch source lands.
+  // Live managed-hook producer: the second source. Drained each scan cycle and merged with the
+  // transcript records in the same reconciler. The service builds it from the hook-event tap when a
+  // subscription seam is present; composeTracking tests inject it directly to stay pure.
+  drainHookEvents?: () => readonly NormalizedHookEvent[]
+  // The launch to sign a context for; omitted → identity-only ingest. The service wires this to the
+  // active-launch registry (fed by the hook stream) when a hook subscription seam is present.
   getActiveLaunch?: () => ActiveLaunch | null
+  // Additive tap onto the live managed-hook pipeline (agentHookServer.subscribeAgentHookEvents).
+  // When present, the service starts the hook-event tap + launch registry; absent → transcript-only
+  // (unchanged behavior). Inert until a subscriber registers, so agent-status is never affected.
+  subscribeAgentHookEvents?: AgentHookEventSubscribe
+  // Optional real-path resolver for the launch registry (default uses the hook's worktreeId).
+  resolveLaunchWorkspacePath?: (input: LaunchResolveInput) => string | null
   // Deterministic seams.
   clock?: () => number
   newId?: () => string

@@ -6,8 +6,10 @@ import {
   type InstallationSigningIdentity
 } from '../agent-execution-context/installation-signing-key'
 import { isSafeModeSubsystemDisabled } from '../pie-safe-mode/safe-mode-state'
+import { createActiveLaunchRegistry } from './active-launch-registry'
 import { loadPieAgentTrackingConfig, resolveAgentOutboxPath } from './agent-tracking-config'
 import { composeTracking, errorReason } from './agent-tracking-runtime'
+import { createAgentHookEventTap } from './hook-event-tap'
 import { registerInstallationKey } from './installation-key-registration-client'
 import type {
   AgentTrackingHandle,
@@ -76,8 +78,20 @@ export function startAgentTrackingIfEnabled(
     void registerPublicKeyOnce(deps, organizationId, identity, log)
   }
 
-  const handle = composeTracking({
-    deps,
+  // Start the LIVE managed-hook producer only now that the dev-gated subsystem is running: the tap
+  // and launch registry subscribe to the hook pipeline (inert without a subscriber) and feed the
+  // reconcile cycle + signer. Absent seam → transcript-only, unchanged behavior.
+  const hookProducer = startHookProducer(deps, config, clock)
+  const runtimeDeps: StartAgentTrackingDeps = hookProducer
+    ? {
+        ...deps,
+        drainHookEvents: hookProducer.drainHookEvents,
+        getActiveLaunch: hookProducer.getActiveLaunch
+      }
+    : deps
+
+  const trackingHandle = composeTracking({
+    deps: runtimeDeps,
     config,
     store,
     identity,
@@ -86,8 +100,52 @@ export function startAgentTrackingIfEnabled(
     newId,
     log
   })
+  // Unsubscribe the tap/registry on stop so nothing leaks when tracking stops.
+  const handle: AgentTrackingHandle = hookProducer
+    ? {
+        pumpOnce: trackingHandle.pumpOnce,
+        scanOnce: trackingHandle.scanOnce,
+        stop: () => {
+          trackingHandle.stop()
+          hookProducer.stop()
+        }
+      }
+    : trackingHandle
   currentHandle = handle
   return handle
+}
+
+type HookProducer = {
+  drainHookEvents: NonNullable<StartAgentTrackingDeps['drainHookEvents']>
+  getActiveLaunch: NonNullable<StartAgentTrackingDeps['getActiveLaunch']>
+  stop: () => void
+}
+
+function startHookProducer(
+  deps: StartAgentTrackingDeps,
+  config: { contextTtlMs: number },
+  clock: () => number
+): HookProducer | null {
+  const subscribe = deps.subscribeAgentHookEvents
+  if (!subscribe) {
+    return null
+  }
+  const tap = createAgentHookEventTap({ clock, getOrganizationId: deps.getOrganizationId })
+  const registry = createActiveLaunchRegistry({
+    clock,
+    ttlMs: config.contextTtlMs,
+    resolveWorkspacePath: deps.resolveLaunchWorkspacePath
+  })
+  tap.start(subscribe)
+  registry.start(subscribe)
+  return {
+    drainHookEvents: () => tap.drain(),
+    getActiveLaunch: () => registry.getCurrentActiveLaunch(),
+    stop: () => {
+      tap.stop()
+      registry.stop()
+    }
+  }
 }
 
 function resolveSigningIdentity(

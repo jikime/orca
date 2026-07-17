@@ -144,13 +144,15 @@ export function composeTracking(args: ComposeTrackingArgs): AgentTrackingHandle 
     scanning = true
     try {
       const records = await deps.scanTranscripts()
-      if (records.length === 0) {
+      // Second producer: the live managed-hook tap drains here and merges with the transcript
+      // scanner; the reconciler dedupes the two (CAP-001/002/003). Reconcile when EITHER source has
+      // events so a hook-only turn is not dropped when the transcript has not flushed yet.
+      const hookEvents = deps.drainHookEvents?.() ?? []
+      if (records.length === 0 && hookEvents.length === 0) {
         return
       }
-      // TODO(pie-r5-hooklive): hookEvents arrive from the live managed-hook receiver here; this slice
-      // reconciles the transcript scanner alone (a valid complete CAP-001 source).
       reconcileAgentEvents({
-        hookEvents: [],
+        hookEvents,
         transcriptRecords: records,
         enqueue: (event) => {
           store.enqueue(event, { now: clock(), quota })
