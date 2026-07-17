@@ -15,6 +15,7 @@ import {
   resolveProvenanceTrustDomain,
   type ProvenancePayload
 } from './agent-provenance-projection'
+import { normalizeVisibility } from './agent-visibility-scope'
 import { withTenantTransaction } from './tenant-transaction'
 
 // R5 slice 1: Control-Plane agent-event ingest (doc 19 :203-236, doc 20 CAP-001..008).
@@ -118,9 +119,23 @@ async function insertEventTx(
   organizationId: string,
   producerId: string,
   event: AgentEventEnvelope,
-  contentHash: string | null
+  contentHash: string | null,
+  stripPayload: boolean
 ): Promise<boolean> {
   const carriesObject = event.data.payloadObject !== undefined
+  // capture_mode='metadata_only' drops the payload BODY but keeps the envelope metadata (type,
+  // classification, visibility, sequence, content_hash). The XOR payload-present CHECK still needs
+  // exactly one carrier, so the stripped payload is an empty object, never the raw content.
+  const payload = stripPayload
+    ? JSON.stringify({})
+    : carriesObject
+      ? null
+      : JSON.stringify(event.data.payload ?? {})
+  const payloadObject = stripPayload
+    ? null
+    : carriesObject
+      ? JSON.stringify(event.data.payloadObject)
+      : null
   // ON CONFLICT (org, event_id) DO NOTHING → a replayed eventId is a no-op (idempotency).
   const inserted = await trx
     .insertInto('execution.agent_events')
@@ -147,10 +162,39 @@ async function insertEventTx(
       captured_at: event.data.capturedAt,
       // received_at is server-stamped by the column default now() — never client time.
       content_hash: contentHash,
-      payload: carriesObject ? null : JSON.stringify(event.data.payload ?? {}),
-      payload_object: carriesObject ? JSON.stringify(event.data.payloadObject) : null,
+      payload,
+      payload_object: payloadObject,
       correlation_id: event.data.correlationId ?? null,
       causation_id: event.data.causationId ?? null
+    })
+    .onConflict((oc) => oc.columns(['organization_id', 'event_id']).doNothing())
+    .returning('id')
+    .executeTakeFirst()
+  return inserted !== undefined
+}
+
+// capture_mode='paused' drops the event but records an append-only gap tombstone so the paused
+// window is an EXPLICIT gap on the timeline, not a silent loss (paused-gap-not-silent-loss).
+// Idempotent on (org, event_id): a replayed paused event re-marks the same gap, never a second.
+// Default-deny: an unrecognized visibility is stored as the most restrictive `internal`.
+async function insertCaptureGapTx(
+  trx: Transaction<Database>,
+  organizationId: string,
+  event: AgentEventEnvelope
+): Promise<boolean> {
+  const inserted = await trx
+    .insertInto('execution.agent_capture_gaps')
+    .values({
+      organization_id: organizationId,
+      event_id: event.id,
+      agent_session_id: event.data.context.agentSessionId,
+      stream_id: event.piestream,
+      sequence: event.piesequence,
+      turn_id: event.data.context.turnId,
+      visibility: normalizeVisibility(event.data.visibility),
+      reason: 'capture_paused',
+      occurred_at: event.time,
+      captured_at: event.data.capturedAt
     })
     .onConflict((oc) => oc.columns(['organization_id', 'event_id']).doNothing())
     .returning('id')
@@ -311,12 +355,31 @@ export async function ingestAgentEvents(
         }
       }
       const contentHash = contentHashOf(event)
+      // capture_mode gates ingest: paused writes only a gap tombstone (no event, no turn, no
+      // provenance); metadata_only strips the payload body before insert; full stores everything.
+      if (session.captureMode === 'paused') {
+        const marked = await insertCaptureGapTx(trx, input.organizationId, event)
+        if (!marked) {
+          results.push({ id: event.id, status: 'duplicate' })
+          continue
+        }
+        // Touch the session/stream so the timeline (now showing the gap) re-reads and the stream
+        // ack reflects the intentional sequence gap rather than a lost event.
+        touchedSessions.add(session.id)
+        touchedStreams.set(event.piestream, session.id)
+        if (!sessionWorkspace.has(session.id)) {
+          sessionWorkspace.set(session.id, event.data.context.workspaceId)
+        }
+        results.push({ id: event.id, status: 'accepted' })
+        continue
+      }
       const inserted = await insertEventTx(
         trx,
         input.organizationId,
         input.producerId,
         event,
-        contentHash
+        contentHash,
+        session.captureMode === 'metadata_only'
       )
       if (!inserted) {
         // Same eventId already stored → idempotent no-op (no duplicate event, turn, or provenance).

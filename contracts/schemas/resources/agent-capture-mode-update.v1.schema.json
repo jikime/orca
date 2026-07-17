@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-capture-mode-update.v1.schema.json",
+  "title": "Capture-mode update request",
+  "description": "Sets a session's capture mode (or a project's default). full stores payloads; metadata_only drops the payload body but keeps envelope metadata; paused drops the event except a gap tombstone (R5 s5a). RBAC agent_capture.manage; If-Match OCC.",
+  "type": "object",
+  "required": ["captureMode"],
+  "properties": {
+    "captureMode": { "enum": ["full", "metadata_only", "paused"] }
+  },
+  "additionalProperties": false
+}

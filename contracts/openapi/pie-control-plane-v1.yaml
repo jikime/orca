@@ -1403,13 +1403,21 @@ paths:
       operationId: getAgentSessionTimeline
       description: >-
         The session's projected turn/event timeline, cursor-paged (doc 19, R5 s1).
-        Events are ordered within a stream by sequence. agent_session.read.
+        Events are ordered within a stream by sequence. The read never returns content
+        above the caller's authorized visibility scope; a `scope` param can only narrow
+        it (R5 s5a). agent_session.read.
       parameters:
         - name: cursor
           in: query
           required: false
           schema:
             type: string
+        - name: scope
+          in: query
+          required: false
+          description: Requested visibility scope; clamped to the caller's maximum.
+          schema:
+            enum: [internal, project, customer]
         - name: limit
           in: query
           required: false
@@ -1441,13 +1449,20 @@ paths:
         The session's provenance evidence — commits, PRs/MRs, test/build results,
         artifacts, file changes — newest-first, cursor-paged (doc 19 :265-271, R5 s4a).
         Declared claims are flagged verifiedEvidence=false, never surfaced as verified
-        results (CAP-005). agent_session.read.
+        results (CAP-005). Provenance above the caller's authorized visibility scope is
+        absent (R5 s5a). agent_session.read.
       parameters:
         - name: cursor
           in: query
           required: false
           schema:
             type: string
+        - name: scope
+          in: query
+          required: false
+          description: Requested visibility scope; clamped to the caller's maximum.
+          schema:
+            enum: [internal, project, customer]
         - name: limit
           in: query
           required: false
@@ -1462,6 +1477,136 @@ paths:
             application/json:
               schema:
                 $ref: ../schemas/resources/agent-session-provenance.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-sessions/{sessionId}/evidence:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [AgentIngest]
+      operationId: searchAgentSessionEvidence
+      description: >-
+        Scoped Evidence search over the session's append-only events (R5 s5a, doc 24 CAP-002).
+        Events above the caller's authorized visibility scope are absent; a sensitive payload is
+        redacted server-side; a `q` term never matches a redacted record — so internal prompts and
+        restricted tool output never reach customer evidence or search results. agent_session.read.
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          description: Requested visibility scope; clamped to the caller's maximum.
+          schema:
+            enum: [internal, project, customer]
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive search term over event type and non-redacted payload.
+          schema:
+            type: string
+            maxLength: 256
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: The scoped evidence page.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session-evidence.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-sessions/{sessionId}:set-capture-mode:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [AgentIngest]
+      operationId: setAgentSessionCaptureMode
+      description: >-
+        Sets the session's capture mode — full | metadata_only | paused (R5 s5a). Governs the NEXT
+        ingested event; stored events are append-only and unchanged. If-Match OCC (428 if absent,
+        409 if stale). agent_capture.manage.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/agent-capture-mode-update.v1.schema.json
+      responses:
+        '200':
+          description: Capture mode set.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/projects/{projectId}:set-capture-mode:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Projects]
+      operationId: setProjectDefaultCaptureMode
+      description: >-
+        Sets the project's default capture mode — the value a new agent session inherits (R5 s5a).
+        If-Match OCC (428 if absent, 409 if stale). agent_capture.manage.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/agent-capture-mode-update.v1.schema.json
+      responses:
+        '200':
+          description: Project default capture mode set.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-project-capture-policy.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/agent-session-intake:

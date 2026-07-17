@@ -1,5 +1,6 @@
 import { sql, type Kysely } from 'kysely'
 import { loadAgentSessionTx, type AgentSession } from './agent-session-store'
+import { allowedVisibilitiesForScope, type VisibilityScope } from './agent-visibility-scope'
 import type { Database } from './database-schema'
 import type { ProvenanceKind, ProvenanceTrustDomain } from './agent-provenance-projection'
 import { withTenantTransaction } from './tenant-transaction'
@@ -152,10 +153,15 @@ export async function listSessionProvenance(
   db: Kysely<Database>,
   organizationId: string,
   sessionId: string,
-  options: { limit?: number; cursor?: string | null } = {}
+  options: { limit?: number; cursor?: string | null; scope?: VisibilityScope } = {}
 ): Promise<AgentSessionProvenance | null> {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 200)
   const cursor = options.cursor ? decodeCursor(options.cursor) : null
+  // Default-deny: an unspecified scope reads at the narrowest audience (`customer`). Provenance
+  // above the requested scope is ABSENT — filtered by the SOURCE EVENT's visibility (each
+  // provenance row derives from exactly one append-only event via source_event_id).
+  const scope = options.scope ?? 'customer'
+  const allowedVisibilities = allowedVisibilitiesForScope(scope)
   return withTenantTransaction(db, organizationId, async (trx) => {
     const session = await loadAgentSessionTx(trx, sessionId)
     if (!session) {
@@ -164,23 +170,29 @@ export async function listSessionProvenance(
     // All rows of one batch share the tx `now()`, so keyset on received_at needs the id
     // tie-break; page at millisecond precision because the cursor round-trips through an
     // ISO-ms string (the DB value's microseconds cannot be reconstructed from a JS Date).
-    const receivedAtMs = sql<Date>`date_trunc('milliseconds', received_at)`
+    const receivedAtMs = sql<Date>`date_trunc('milliseconds', p.received_at)`
     const cursorReceivedAt = cursor ? new Date(cursor.receivedAt) : null
     let query = trx
-      .selectFrom('execution.agent_provenance')
-      .selectAll()
-      .where('agent_session_id', '=', sessionId)
+      .selectFrom('execution.agent_provenance as p')
+      .innerJoin('execution.agent_events as ev', (join) =>
+        join
+          .onRef('ev.organization_id', '=', 'p.organization_id')
+          .onRef('ev.event_id', '=', 'p.source_event_id')
+      )
+      .selectAll('p')
+      .where('p.agent_session_id', '=', sessionId)
+      .where('ev.visibility', 'in', allowedVisibilities)
     if (cursor && cursorReceivedAt) {
       query = query.where((eb) =>
         eb.or([
           eb(receivedAtMs, '<', cursorReceivedAt),
-          eb.and([eb(receivedAtMs, '=', cursorReceivedAt), eb('id', '<', cursor.id)])
+          eb.and([eb(receivedAtMs, '=', cursorReceivedAt), eb('p.id', '<', cursor.id)])
         ])
       )
     }
     const rows = await query
       .orderBy(receivedAtMs, 'desc')
-      .orderBy('id', 'desc')
+      .orderBy('p.id', 'desc')
       .limit(limit + 1)
       .execute()
 

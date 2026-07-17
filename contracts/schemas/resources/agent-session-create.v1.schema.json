@@ -13,7 +13,8 @@
     "visibility": { "enum": ["internal", "project", "customer"] },
     "classification": {
       "enum": ["public", "internal", "project_confidential", "restricted"]
-    }
+    },
+    "captureMode": { "enum": ["full", "metadata_only", "paused"] }
   },
   "additionalProperties": false
 }
