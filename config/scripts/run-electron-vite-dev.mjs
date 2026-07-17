@@ -26,6 +26,40 @@ delete process.env.ELECTRON_RUN_AS_NODE
 
 const require = createRequire(import.meta.url)
 const repoRoot = path.resolve(import.meta.dirname, '../..')
+
+// Load a gitignored .env / .env.local into process.env for local dev so dev-only
+// vars (e.g. PIE_AUTH_DISCOVERY_URL) don't have to be typed on every run. A real
+// shell env always wins (a file value is applied only when the key is unset);
+// .env.local takes precedence over .env.
+function loadDotEnvFile(file) {
+  if (!existsSync(file)) {
+    return
+  }
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue
+    }
+    const eq = trimmed.indexOf('=')
+    if (eq === -1) {
+      continue
+    }
+    const key = trimmed.slice(0, eq).trim()
+    if (!key || key in process.env) {
+      continue
+    }
+    let value = trimmed.slice(eq + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+    process.env[key] = value
+  }
+}
+loadDotEnvFile(path.join(repoRoot, '.env.local'))
+loadDotEnvFile(path.join(repoRoot, '.env'))
 const STABLE_NAME_FLAG = '--stable-name'
 const rawForwardedArgs = process.argv.slice(2)
 // Why: keep an escape hatch for tools that key off Electron's stock app name.
