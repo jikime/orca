@@ -1,0 +1,11 @@
+{
+  "driver": {
+    "grantId": "1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d",
+    "sessionId": "3f1c2a4e-8b6d-4c1a-9e2f-1a2b3c4d5e6f",
+    "operatorParticipantId": "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d",
+    "operatorUserId": "5e4f3a2b-1c0d-4e9f-8a7b-6c5d4e3f2a1b",
+    "approverUserId": "0a1b2c3d-4e5f-4061-8273-849506172839",
+    "capabilityId": "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f",
+    "grantedAt": "2026-07-16T09:10:00.000Z"
+  }
+}
