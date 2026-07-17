@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/crm-opportunity-transition.v1.schema.json",
+  "title": "Transition CRM opportunity stage request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["toStage"],
+  "properties": {
+    "toStage": {
+      "enum": ["lead", "qualified", "proposal", "won", "lost"]
+    }
+  }
+}

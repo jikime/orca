@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/crm-change-order.v1.schema.json",
+  "title": "CRM change order",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "contractId",
+    "title",
+    "approvalStatus",
+    "valueDelta",
+    "submittedBy",
+    "customerApproverUserId",
+    "approvedAt",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "contractId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approvalStatus": {
+      "enum": ["draft", "pending_approval", "approved", "rejected"]
+    },
+    "valueDelta": {
+      "type": "string"
+    },
+    "submittedBy": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "customerApproverUserId": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approvedAt": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "version": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "updatedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "scopeItems": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/crm-change-scope-item.v1.schema.json"
+      }
+    }
+  }
+}

@@ -836,6 +836,125 @@ export interface AgentEventQuarantineTable {
   updated_at: TimestampColumn
 }
 
+// pg returns numeric(18,2) as a string; accept string/number on write.
+type NumericColumn = ColumnType<string, string | number | undefined, string | number>
+type NullableDateColumn = ColumnType<string | null, string | null | undefined, string | null>
+
+// === R6 CRM / contract tables (20260819090001) ===
+export interface CrmAccountsTable {
+  organization_id: string
+  id: Generated<string>
+  name: string
+  status: Generated<string>
+  owner_user_id: string | null
+  external_ref: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface CrmAccountSitesTable {
+  organization_id: string
+  id: Generated<string>
+  account_id: string
+  name: string
+  timezone: Generated<string>
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface CrmAccountContactsTable {
+  organization_id: string
+  id: Generated<string>
+  account_id: string
+  site_id: string | null
+  name: string
+  email: string | null
+  role: string | null
+  created_at: TimestampColumn
+}
+
+export interface CrmOpportunitiesTable {
+  organization_id: string
+  id: Generated<string>
+  account_id: string
+  name: string
+  stage: Generated<string>
+  amount: NumericColumn
+  probability: number | null
+  owner_user_id: string | null
+  expected_close_at: NullableDateColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface CrmContractsTable {
+  organization_id: string
+  id: Generated<string>
+  account_id: string
+  title: string
+  contract_value: NumericColumn
+  approval_status: Generated<string>
+  effective_start: NullableDateColumn
+  effective_end: NullableDateColumn
+  submitted_by: string | null
+  approved_by: string | null
+  approved_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface CrmContractScopeItemsTable {
+  organization_id: string
+  id: Generated<string>
+  contract_id: string
+  service_type: string
+  description: string | null
+  quantity: NumericColumn
+  rate: NumericColumn
+  sort_key: Generated<number>
+  created_at: TimestampColumn
+}
+
+export interface CrmChangeOrdersTable {
+  organization_id: string
+  id: Generated<string>
+  contract_id: string
+  title: string
+  approval_status: Generated<string>
+  value_delta: NumericColumn
+  submitted_by: string | null
+  customer_approver_user_id: string | null
+  approved_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface CrmChangeOrderScopeItemsTable {
+  organization_id: string
+  id: Generated<string>
+  change_order_id: string
+  change_kind: Generated<string>
+  service_type: string
+  description: string | null
+  quantity: NumericColumn
+  rate: NumericColumn
+  sort_key: Generated<number>
+  created_at: TimestampColumn
+}
+
+export interface CrmContractProjectsTable {
+  organization_id: string
+  id: Generated<string>
+  contract_id: string
+  project_id: string
+  created_by: string | null
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -898,4 +1017,13 @@ export interface Database {
   'execution.agent_event_quarantine': AgentEventQuarantineTable
   'execution.installation_public_keys': InstallationPublicKeysTable
   'execution.batch_submission_nonces': BatchSubmissionNoncesTable
+  'crm.accounts': CrmAccountsTable
+  'crm.account_sites': CrmAccountSitesTable
+  'crm.account_contacts': CrmAccountContactsTable
+  'crm.opportunities': CrmOpportunitiesTable
+  'crm.contracts': CrmContractsTable
+  'crm.contract_scope_items': CrmContractScopeItemsTable
+  'crm.change_orders': CrmChangeOrdersTable
+  'crm.change_order_scope_items': CrmChangeOrderScopeItemsTable
+  'crm.contract_projects': CrmContractProjectsTable
 }

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/crm-effective-scope.v1.schema.json",
+  "title": "CRM contract effective scope (base + approved change deltas)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "baseItems", "appliedChangeOrders", "effectiveItems"],
+  "properties": {
+    "contract": {
+      "$ref": "https://schemas.pielab.ai/resources/crm-contract.v1.schema.json"
+    },
+    "baseItems": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/crm-scope-item.v1.schema.json"
+      }
+    },
+    "appliedChangeOrders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["changeOrderId", "items"],
+        "properties": {
+          "changeOrderId": {
+            "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "https://schemas.pielab.ai/resources/crm-change-scope-item.v1.schema.json"
+            }
+          }
+        }
+      }
+    },
+    "effectiveItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "serviceType", "description", "quantity", "rate", "sortKey", "source"],
+        "properties": {
+          "id": {
+            "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+          },
+          "serviceType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "rate": {
+            "type": "string"
+          },
+          "sortKey": {
+            "type": "integer"
+          },
+          "source": {
+            "enum": ["base", "change_order"]
+          },
+          "changeOrderId": {
+            "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+          },
+          "changeKind": {
+            "enum": ["add", "remove", "modify"]
+          }
+        }
+      }
+    }
+  }
+}

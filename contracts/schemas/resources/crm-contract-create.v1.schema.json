@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/crm-contract-create.v1.schema.json",
+  "title": "Create CRM contract request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accountId", "title"],
+  "properties": {
+    "accountId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contractValue": {
+      "type": ["number", "string"]
+    },
+    "effectiveStart": {
+      "type": "string"
+    },
+    "effectiveEnd": {
+      "type": "string"
+    },
+    "scopeItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["serviceType"],
+        "properties": {
+          "serviceType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": ["number", "string"]
+          },
+          "rate": {
+            "type": ["number", "string"]
+          },
+          "sortKey": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

@@ -300,6 +300,36 @@
       "resource": "message",
       "action": "react",
       "risk": "standard"
+    },
+    {
+      "id": "crm.account.read",
+      "resource": "crm_account",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "crm.account.manage",
+      "resource": "crm_account",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "crm.contract.read",
+      "resource": "crm_contract",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "crm.contract.manage",
+      "resource": "crm_contract",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "crm.contract.approve",
+      "resource": "crm_contract",
+      "action": "approve",
+      "risk": "critical"
     }
   ]
 }

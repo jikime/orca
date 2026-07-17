@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/crm-contract-project-create.v1.schema.json",
+  "title": "Create project from contract request (execution gate)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["projectName"],
+  "properties": {
+    "projectName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "projectSummary": {
+      "type": "string"
+    },
+    "activate": {
+      "type": "boolean"
+    }
+  }
+}

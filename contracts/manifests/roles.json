@@ -56,7 +56,12 @@
         "channel.manage",
         "message.post",
         "message.read",
-        "message.react"
+        "message.react",
+        "crm.account.read",
+        "crm.account.manage",
+        "crm.contract.read",
+        "crm.contract.manage",
+        "crm.contract.approve"
       ]
     },
     {
@@ -110,7 +115,12 @@
         "channel.manage",
         "message.post",
         "message.read",
-        "message.react"
+        "message.react",
+        "crm.account.read",
+        "crm.account.manage",
+        "crm.contract.read",
+        "crm.contract.manage",
+        "crm.contract.approve"
       ]
     },
     {
@@ -149,7 +159,11 @@
         "channel.read",
         "message.post",
         "message.read",
-        "message.react"
+        "message.react",
+        "crm.account.read",
+        "crm.account.manage",
+        "crm.contract.read",
+        "crm.contract.manage"
       ]
     },
     {
@@ -180,7 +194,9 @@
         "channel.read",
         "message.post",
         "message.read",
-        "message.react"
+        "message.react",
+        "crm.account.read",
+        "crm.contract.read"
       ]
     },
     {
@@ -197,7 +213,10 @@
         "channel.read",
         "message.post",
         "message.read",
-        "message.react"
+        "message.react",
+        "crm.account.read",
+        "crm.contract.read",
+        "crm.contract.approve"
       ]
     },
     {
