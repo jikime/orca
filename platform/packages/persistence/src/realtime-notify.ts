@@ -52,6 +52,28 @@ export type EphemeralNotification =
       state: 'online' | 'offline'
       at: string
     }
+  // Remote-session (doc 34 C4) live presence/cursor. Same lossy, data-over-presence
+  // contract as chat typing/presence, but fanned out to a SESSION's participants (not
+  // an org or a channel). The payload IS the full state — no row, no outbox, no cursor.
+  | {
+      kind: 'remote_presence'
+      organizationId: string
+      sessionId: string
+      participantId: string
+      userId: string
+      state: 'online' | 'offline'
+      role: string
+      at: string
+    }
+  | {
+      kind: 'remote_cursor'
+      organizationId: string
+      sessionId: string
+      participantId: string
+      row: number
+      col: number
+      at: string
+    }
 
 export function encodeEphemeralNotification(notification: EphemeralNotification): string {
   return JSON.stringify(notification)
@@ -87,6 +109,51 @@ export function decodeEphemeralNotification(payload: string): EphemeralNotificat
         organizationId: parsed.organizationId,
         userId: parsed.userId,
         state: parsed.state,
+        at: parsed.at
+      }
+    }
+    if (
+      parsed.kind === 'remote_presence' &&
+      typeof parsed.organizationId === 'string' &&
+      typeof parsed.sessionId === 'string' &&
+      typeof parsed.participantId === 'string' &&
+      typeof parsed.userId === 'string' &&
+      (parsed.state === 'online' || parsed.state === 'offline') &&
+      typeof parsed.role === 'string' &&
+      typeof parsed.at === 'string'
+    ) {
+      return {
+        kind: 'remote_presence',
+        organizationId: parsed.organizationId,
+        sessionId: parsed.sessionId,
+        participantId: parsed.participantId,
+        userId: parsed.userId,
+        state: parsed.state,
+        role: parsed.role,
+        at: parsed.at
+      }
+    }
+    if (
+      parsed.kind === 'remote_cursor' &&
+      typeof parsed.organizationId === 'string' &&
+      typeof parsed.sessionId === 'string' &&
+      typeof parsed.participantId === 'string' &&
+      // Cursor coordinates are terminal cells: finite and non-negative, else malformed.
+      typeof parsed.row === 'number' &&
+      Number.isFinite(parsed.row) &&
+      parsed.row >= 0 &&
+      typeof parsed.col === 'number' &&
+      Number.isFinite(parsed.col) &&
+      parsed.col >= 0 &&
+      typeof parsed.at === 'string'
+    ) {
+      return {
+        kind: 'remote_cursor',
+        organizationId: parsed.organizationId,
+        sessionId: parsed.sessionId,
+        participantId: parsed.participantId,
+        row: parsed.row,
+        col: parsed.col,
         at: parsed.at
       }
     }

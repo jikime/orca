@@ -8,6 +8,7 @@ import {
   getLatestPublishedSequence,
   getResourceChangeAtSequence,
   listChannelMemberUserIds,
+  listRemoteSessionParticipantUserIds,
   listResourceChanges,
   RESOURCE_CHANGED_CHANNEL,
   traceIdFromTraceparent,
@@ -298,6 +299,76 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
     }
   }
 
+  /** Remote-session presence fan-out (doc 34 C4): only to the session's participants
+   *  (a non-participant must never see another's presence). One roster read per event,
+   *  bounded by the route's per-(participant,session) rate cap. Includes the origin's own
+   *  connections so a driver sees their roster echo. */
+  async function deliverRemotePresence(
+    notification: Extract<EphemeralNotification, { kind: 'remote_presence' }>
+  ): Promise<void> {
+    const set = orgConnections.get(notification.organizationId)
+    if (!set || set.size === 0) {
+      return
+    }
+    const participants = new Set(
+      await listRemoteSessionParticipantUserIds(
+        options.db,
+        notification.organizationId,
+        notification.sessionId
+      )
+    )
+    for (const connection of set) {
+      if (!connection.userId || !participants.has(connection.userId)) {
+        continue
+      }
+      send(connection, 'remote_presence.changed', {
+        type: 'remote_presence.changed',
+        schemaVersion: 1,
+        organizationId: notification.organizationId,
+        sessionId: notification.sessionId,
+        participantId: notification.participantId,
+        userId: notification.userId,
+        state: notification.state,
+        role: notification.role,
+        at: notification.at
+      })
+    }
+  }
+
+  /** Remote-session cursor fan-out (doc 34 C4): only to the session's participants (a
+   *  non-participant never sees a cursor). The origin already derives its own cursor from
+   *  the local emulator, so it simply ignores the echo of its own participantId. */
+  async function deliverRemoteCursor(
+    notification: Extract<EphemeralNotification, { kind: 'remote_cursor' }>
+  ): Promise<void> {
+    const set = orgConnections.get(notification.organizationId)
+    if (!set || set.size === 0) {
+      return
+    }
+    const participants = new Set(
+      await listRemoteSessionParticipantUserIds(
+        options.db,
+        notification.organizationId,
+        notification.sessionId
+      )
+    )
+    for (const connection of set) {
+      if (!connection.userId || !participants.has(connection.userId)) {
+        continue
+      }
+      send(connection, 'remote_cursor.changed', {
+        type: 'remote_cursor.changed',
+        schemaVersion: 1,
+        organizationId: notification.organizationId,
+        sessionId: notification.sessionId,
+        participantId: notification.participantId,
+        row: notification.row,
+        col: notification.col,
+        at: notification.at
+      })
+    }
+  }
+
   /**
    * Distinct non-null userIds with a live connection to THIS gateway node — the
    * resolved set for an @here mention. Read-only over orgConnections; does not touch
@@ -457,6 +528,10 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
             deliverPresence(notification)
           } else if (notification?.kind === 'typing') {
             void deliverTyping(notification)
+          } else if (notification?.kind === 'remote_presence') {
+            void deliverRemotePresence(notification)
+          } else if (notification?.kind === 'remote_cursor') {
+            void deliverRemoteCursor(notification)
           }
         }
       })

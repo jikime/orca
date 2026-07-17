@@ -48,6 +48,14 @@ channels:
         name: PresenceChanged
         payload:
           $ref: ../schemas/events/realtime-presence-changed.v1.schema.json
+      RemotePresenceChanged:
+        name: RemotePresenceChanged
+        payload:
+          $ref: ../schemas/events/realtime-remote-presence-changed.v1.schema.json
+      RemoteCursorChanged:
+        name: RemoteCursorChanged
+        payload:
+          $ref: ../schemas/events/realtime-remote-cursor-changed.v1.schema.json
 operations:
   sendClientMessages:
     action: send
@@ -69,3 +77,5 @@ operations:
       - $ref: '#/channels/realtime/messages/ConnectionClosing'
       - $ref: '#/channels/realtime/messages/TypingChanged'
       - $ref: '#/channels/realtime/messages/PresenceChanged'
+      - $ref: '#/channels/realtime/messages/RemotePresenceChanged'
+      - $ref: '#/channels/realtime/messages/RemoteCursorChanged'

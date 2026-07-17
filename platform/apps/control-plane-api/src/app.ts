@@ -16,6 +16,7 @@ import { registerChannelMuteRoutes } from './channel-mute-routes'
 import { registerRelayAdmissionRoutes } from './relay-admission-routes'
 import { registerRemoteSessionCapabilityRoutes } from './remote-session-capability-routes'
 import { registerRemoteSessionDriverRoutes } from './remote-session-driver-routes'
+import { registerRemoteSessionPresenceRoutes } from './remote-session-presence-routes'
 import { registerRemoteSessionRoutes } from './remote-session-routes'
 import { registerMessageSearchRoutes } from './message-search-routes'
 import { registerNotificationRoutes } from './notification-routes'
@@ -181,6 +182,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerRemoteSessionRoutes(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionCapabilityRoutes(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionDriverRoutes(app, { db: deps.db, registry: deps.registry })
+    registerRemoteSessionPresenceRoutes(app, { db: deps.db })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
     registerMessageSearchRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {

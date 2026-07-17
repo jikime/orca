@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-remote-presence-changed.v1.schema.json",
+  "title": "Realtime remote-session presence change (ephemeral)",
+  "description": "Online/offline for a remote-session participant (doc 34 C4). Ephemeral: no version, no replay, no persistence — the payload IS the state and the client applies a short TTL. Fanned out only to the session's participants.",
+  "type": "object",
+  "required": [
+    "type",
+    "schemaVersion",
+    "organizationId",
+    "sessionId",
+    "participantId",
+    "userId",
+    "state",
+    "role",
+    "at"
+  ],
+  "properties": {
+    "type": { "const": "remote_presence.changed" },
+    "schemaVersion": { "const": 1 },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sessionId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "participantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "state": { "enum": ["online", "offline"] },
+    "role": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
