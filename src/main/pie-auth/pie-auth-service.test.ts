@@ -110,7 +110,8 @@ async function makeEnv(options: {
       discoveryUrl: cp.discoveryUrl,
       profileId: 'default',
       allowLoopbackHttp: true,
-      preferLoopback: options.redirectModes.includes('loopback')
+      preferLoopback: options.redirectModes.includes('loopback'),
+      prompt: null
     },
     isDisabled: () => false,
     callbackTimeoutMs: 3000,
