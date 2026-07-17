@@ -16,9 +16,13 @@ import {
   isOrgMember,
   listChannelMessages,
   listChannels,
+  listPins,
   markChannelRead,
+  MAX_PINS_PER_CHANNEL,
+  pinMessage,
   postMessage,
   removeReaction,
+  unpinMessage,
   type ChannelKind,
   type ChannelResource,
   type ChannelVisibility,
@@ -43,6 +47,8 @@ const MESSAGE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message.v1.schema
 const MESSAGE_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-create.v1.schema.json'
 const MESSAGE_EDIT_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-edit.v1.schema.json'
 const READ_CURSOR_SCHEMA_ID = 'https://schemas.pielab.ai/resources/read-cursor.v1.schema.json'
+const PINNED_MESSAGES_SCHEMA_ID =
+  'https://schemas.pielab.ai/resources/pinned-messages.v1.schema.json'
 const CHANNELS_ROUTE = '/v1/organizations/{organizationId}/channels'
 const DMS_ROUTE = '/v1/organizations/{organizationId}/dms'
 const GROUP_DMS_ROUTE = '/v1/organizations/{organizationId}/group-dms'
@@ -975,4 +981,141 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       return reply
     }
   )
+
+  // Pin a message (doc 33 §3). Auth message.post (a member-write action, like edit); the
+  // store's membership gate is the real authority (v1: a member may pin). Idempotent 204.
+  // reasons → HTTP: not_found 404, not_a_member 403, already_deleted 409 (a tombstone is
+  // not pinnable), cap_exceeded 409 (the per-channel cap is reached).
+  app.put(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId/pin',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.post'
+      )
+      if (!authz) return reply
+      const result = await pinMessage(deps.db, {
+        organizationId,
+        channelId,
+        messageId,
+        actorUserId: authz.userId ?? organizationId
+      })
+      if (!result.ok) {
+        if (result.reason === 'not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'message not found')
+        if (result.reason === 'not_a_member')
+          return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+        if (result.reason === 'already_deleted')
+          return problem(
+            reply,
+            request,
+            409,
+            'MESSAGE_DELETED',
+            'a deleted message cannot be pinned'
+          )
+        return problem(
+          reply,
+          request,
+          409,
+          'PIN_CAP_EXCEEDED',
+          `a channel may pin at most ${MAX_PINS_PER_CHANNEL} messages`
+        )
+      }
+      void reply.code(204).send()
+      return reply
+    }
+  )
+
+  // Unpin a message (doc 33 §3). Same member-gate; idempotent 204 whether or not a pin
+  // existed. A non-member is 403.
+  app.delete(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId/pin',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.post'
+      )
+      if (!authz) return reply
+      const result = await unpinMessage(deps.db, {
+        organizationId,
+        channelId,
+        messageId,
+        actorUserId: authz.userId ?? organizationId
+      })
+      if (!result.ok)
+        return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+      void reply.code(204).send()
+      return reply
+    }
+  )
+
+  // List a channel's pinned messages, most-recent-pin first (doc 33 §3). Auth message.read;
+  // member-gated in the store. Each item is a message summary + pinnedBy/pinnedAt.
+  app.get('/v1/organizations/:organizationId/channels/:channelId/pins', async (request, reply) => {
+    const principal = await app.requireAuthenticatedSubject(request, reply)
+    if (!principal) return reply
+    const { organizationId, channelId } = request.params as {
+      organizationId: string
+      channelId: string
+    }
+    if (!UUID_PATTERN.test(organizationId) || !UUID_PATTERN.test(channelId))
+      return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+    const authz = await authorizeOrgPermission(
+      deps.db,
+      request,
+      reply,
+      principal,
+      organizationId,
+      'message.read'
+    )
+    if (!authz) return reply
+    const result = await listPins(
+      deps.db,
+      organizationId,
+      channelId,
+      authz.userId ?? organizationId
+    )
+    if (!result.ok) {
+      if (result.reason === 'channel_not_found')
+        return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
+      return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+    }
+    const body = { items: result.pins }
+    assertResponse(deps.registry, PINNED_MESSAGES_SCHEMA_ID, body)
+    return body
+  })
 }

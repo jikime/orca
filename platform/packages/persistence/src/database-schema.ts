@@ -501,6 +501,17 @@ export interface ChannelMutesTable {
   created_at: TimestampColumn
 }
 
+// A pinned message (doc 33 §3). One row per pinned (channel, message); pinned_by is the
+// actor. Cascades away with its channel OR its message (a deleted message's pin is gone).
+export interface MessagePinsTable {
+  organization_id: string
+  id: Generated<string>
+  channel_id: string
+  message_id: string
+  pinned_by: string
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -543,6 +554,7 @@ export interface Database {
   'collaboration.message_attachments': MessageAttachmentsTable
   'collaboration.notifications': NotificationsTable
   'collaboration.channel_mutes': ChannelMutesTable
+  'collaboration.message_pins': MessagePinsTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable
