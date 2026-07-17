@@ -5,7 +5,7 @@
 import { existsSync, statSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import os from 'node:os'
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, safeStorage } from 'electron'
 import { electronApp, is } from '@electron-toolkit/utils'
 import * as QRCode from 'qrcode'
 import {
@@ -33,9 +33,16 @@ import { PIE_CHAT_REALTIME_RESOURCE_TYPES } from '../shared/pie-chat-contract'
 import {
   acceptPieInvite,
   getPieAuthAccessToken,
+  getPieAuthApiBaseUrl,
+  getPieAuthOrganizationId,
   startPieAuthMainIfEnabled,
   stopPieAuthService
 } from './pie-auth-main-wiring'
+import {
+  startAgentTrackingIfEnabled,
+  stopAgentTracking
+} from './agent-execution/agent-tracking-service'
+import { createLocalTranscriptScanner } from './agent-execution/local-transcript-scanner'
 import { isPieInviteUrl, parsePieInviteUrl } from './pie-deep-link/pie-invite-link'
 import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
@@ -257,6 +264,7 @@ let agentAwakeService: AgentAwakeService | null = null
 let crashReports: CrashReportStore | null = null
 let pieRealtimeStarted = false
 let pieAuthStarted = false
+let pieAgentTrackingStarted = false
 let unsubscribeAgentAwakeStatusChanges: (() => void) | null = null
 let unsubscribeSystemResumeBroadcast: (() => void) | null = null
 let watcherShutdownPromise: Promise<void> | null = null
@@ -1157,6 +1165,25 @@ function openMainWindow(): BrowserWindow {
   if (!pieAuthStarted) {
     pieAuthStarted = true
     startPieAuthMainIfEnabled()
+  }
+  // Why: dev-gated R5 agent-execution-tracking pipeline. startAgentTrackingIfEnabled is a no-op
+  // unless PIE_AGENT_TRACKING=1, safe mode has not disabled 'pie-agent-tracking', AND a signed-in
+  // org is present; guarded so a macOS window re-open does not start a second one. This slice feeds
+  // the reconciler from the transcript scanner only — TODO(pie-r5-hooklive) adds the live hook
+  // receiver as a second producer and a per-launch getActiveLaunch for signed ExecutionContexts.
+  if (!pieAgentTrackingStarted) {
+    pieAgentTrackingStarted = true
+    startAgentTrackingIfEnabled({
+      safeStorage,
+      getUserDataPath: () => app.getPath('userData'),
+      getAccessToken: getPieAuthAccessToken,
+      getApiBaseUrl: getPieAuthApiBaseUrl,
+      getOrganizationId: getPieAuthOrganizationId,
+      scanTranscripts: createLocalTranscriptScanner({
+        getOrganizationId: getPieAuthOrganizationId
+      }),
+      log: (message, meta) => console.warn(message, meta ?? {})
+    })
   }
   automations.setWebContents(window.webContents)
   automations.start()
@@ -2557,6 +2584,9 @@ app.on('will-quit', (e) => {
     stopPieRealtime()
     // Stop the dev-gated auth refresh loop (no-op if login never happened).
     stopPieAuthService()
+    // Stop the dev-gated agent-tracking pipeline: clears timers + closes the outbox (no-op if it
+    // never started; idempotent).
+    stopAgentTracking()
     const daemonTeardown = isDevParentShutdownRequested() ? shutdownDaemon() : disconnectDaemon()
     Promise.allSettled([daemonTeardown, rpcStopAndClear, watcherShutdown, emulatorShutdown])
       .then(() => shutdownTelemetry())
