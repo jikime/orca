@@ -121,103 +121,117 @@ export type CreateWorkItemResult =
   | { ok: true; workItem: WorkItemResource }
   | { ok: false; reason: 'team_not_found' | 'invalid_state' | 'project_not_found' }
 
+export type CreateWorkItemInput = {
+  organizationId: string
+  actorUserId: string
+  teamId: string
+  projectId?: string | null
+  title: string
+  description?: string | null
+  stateId?: string | null
+  priority?: WorkItemPriority
+  assigneeId?: string | null
+}
+
 /**
- * Creates a work item and assigns its team-scoped human identifier (team.key + '-'
- * + sequence) by incrementing delivery.team_counters IN THE SAME transaction (doc
- * 30:259). The UPDATE ... RETURNING takes a row lock, so two concurrent creates on
- * one team serialize into distinct sequential identifiers with no gap or dup. The
- * opaque UUID stays the primary key; the identifier is a distinct namespace from
- * Orca's Worktree/Workspace/task IDs.
+ * The identifier-assignment core of work-item creation, running INSIDE a caller's org
+ * tenant transaction. Assigns the team-scoped human identifier (team.key + '-' + sequence)
+ * by incrementing delivery.team_counters in the SAME tx (doc 30:259); the UPDATE ...
+ * RETURNING takes a row lock, so concurrent creates on one team serialize into distinct
+ * sequential identifiers with no gap or dup. Extracted so a cross-schema flow (message→
+ * WorkItem conversion, doc 33 §4) reuses the exact same numbering path — the counter is
+ * never forked into a second implementation — while composing the create and its link in
+ * one atomic tx.
+ */
+export async function createWorkItemTx(
+  trx: Transaction<Database>,
+  input: CreateWorkItemInput
+): Promise<CreateWorkItemResult> {
+  const team = await trx
+    .selectFrom('delivery.teams')
+    .select(['id', 'key', 'workflow_version'])
+    .where('id', '=', input.teamId)
+    .executeTakeFirst()
+  if (!team) {
+    return { ok: false, reason: 'team_not_found' }
+  }
+  let stateId = input.stateId ?? null
+  if (stateId) {
+    const state = await trx
+      .selectFrom('delivery.workflow_states')
+      .select('id')
+      .where('id', '=', stateId)
+      .where('team_id', '=', input.teamId)
+      .executeTakeFirst()
+    if (!state) {
+      return { ok: false, reason: 'invalid_state' }
+    }
+  } else {
+    stateId = await defaultStateIdForTeam(trx, input.teamId)
+    if (!stateId) {
+      return { ok: false, reason: 'invalid_state' }
+    }
+  }
+  if (input.projectId) {
+    const project = await trx
+      .selectFrom('delivery.projects')
+      .select('id')
+      .where('id', '=', input.projectId)
+      .executeTakeFirst()
+    if (!project) {
+      return { ok: false, reason: 'project_not_found' }
+    }
+  }
+  // Atomic counter bump: RETURNING sees the incremented value, so (next_sequence
+  // - 1) is the sequence assigned to THIS item. The row lock serializes races.
+  const counter = await trx
+    .updateTable('delivery.team_counters')
+    .set({ next_sequence: sql`next_sequence + 1` })
+    .where('team_id', '=', input.teamId)
+    .returning(sql<string>`next_sequence - 1`.as('assigned'))
+    .executeTakeFirstOrThrow()
+  const sequence = Number(counter.assigned)
+  const identifier = `${team.key}-${sequence}`
+  const inserted = await trx
+    .insertInto('delivery.work_items')
+    .values({
+      organization_id: input.organizationId,
+      team_id: input.teamId,
+      project_id: input.projectId ?? null,
+      sequence,
+      identifier,
+      title: input.title,
+      description: input.description ?? null,
+      state_id: stateId,
+      workflow_version: team.workflow_version,
+      assignee_id: input.assigneeId ?? null,
+      creator_id: input.actorUserId,
+      priority: input.priority ?? 'none',
+      sort_key: sequence
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow()
+  await auditWorkItem(
+    trx,
+    input.organizationId,
+    input.actorUserId,
+    inserted.id,
+    'work_item.created'
+  )
+  await emitWorkItemChange(trx, input.organizationId, inserted.id, 1, 'created')
+  return { ok: true, workItem: mapWorkItem(inserted) }
+}
+
+/**
+ * Creates a work item in its own org tenant transaction. Thin wrapper over
+ * createWorkItemTx so the standalone POST /work-items path and the cross-schema
+ * conversion path share one identifier/counter implementation.
  */
 export async function createWorkItem(
   db: Kysely<Database>,
-  input: {
-    organizationId: string
-    actorUserId: string
-    teamId: string
-    projectId?: string | null
-    title: string
-    description?: string | null
-    stateId?: string | null
-    priority?: WorkItemPriority
-    assigneeId?: string | null
-  }
+  input: CreateWorkItemInput
 ): Promise<CreateWorkItemResult> {
-  return withTenantTransaction(db, input.organizationId, async (trx) => {
-    const team = await trx
-      .selectFrom('delivery.teams')
-      .select(['id', 'key', 'workflow_version'])
-      .where('id', '=', input.teamId)
-      .executeTakeFirst()
-    if (!team) {
-      return { ok: false, reason: 'team_not_found' }
-    }
-    let stateId = input.stateId ?? null
-    if (stateId) {
-      const state = await trx
-        .selectFrom('delivery.workflow_states')
-        .select('id')
-        .where('id', '=', stateId)
-        .where('team_id', '=', input.teamId)
-        .executeTakeFirst()
-      if (!state) {
-        return { ok: false, reason: 'invalid_state' }
-      }
-    } else {
-      stateId = await defaultStateIdForTeam(trx, input.teamId)
-      if (!stateId) {
-        return { ok: false, reason: 'invalid_state' }
-      }
-    }
-    if (input.projectId) {
-      const project = await trx
-        .selectFrom('delivery.projects')
-        .select('id')
-        .where('id', '=', input.projectId)
-        .executeTakeFirst()
-      if (!project) {
-        return { ok: false, reason: 'project_not_found' }
-      }
-    }
-    // Atomic counter bump: RETURNING sees the incremented value, so (next_sequence
-    // - 1) is the sequence assigned to THIS item. The row lock serializes races.
-    const counter = await trx
-      .updateTable('delivery.team_counters')
-      .set({ next_sequence: sql`next_sequence + 1` })
-      .where('team_id', '=', input.teamId)
-      .returning(sql<string>`next_sequence - 1`.as('assigned'))
-      .executeTakeFirstOrThrow()
-    const sequence = Number(counter.assigned)
-    const identifier = `${team.key}-${sequence}`
-    const inserted = await trx
-      .insertInto('delivery.work_items')
-      .values({
-        organization_id: input.organizationId,
-        team_id: input.teamId,
-        project_id: input.projectId ?? null,
-        sequence,
-        identifier,
-        title: input.title,
-        description: input.description ?? null,
-        state_id: stateId,
-        workflow_version: team.workflow_version,
-        assignee_id: input.assigneeId ?? null,
-        creator_id: input.actorUserId,
-        priority: input.priority ?? 'none',
-        sort_key: sequence
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow()
-    await auditWorkItem(
-      trx,
-      input.organizationId,
-      input.actorUserId,
-      inserted.id,
-      'work_item.created'
-    )
-    await emitWorkItemChange(trx, input.organizationId, inserted.id, 1, 'created')
-    return { ok: true, workItem: mapWorkItem(inserted) }
-  })
+  return withTenantTransaction(db, input.organizationId, (trx) => createWorkItemTx(trx, input))
 }
 
 export async function getWorkItem(

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/message-work-item-conversion.v1.schema.json",
+  "title": "Convert message to work item request",
+  "description": "Body for converting a chat message into a delivery work item (doc 33 §4). title is optional — when omitted the work item's title is derived from the source message body.",
+  "type": "object",
+  "required": ["teamId"],
+  "properties": {
+    "teamId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "projectId": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "priority": {
+      "enum": ["none", "urgent", "high", "medium", "low"]
+    },
+    "assigneeId": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

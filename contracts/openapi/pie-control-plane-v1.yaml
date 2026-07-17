@@ -1182,6 +1182,82 @@ paths:
                 $ref: ../schemas/resources/pinned-messages.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/work-items:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Collaboration]
+      operationId: convertMessageToWorkItem
+      description: >-
+        Converts a chat message into a delivery work item (doc 33 §4), bridging
+        collaboration and delivery. Requires BOTH message.read (source) and
+        work_item.create (target); a caller with only one is denied 403. The actor must be
+        a member of the source channel. title is optional — derived from the message body
+        when omitted. Idempotent per Idempotency-Key.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/message-work-item-conversion.v1.schema.json
+      responses:
+        '201':
+          description: Work item created from the message.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/work-item.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Collaboration]
+      operationId: listMessageWorkItemLinks
+      description: >-
+        Lists the work items a message has been converted into (doc 33 §4), most-recent
+        first (member-gated).
+      responses:
+        '200':
+          description: The message's work-item conversion links.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [linkId, workItemId, createdBy, createdAt]
+                      properties:
+                        linkId:
+                          $ref: ../schemas/common/opaque-id.v1.schema.json
+                        workItemId:
+                          $ref: ../schemas/common/opaque-id.v1.schema.json
+                        createdBy:
+                          $ref: ../schemas/common/opaque-id.v1.schema.json
+                        createdAt:
+                          type: string
+                          format: date-time
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/notifications:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'
