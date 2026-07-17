@@ -145,3 +145,45 @@ export function findCredentialField(value: unknown): string | null {
   }
   return null
 }
+
+// Tenant/audience confinement: the LOCAL stdio server acts for the signed-in user
+// in THEIR org only (single-tenant per session). Any org/tenant identifier in tool
+// input must equal the session org, so a confused-deputy call that names another
+// org is caught before delegation — even on a tool whose schema doesn't declare the
+// field. The org that scopes the downstream request comes from the session, never here.
+const ORG_SCOPE_KEYS = new Set([
+  'organizationid',
+  'orgid',
+  'organization',
+  'tenantid',
+  'tenant',
+  'tenantkey'
+])
+
+export function findOrgScopeViolation(value: unknown, sessionOrg: string): string | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findOrgScopeViolation(item, sessionOrg)
+      if (found) {
+        return found
+      }
+    }
+    return null
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, nested] of Object.entries(value)) {
+      if (
+        ORG_SCOPE_KEYS.has(key.toLowerCase()) &&
+        typeof nested === 'string' &&
+        nested !== sessionOrg
+      ) {
+        return key
+      }
+      const found = findOrgScopeViolation(nested, sessionOrg)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
+}

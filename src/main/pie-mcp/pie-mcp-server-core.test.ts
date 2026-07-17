@@ -338,4 +338,78 @@ describe('pie-mcp server core', () => {
     )
     expect(serializeFrame(response as never)).not.toContain('secret-access-token')
   })
+
+  it('REJECTS a read whose args name a different organization (confused-deputy, no delegation)', async () => {
+    let calls = 0
+    const base = fakeClient()
+    const spy: PieMcpControlPlaneClient = {
+      ...base,
+      listProjects: async (context, params) => {
+        calls += 1
+        return base.listProjects(context, params)
+      }
+    }
+    const server = makeServer({ client: spy })
+    const response = (await server.handleFrame(
+      callFrame(16, 'pie.projects.list', {
+        organizationId: '20000000-0000-4000-8000-0000000000ff',
+        limit: 3
+      })
+    )) as { result: { isError: boolean; structuredContent: { error: { code: string } } } }
+    expect(response.result.isError).toBe(true)
+    expect(response.result.structuredContent.error.code).toBe('org_scope_violation')
+    // Confinement rejects before delegation: the control-plane is never reached.
+    expect(calls).toBe(0)
+  })
+
+  it('REJECTS a write that smuggles a foreign tenant id before any delegation', async () => {
+    let calls = 0
+    const base = fakeClient()
+    const spy: PieMcpControlPlaneClient = {
+      ...base,
+      createWorkItemComment: async (context, input) => {
+        calls += 1
+        return base.createWorkItemComment(context, input)
+      }
+    }
+    const server = makeServer({ client: spy })
+    const args = {
+      ...(fixture('valid/mcp-work-item-comment-create-input.json') as Record<string, unknown>),
+      tenantId: '20000000-0000-4000-8000-0000000000ff'
+    }
+    const response = (await server.handleFrame(
+      callFrame(17, 'pie.work_items.comment.create', args)
+    )) as { result: { isError: boolean; structuredContent: { error: { code: string } } } }
+    expect(response.result.isError).toBe(true)
+    expect(response.result.structuredContent.error.code).toBe('org_scope_violation')
+    expect(calls).toBe(0)
+  })
+
+  it('confines the downstream call to the session org (built from the session, not args)', async () => {
+    let seenOrg: string | null = null
+    const base = fakeClient()
+    const spy: PieMcpControlPlaneClient = {
+      ...base,
+      listProjects: async (context, params) => {
+        seenOrg = context.organizationId
+        return base.listProjects(context, params)
+      }
+    }
+    const server = makeServer({ client: spy })
+    const response = (await server.handleFrame(
+      callFrame(18, 'pie.projects.list', { limit: 3 })
+    )) as { result: { isError: boolean } }
+    expect(response.result.isError).toBe(false)
+    expect(seenOrg).toBe(ORG)
+  })
+
+  it('allows an arg that names the session org past confinement (no org_scope_violation)', async () => {
+    // A matching org id is not a confinement violation; it fails later on the tool's
+    // strict schema (no tool declares an org field), never as org_scope_violation.
+    const response = (await makeServer().handleFrame(
+      callFrame(19, 'pie.projects.list', { organizationId: ORG, limit: 3 })
+    )) as { result: { isError: boolean; structuredContent: { error: { code: string } } } }
+    expect(response.result.isError).toBe(true)
+    expect(response.result.structuredContent.error.code).toBe('invalid_input')
+  })
 })
