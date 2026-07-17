@@ -8,6 +8,7 @@ import { CHANNEL, flush, makeChatApi } from './chat-test-fixtures'
 
 let root: Root | null = null
 let container: HTMLDivElement | null = null
+let originalCreateObjectURL: typeof URL.createObjectURL | undefined
 
 afterEach(() => {
   if (root) {
@@ -16,10 +17,21 @@ afterEach(() => {
   container?.remove()
   root = null
   container = null
+  if (originalCreateObjectURL) {
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: originalCreateObjectURL
+    })
+  }
 })
 
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
+  originalCreateObjectURL = URL.createObjectURL
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: vi.fn(() => 'blob:attachment-preview')
+  })
 })
 
 function renderComposer(
@@ -64,11 +76,40 @@ describe('AttachmentComposer', () => {
       { filename: 'note.txt', contentType: 'text/plain', byteSize: file.size },
       expect.any(ArrayBuffer)
     )
-    expect(onChange).toHaveBeenCalledWith([{ id: 'att-42', filename: 'note.txt' }])
+    // Non-image uploads carry a contentType but no local preview URL.
+    expect(onChange).toHaveBeenCalledWith([
+      { id: 'att-42', filename: 'note.txt', contentType: 'text/plain', previewUrl: undefined }
+    ])
   })
 
-  it('renders a chip for each pending attachment', () => {
+  it('captures an object-URL preview for an image upload', async () => {
+    const uploadAttachment = vi
+      .fn()
+      .mockResolvedValue({ id: 'att-7', objectId: 'obj', uploadUrl: 'https://up', expiresAt: 'x' })
+    const api = makeChatApi({ uploadAttachment })
+    const onChange = vi.fn()
+    renderComposer(api, [], onChange)
+
+    const input = container?.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['fake-bytes'], 'diagram.png', { type: 'image/png' })
+    Object.defineProperty(input, 'files', { value: [file], configurable: true })
+    await act(async () => {
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await flush()
+
+    expect(onChange).toHaveBeenCalledWith([
+      {
+        id: 'att-7',
+        filename: 'diagram.png',
+        contentType: 'image/png',
+        previewUrl: 'blob:attachment-preview'
+      }
+    ])
+  })
+
+  it('does not render attachment chips itself — that is ComposerAttachmentPreview', () => {
     renderComposer(makeChatApi(), [{ id: 'att-1', filename: 'diagram.png' }], vi.fn())
-    expect(container?.textContent).toContain('diagram.png')
+    expect(container?.textContent).not.toContain('diagram.png')
   })
 })

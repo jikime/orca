@@ -1,7 +1,14 @@
 import { useRef, useState } from 'react'
 import type { PieChatRendererApi } from '../../../../shared/pie-chat-contract'
 
-export type PendingAttachment = { id: string; filename: string }
+export type PendingAttachment = {
+  id: string
+  filename: string
+  contentType?: string
+  // Local object URL for an image file, set only when the File object was
+  // available at upload time; ComposerAttachmentPreview renders it as a thumbnail.
+  previewUrl?: string
+}
 
 type AttachmentComposerProps = {
   channelId: string
@@ -10,8 +17,10 @@ type AttachmentComposerProps = {
   onChange: (attachments: PendingAttachment[]) => void
 }
 
-// Uploads a picked file via the intent + presigned-PUT flow (both in Main) and
-// tracks the returned attachment id so the composer can link it on send.
+// The attach button + hidden file input. Uploads a picked file via the intent +
+// presigned-PUT flow (both in Main) and tracks the returned attachment id so the
+// composer can link it on send. Rendering of pending attachments lives in
+// ComposerAttachmentPreview so this stays a pure "pick + upload" control.
 export function AttachmentComposer({
   channelId,
   api,
@@ -36,7 +45,11 @@ export function AttachmentComposer({
         },
         buffer
       )
-      onChange([...attachments, { id: intent.id, filename: file.name }])
+      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+      onChange([
+        ...attachments,
+        { id: intent.id, filename: file.name, contentType: file.type, previewUrl }
+      ])
     } catch {
       setError('Upload failed')
     } finally {
@@ -45,52 +58,29 @@ export function AttachmentComposer({
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {attachments.map((attachment) => (
-            <span
-              key={attachment.id}
-              className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-foreground"
-            >
-              <span aria-hidden>📎</span>
-              <span className="max-w-40 truncate">{attachment.filename}</span>
-              <button
-                type="button"
-                aria-label={`Remove ${attachment.filename}`}
-                onClick={() => onChange(attachments.filter((item) => item.id !== attachment.id))}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          aria-label="Attach a file"
-          className="flex size-8 items-center justify-center rounded-md border border-input text-sm text-muted-foreground hover:bg-accent disabled:opacity-50"
-        >
-          {uploading ? '…' : '📎'}
-        </button>
-        {error && <span className="text-xs text-destructive">{error}</span>}
-        <input
-          ref={inputRef}
-          type="file"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) {
-              void onPick(file)
-            }
-            event.target.value = ''
-          }}
-        />
-      </div>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        aria-label="Attach a file"
+        className="flex size-8 items-center justify-center rounded-md border border-input text-sm text-muted-foreground hover:bg-accent disabled:opacity-50"
+      >
+        {uploading ? '…' : '📎'}
+      </button>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) {
+            void onPick(file)
+          }
+          event.target.value = ''
+        }}
+      />
     </div>
   )
 }

@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Button } from '@/components/ui/button'
+import { useMemo, useState, type KeyboardEvent } from 'react'
 import { cn } from '@/lib/utils'
 import type {
   PieChatMember,
@@ -8,6 +7,9 @@ import type {
 } from '../../../../shared/pie-chat-contract'
 import { MentionAutocomplete, filterMembers } from './MentionAutocomplete'
 import { AttachmentComposer, type PendingAttachment } from './AttachmentComposer'
+import { ComposerAttachmentPreview } from './ComposerAttachmentPreview'
+import { ComposerToolbar } from './ComposerToolbar'
+import { useComposerTextareaAutogrow } from './use-composer-textarea-autogrow'
 
 type ChannelComposerProps = {
   channelId: string
@@ -20,6 +22,17 @@ type ChannelComposerProps = {
 // Matches a mention in progress: a trailing '@word' at the caret with no space.
 const TRAILING_MENTION = /(?:^|\s)@([\p{L}\p{N}._-]*)$/u
 
+// Object URLs are only released here (not in AttachmentComposer), since ownership
+// of the pending-attachment list — and therefore of when a preview is done — is
+// this component's, not the upload control's.
+function revokeAttachmentPreviews(attachments: PendingAttachment[]): void {
+  attachments.forEach((attachment) => {
+    if (attachment.previewUrl) {
+      URL.revokeObjectURL(attachment.previewUrl)
+    }
+  })
+}
+
 export function ChannelComposer({
   channelId,
   members,
@@ -31,7 +44,7 @@ export function ChannelComposer({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [mentionUserIds, setMentionUserIds] = useState<string[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const textareaRef = useComposerTextareaAutogrow(value)
 
   const mentionQuery = useMemo(() => {
     const match = TRAILING_MENTION.exec(value)
@@ -66,6 +79,16 @@ export function ChannelComposer({
     textareaRef.current?.focus()
   }
 
+  const removeAttachment = (id: string): void => {
+    setAttachments((current) => {
+      const target = current.find((attachment) => attachment.id === id)
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl)
+      }
+      return current.filter((attachment) => attachment.id !== id)
+    })
+  }
+
   const submit = (): void => {
     if (!canSend) {
       return
@@ -79,6 +102,7 @@ export function ChannelComposer({
     }
     void onSend(value, Object.keys(opts).length > 0 ? opts : undefined)
     setValue('')
+    revokeAttachmentPreviews(attachments)
     setAttachments([])
     setMentionUserIds([])
     setActiveIndex(0)
@@ -116,31 +140,42 @@ export function ChannelComposer({
   }
 
   return (
-    <div className="border-t border-border bg-background p-3">
+    <div className="relative border-t border-border bg-background p-3">
       {mentionQuery !== null && (
-        <MentionAutocomplete
-          members={members}
-          query={mentionQuery}
-          activeIndex={activeIndex}
-          onSelect={insertMention}
-        />
+        <div className="absolute inset-x-3 bottom-full z-10 mb-1">
+          <MentionAutocomplete
+            members={members}
+            query={mentionQuery}
+            activeIndex={activeIndex}
+            onSelect={insertMention}
+          />
+        </div>
       )}
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={onKeyDown}
-        rows={1}
-        placeholder="Write a message…"
-        aria-label="Message"
+      {/* Single Slack-style container: attachment preview (top, only when non-empty),
+          textarea (middle, auto-grows), toolbar (bottom). Attachments render in their
+          own row above the textarea instead of sharing its flex row, so adding or
+          removing a file never resizes or displaces the textarea. */}
+      <div
         className={cn(
-          'w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground',
-          'placeholder:text-muted-foreground outline-none transition-[color,box-shadow]',
-          'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+          'flex flex-col rounded-md border border-input bg-background transition-[color,box-shadow]',
+          'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'
         )}
-      />
-      <div className="mt-2 flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      >
+        <ComposerAttachmentPreview attachments={attachments} onRemove={removeAttachment} />
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={onKeyDown}
+          rows={1}
+          placeholder="Write a message…"
+          aria-label="Message"
+          className={cn(
+            'w-full resize-none overflow-y-auto bg-transparent px-3 py-2 text-sm text-foreground',
+            'placeholder:text-muted-foreground outline-none'
+          )}
+        />
+        <ComposerToolbar canSend={canSend} sending={sending} onSend={submit}>
           <AttachmentComposer
             channelId={channelId}
             api={api}
@@ -155,10 +190,7 @@ export function ChannelComposer({
           >
             @
           </button>
-        </div>
-        <Button type="button" size="sm" onClick={submit} disabled={!canSend}>
-          {sending ? 'Sending…' : 'Send'}
-        </Button>
+        </ComposerToolbar>
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
         Enter to send · Shift+Enter for a new line · @ to mention

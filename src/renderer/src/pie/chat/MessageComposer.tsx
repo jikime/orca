@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { ComposerToolbar } from './ComposerToolbar'
+import { useComposerTextareaAutogrow } from './use-composer-textarea-autogrow'
 
 type MessageComposerProps = {
   disabled: boolean
@@ -8,12 +9,16 @@ type MessageComposerProps = {
   onSend: (body: string) => void | Promise<void>
 }
 
+// Thread replies have no attachments or mentions, so this stays a sibling of
+// ChannelComposer's container/toolbar shape (STYLEGUIDE "sibling components")
+// without inventing left-side controls that would do nothing.
 export function MessageComposer({
   disabled,
   sending,
   onSend
 }: MessageComposerProps): React.JSX.Element {
   const [value, setValue] = useState('')
+  const textareaRef = useComposerTextareaAutogrow(value)
   const canSend = value.trim().length > 0 && !disabled && !sending
 
   const submit = (): void => {
@@ -35,8 +40,14 @@ export function MessageComposer({
 
   return (
     <div className="border-t border-border bg-background p-3">
-      <div className="flex items-end gap-2">
+      <div
+        className={cn(
+          'flex flex-col rounded-md border border-input bg-background transition-[color,box-shadow]',
+          'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'
+        )}
+      >
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={onKeyDown}
@@ -45,15 +56,12 @@ export function MessageComposer({
           placeholder="Write a message…"
           aria-label="Message"
           className={cn(
-            'flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground',
-            'placeholder:text-muted-foreground outline-none transition-[color,box-shadow]',
-            'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+            'w-full resize-none overflow-y-auto bg-transparent px-3 py-2 text-sm text-foreground',
+            'placeholder:text-muted-foreground outline-none',
             'disabled:cursor-not-allowed disabled:opacity-50'
           )}
         />
-        <Button type="button" size="sm" onClick={submit} disabled={!canSend}>
-          {sending ? 'Sending…' : 'Send'}
-        </Button>
+        <ComposerToolbar canSend={canSend} sending={sending} onSend={submit} />
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
         Enter to send · Shift+Enter for a new line
