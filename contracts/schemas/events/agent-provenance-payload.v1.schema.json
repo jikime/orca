@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/agent-provenance-payload.v1.schema.json",
+  "title": "Agent provenance event payload",
+  "description": "The structured `provenance` object carried in an agent-event envelope payload for a provenance-typed event (ai.pielab.agent.provenance.<kind>.v1). Provider-agnostic: a GitHub PR and a GitLab MR are one `pull_request` kind discriminated by `provider` (doc 19 :265-271, R5 s4a). test_result/build_result carry command + exit code + parser version; the raw event's assertion + producer trust domain decide whether this is server-verified evidence, locally observed, or a declared claim.",
+  "type": "object",
+  "required": ["provenance"],
+  "properties": {
+    "contentHash": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "provenance": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "file_change",
+            "artifact",
+            "commit",
+            "pull_request",
+            "test_result",
+            "build_result"
+          ]
+        },
+        "provider": { "$ref": "#/$defs/nullableString" },
+        "repository": { "$ref": "#/$defs/nullableString" },
+        "sourceRevision": { "$ref": "#/$defs/nullableString" },
+        "commitSha": { "$ref": "#/$defs/nullableString" },
+        "artifactId": { "$ref": "#/$defs/nullableString" },
+        "contentHash": { "$ref": "#/$defs/nullableString" },
+        "workItemId": { "$ref": "#/$defs/nullableString" },
+        "correctsProvenanceId": { "$ref": "#/$defs/nullableString" },
+        "changeRequest": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["ref"],
+              "additionalProperties": false,
+              "properties": {
+                "ref": { "type": "string", "minLength": 1, "maxLength": 256 },
+                "url": { "$ref": "#/$defs/nullableString" },
+                "state": { "$ref": "#/$defs/nullableString" },
+                "sourceBranch": { "$ref": "#/$defs/nullableString" },
+                "targetBranch": { "$ref": "#/$defs/nullableString" }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "execution": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["command", "exitCode", "parserVersion"],
+              "additionalProperties": false,
+              "properties": {
+                "command": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                "execEnvironment": { "$ref": "#/$defs/nullableString" },
+                "exitCode": { "type": "integer" },
+                "parserVersion": { "type": "string", "minLength": 1, "maxLength": 64 }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "fileChange": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["path"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                "changeType": { "$ref": "#/$defs/nullableString" }
+              }
+            },
+            { "type": "null" }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nullableString": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+    }
+  }
+}

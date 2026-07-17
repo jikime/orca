@@ -50,7 +50,8 @@
         "read_cursor",
         "notification",
         "agent_event",
-        "agent_turn"
+        "agent_turn",
+        "agent_provenance"
       ]
     },
     "resourceId": {

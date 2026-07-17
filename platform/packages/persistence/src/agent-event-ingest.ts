@@ -6,6 +6,14 @@ import {
 } from './agent-session-store'
 import type { Database } from './database-schema'
 import { projectTurnFromEvent } from './agent-turn-projection'
+import {
+  isProvenanceType,
+  parseProvenancePayload,
+  projectProvenanceFromEvent,
+  provenanceKindOfType,
+  resolveProvenanceTrustDomain,
+  type ProvenancePayload
+} from './agent-provenance-projection'
 import { withTenantTransaction } from './tenant-transaction'
 
 // R5 slice 1: Control-Plane agent-event ingest (doc 19 :203-236, doc 20 CAP-001..008).
@@ -57,6 +65,8 @@ export type IngestAgentEventsInput = {
   organizationId: string
   batchId: string
   producerId: string
+  // The authenticated principal recorded as the audit actor for projected provenance.
+  actorId?: string | null
   clientCheckpoint: { streamId: string; lastServerAck: number }
   events: AgentEventEnvelope[]
 }
@@ -179,6 +189,65 @@ async function streamAckTx(
   return { streamId, contiguousThrough, gaps }
 }
 
+// A provenance-typed event carries a structured provenance payload; the kind comes from the
+// event `type` (authoritative). Returns the validated payload, or null if the payload is
+// malformed (the caller rejects such an event rather than storing partial evidence).
+function validatedProvenance(
+  event: AgentEventEnvelope
+): { kind: ReturnType<typeof provenanceKindOfType>; payload: ProvenancePayload } | null {
+  const kind = provenanceKindOfType(event.type)
+  if (kind === null) {
+    return null
+  }
+  const payload = parseProvenancePayload(kind, event.data.payload)
+  return payload ? { kind, payload } : null
+}
+
+// Projects one accepted provenance event and audits it. A revision > 1 means the event
+// corrected/reclassified prior evidence — audited distinctly so a reclassification is traceable.
+async function projectAndAuditProvenance(
+  trx: Transaction<Database>,
+  organizationId: string,
+  actorId: string | null,
+  event: AgentEventEnvelope,
+  kind: NonNullable<ReturnType<typeof provenanceKindOfType>>,
+  payload: ProvenancePayload
+): Promise<{ id: string; revision: number } | null> {
+  const trustDomain = resolveProvenanceTrustDomain(
+    event.data.assertion,
+    event.data.producer.trustDomain
+  )
+  const projected = await projectProvenanceFromEvent(
+    trx,
+    organizationId,
+    event.data.context.agentSessionId,
+    {
+      sourceEventId: event.id,
+      agentRunId: event.data.context.agentRunId,
+      kind,
+      trustDomain,
+      occurredAt: event.time,
+      payload
+    }
+  )
+  if (!projected) {
+    return null
+  }
+  await trx
+    .insertInto('audit.audit_events')
+    .values({
+      organization_id: organizationId,
+      actor_id: actorId,
+      action: projected.revision > 1 ? 'provenance.reclassified' : 'provenance.ingested',
+      target_type: 'agent_provenance',
+      target_id: projected.id,
+      // The trust domain is the audit-relevant fact: was this evidence or a declared claim.
+      after_digest: `${kind}:${trustDomain}`
+    })
+    .execute()
+  return projected
+}
+
 /**
  * Ingests a validated batch in ONE tenant tx. Each event is idempotent by (org, eventId): a
  * replay is a `duplicate` no-op that creates neither a second event nor a second turn. Events
@@ -204,6 +273,7 @@ export async function ingestAgentEvents(
     const results: AgentEventResult[] = []
     const touchedSessions = new Set<string>()
     const finalizedTurns = new Set<string>()
+    const projectedProvenance: { id: string; revision: number }[] = []
     const touchedStreams = new Map<string, string>() // streamId → agentSessionId
 
     for (const event of input.events) {
@@ -222,6 +292,20 @@ export async function ingestAgentEvents(
         })
         continue
       }
+      // A provenance-typed event must carry a well-formed provenance payload; a malformed one
+      // is rejected rather than stored as partial evidence.
+      let provenance: ReturnType<typeof validatedProvenance> = null
+      if (isProvenanceType(event.type)) {
+        provenance = validatedProvenance(event)
+        if (provenance === null) {
+          results.push({
+            id: event.id,
+            status: 'permanent_rejected',
+            code: 'PROVENANCE_INVALID'
+          })
+          continue
+        }
+      }
       const contentHash = contentHashOf(event)
       const inserted = await insertEventTx(
         trx,
@@ -231,7 +315,7 @@ export async function ingestAgentEvents(
         contentHash
       )
       if (!inserted) {
-        // Same eventId already stored → idempotent no-op (no duplicate event, no duplicate turn).
+        // Same eventId already stored → idempotent no-op (no duplicate event, turn, or provenance).
         results.push({ id: event.id, status: 'duplicate' })
         continue
       }
@@ -247,6 +331,19 @@ export async function ingestAgentEvents(
       })
       if (projection.finalized && event.data.context.turnId !== null) {
         finalizedTurns.add(event.data.context.turnId)
+      }
+      if (provenance !== null && provenance.kind !== null) {
+        const projected = await projectAndAuditProvenance(
+          trx,
+          input.organizationId,
+          input.actorId ?? null,
+          event,
+          provenance.kind,
+          provenance.payload
+        )
+        if (projected) {
+          projectedProvenance.push(projected)
+        }
       }
       results.push({ id: event.id, status: 'accepted' })
     }
@@ -272,6 +369,17 @@ export async function ingestAgentEvents(
     }
     for (const turnId of finalizedTurns) {
       await emitAgentExecutionChange(trx, input.organizationId, 'agent_turn', turnId, 1, 'updated')
+    }
+    for (const provenance of projectedProvenance) {
+      // A revision > 1 is a correction of prior evidence (updated); a fresh chain is created.
+      await emitAgentExecutionChange(
+        trx,
+        input.organizationId,
+        'agent_provenance',
+        provenance.id,
+        provenance.revision,
+        provenance.revision > 1 ? 'updated' : 'created'
+      )
     }
 
     // Report an ack for every stream touched this batch plus the client's checkpoint stream.

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-provenance.v1.schema.json",
+  "title": "Agent provenance record",
+  "description": "One projected provenance record derived from a single append-only agent event (doc 19 :265-271, R5 s4a). trustDomain is returned verbatim; verifiedEvidence distills it so a caller never treats a `declared` agent claim as a verified/observed result (CAP-005): declared → false, local_observed/server_verified → true (and the two stay distinct). workItemId and artifactId are opaque links (no cross-schema FK).",
+  "type": "object",
+  "required": [
+    "id",
+    "sourceEventId",
+    "kind",
+    "trustDomain",
+    "verifiedEvidence",
+    "agentRunId",
+    "provider",
+    "repository",
+    "sourceRevision",
+    "commitSha",
+    "changeRequest",
+    "execution",
+    "fileChange",
+    "artifactId",
+    "contentHash",
+    "workItemId",
+    "revision",
+    "correctsProvenanceId",
+    "occurredAt",
+    "receivedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sourceEventId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "kind": {
+      "enum": ["file_change", "artifact", "commit", "pull_request", "test_result", "build_result"]
+    },
+    "trustDomain": { "enum": ["local_observed", "server_verified", "declared"] },
+    "verifiedEvidence": { "type": "boolean" },
+    "agentRunId": { "$ref": "#/$defs/nullableId" },
+    "provider": { "$ref": "#/$defs/nullableString" },
+    "repository": { "$ref": "#/$defs/nullableString" },
+    "sourceRevision": { "$ref": "#/$defs/nullableString" },
+    "commitSha": { "$ref": "#/$defs/nullableString" },
+    "changeRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["ref", "url", "state", "sourceBranch", "targetBranch"],
+          "additionalProperties": false,
+          "properties": {
+            "ref": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "url": { "$ref": "#/$defs/nullableString" },
+            "state": { "$ref": "#/$defs/nullableString" },
+            "sourceBranch": { "$ref": "#/$defs/nullableString" },
+            "targetBranch": { "$ref": "#/$defs/nullableString" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "execution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["command", "execEnvironment", "exitCode", "parserVersion"],
+          "additionalProperties": false,
+          "properties": {
+            "command": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "execEnvironment": { "$ref": "#/$defs/nullableString" },
+            "exitCode": { "oneOf": [{ "type": "integer" }, { "type": "null" }] },
+            "parserVersion": { "$ref": "#/$defs/nullableString" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "fileChange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["path", "changeType"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "changeType": { "$ref": "#/$defs/nullableString" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "artifactId": { "$ref": "#/$defs/nullableId" },
+    "contentHash": { "$ref": "#/$defs/nullableString" },
+    "workItemId": { "$ref": "#/$defs/nullableId" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "correctsProvenanceId": { "$ref": "#/$defs/nullableId" },
+    "occurredAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "receivedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "$defs": {
+    "nullableId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "nullableString": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+    }
+  }
+}
