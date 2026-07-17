@@ -226,6 +226,7 @@ import type {
 import type { PreloadApi } from './api-types'
 import { createPieSessionPreloadApi } from './pie-session-api'
 import { createPieRuntimePreloadApi } from './pie-runtime-api'
+import { createPieChatPreloadApi } from './pie-chat-api'
 
 type NativeFileDropCallback = (data: NativeFileDropPayload) => void
 
@@ -510,7 +511,8 @@ const api = {
 
   pie: {
     session: createPieSessionPreloadApi(ipcRenderer),
-    runtime: createPieRuntimePreloadApi(ipcRenderer)
+    runtime: createPieRuntimePreloadApi(ipcRenderer),
+    chat: createPieChatPreloadApi(ipcRenderer)
   },
 
   orcaProfiles: {

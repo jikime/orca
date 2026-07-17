@@ -20,6 +20,12 @@ export function getPieAuthAccessToken(): string | null {
   return currentService?.getAccessToken() ?? null
 }
 
+/** The active login's control-plane API base URL (includes /v1) for other Main
+ *  subsystems (chat), or null when signed out. Main-only — never reaches the renderer. */
+export function getPieAuthApiBaseUrl(): string | null {
+  return currentService?.getApiBaseUrl() ?? null
+}
+
 export function initPieAuthServiceIfEnabled(
   deps: Omit<PieAuthServiceDeps, 'config'> & { config?: PieAuthConfig }
 ): PieAuthService | null {

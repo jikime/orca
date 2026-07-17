@@ -28,6 +28,7 @@ import { closeAllWatchers } from './ipc/filesystem-watcher'
 import { disposeWorktreeBaseDirectoryWatchers } from './ipc/worktree-base-directory-watcher'
 import { registerCoreHandlers } from './ipc/register-core-handlers'
 import { startPieRealtimeIfEnabled, stopPieRealtime } from './pie-realtime/realtime-service'
+import { emitPieChatMessagesChanged } from './ipc/pie-chat'
 import {
   acceptPieInvite,
   getPieAuthAccessToken,
@@ -1136,7 +1137,14 @@ function openMainWindow(): BrowserWindow {
     pieRealtimeStarted = true
     // The realtime client authenticates with the current access token (Main-only,
     // from the auth lifecycle) on both the WS upgrade and the REST resync fetch.
-    startPieRealtimeIfEnabled({ getAccessToken: getPieAuthAccessToken })
+    // TODO(pie-chat): the realtime resource-change union does not yet carry a
+    // collaboration/channel/message resourceType, so this nudge only fires for the
+    // resource types already in the union. The chat renderer additionally polls on
+    // focus + interval; once a message resourceType lands, filter to it here.
+    startPieRealtimeIfEnabled({
+      getAccessToken: getPieAuthAccessToken,
+      onChange: (change) => emitPieChatMessagesChanged(change.organizationId)
+    })
   }
   // Why: dev-gated OIDC/PKCE login service. No-op unless PIE_AUTH_DISCOVERY_URL is
   // set and safe mode has not disabled 'pie-auth'; login is triggered explicitly.

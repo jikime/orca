@@ -66,6 +66,9 @@ export type PieAuthService = {
   // out. Used by other Main subsystems (e.g. realtime) to authenticate — never
   // exposed to the renderer.
   getAccessToken: () => string | null
+  // The control-plane API base URL (includes /v1) for the active login, or null.
+  // Main-only — lets other subsystems (e.g. chat) reach the REST surface.
+  getApiBaseUrl: () => string | null
 }
 
 type ActiveSession = {
@@ -325,6 +328,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
     logout,
     stop,
     getStatus: () => status,
-    getAccessToken: () => (active ? deps.lifecycle.getAccessToken(active.scope) : null)
+    getAccessToken: () => (active ? deps.lifecycle.getAccessToken(active.scope) : null),
+    getApiBaseUrl: () => active?.apiBaseUrl ?? null
   }
 }
