@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-session-intake-assign.v1.schema.json",
+  "title": "Agent session intake assign request",
+  "description": "Explicitly binds a queued session to a work item (doc 24 CAP-001: a human assigns, never the server). workItemId is an opaque link — its existence is validated by a higher layer, not the intake surface. Requires If-Match for OCC.",
+  "type": "object",
+  "required": ["workItemId"],
+  "additionalProperties": false,
+  "properties": {
+    "workItemId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  }
+}

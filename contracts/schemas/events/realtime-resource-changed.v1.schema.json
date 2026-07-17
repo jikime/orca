@@ -51,7 +51,8 @@
         "notification",
         "agent_event",
         "agent_turn",
-        "agent_provenance"
+        "agent_provenance",
+        "agent_session_intake"
       ]
     },
     "resourceId": {

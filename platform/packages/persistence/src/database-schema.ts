@@ -725,6 +725,28 @@ export interface AgentProvenanceTable {
   created_at: TimestampColumn
 }
 
+// The unassigned-session intake queue (doc 19 :162, doc 24 CAP-001, R5 s4b). One MUTABLE row per
+// session that exists without a work_item binding; a human explicitly assigns it (which sets the
+// session's work_item_id) — a session is never auto-attached to a project. pie_app gets INSERT +
+// SELECT + UPDATE (the queue transitions pending → assigned/dismissed); the trail is in audit.
+export interface AgentSessionIntakeTable {
+  organization_id: string
+  id: Generated<string>
+  agent_session_id: string
+  source_type: Generated<string>
+  status: Generated<string>
+  detected_reason: Generated<string>
+  host_id: string
+  workspace_id: string | null
+  provider: string
+  work_item_id: string | null
+  assigned_by: string | null
+  assigned_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -782,4 +804,5 @@ export interface Database {
   'execution.agent_events': AgentEventsTable
   'execution.agent_turns': AgentTurnsTable
   'execution.agent_provenance': AgentProvenanceTable
+  'execution.agent_session_intake': AgentSessionIntakeTable
 }

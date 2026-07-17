@@ -1,4 +1,5 @@
 import type { Kysely, Transaction } from 'kysely'
+import { ensurePendingIntakeTx } from './agent-session-intake-store'
 import {
   emitAgentExecutionChange,
   loadAgentSessionTx,
@@ -275,6 +276,9 @@ export async function ingestAgentEvents(
     const finalizedTurns = new Set<string>()
     const projectedProvenance: { id: string; revision: number }[] = []
     const touchedStreams = new Map<string, string>() // streamId → agentSessionId
+    // Capture scope for a would-be intake row: the workspace an accepted event names for its
+    // session (host/provider come from the session itself).
+    const sessionWorkspace = new Map<string, string | null>()
 
     for (const event of input.events) {
       // Anti-forgery: a batch cannot smuggle an event for another org (doc 19 :227-228).
@@ -321,6 +325,9 @@ export async function ingestAgentEvents(
       }
       touchedSessions.add(session.id)
       touchedStreams.set(event.piestream, session.id)
+      if (!sessionWorkspace.has(session.id)) {
+        sessionWorkspace.set(session.id, event.data.context.workspaceId)
+      }
       const projection = await projectTurnFromEvent(trx, input.organizationId, session.id, {
         turnId: event.data.context.turnId,
         streamId: event.piestream,
@@ -365,6 +372,18 @@ export async function ingestAgentEvents(
           nextVersion,
           'updated'
         )
+        // CAP-001: an event ingested for a session with NO work_item ensures a pending intake row
+        // (idempotent — replays never duplicate it). The session is NOT auto-bound to a project;
+        // only an explicit assign sets its work_item_id.
+        if (session.workItemId === null) {
+          await ensurePendingIntakeTx(trx, input.organizationId, {
+            agentSessionId: sessionId,
+            hostId: session.hostId,
+            provider: session.provider,
+            workspaceId: sessionWorkspace.get(sessionId) ?? null,
+            detectedReason: 'no_work_item'
+          })
+        }
       }
     }
     for (const turnId of finalizedTurns) {

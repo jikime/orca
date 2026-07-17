@@ -32,6 +32,9 @@ export type ResourceChangeResourceType =
   // Provenance projection (R5 slice 4a). Commit/PR-MR/test/build/artifact/file-change
   // evidence invalidations ride the same transport unchanged.
   | 'agent_provenance'
+  // Unassigned-session intake queue (R5 slice 4b). Intake create + assign/reclassify/dismiss
+  // invalidations ride the same transport so the queue updates live.
+  | 'agent_session_intake'
 
 export type ResourceChangeData = {
   eventId: string

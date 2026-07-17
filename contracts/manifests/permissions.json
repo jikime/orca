@@ -140,6 +140,12 @@
       "risk": "standard"
     },
     {
+      "id": "agent_session.assign",
+      "resource": "agent_session",
+      "action": "assign",
+      "risk": "elevated"
+    },
+    {
       "id": "agent_turn.read_raw",
       "resource": "agent_turn",
       "action": "read_raw",
