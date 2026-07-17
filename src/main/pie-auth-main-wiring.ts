@@ -5,6 +5,8 @@ import { SafeStorageSessionSecretStore } from './pie-session/safe-storage-sessio
 import {
   acceptPieInvite,
   getPieAuthAccessToken,
+  getPieAuthApiBaseUrl,
+  getPieAuthOrganizationId,
   initPieAuthServiceIfEnabled,
   stopPieAuthService
 } from './pie-auth/pie-auth-service-registry'
@@ -29,4 +31,10 @@ export function startPieAuthMainIfEnabled(): void {
   })
 }
 
-export { acceptPieInvite, getPieAuthAccessToken, stopPieAuthService }
+export {
+  acceptPieInvite,
+  getPieAuthAccessToken,
+  getPieAuthApiBaseUrl,
+  getPieAuthOrganizationId,
+  stopPieAuthService
+}

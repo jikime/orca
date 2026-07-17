@@ -26,6 +26,13 @@ export function getPieAuthApiBaseUrl(): string | null {
   return currentService?.getApiBaseUrl() ?? null
 }
 
+/** The signed-in org for other Main subsystems (agent-tracking), or null when signed out.
+ *  Main-only — never reaches the renderer. */
+export function getPieAuthOrganizationId(): string | null {
+  const status = currentService?.getStatus()
+  return status?.state === 'signed_in' ? status.organizationId : null
+}
+
 export function initPieAuthServiceIfEnabled(
   deps: Omit<PieAuthServiceDeps, 'config'> & { config?: PieAuthConfig }
 ): PieAuthService | null {
