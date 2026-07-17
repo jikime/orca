@@ -22,6 +22,9 @@ export type ResourceChangeResourceType =
   | 'message'
   | 'read_cursor'
   | 'notification'
+  // RemoteSession (R8 slice A1). Additive to the same outbox → Worker → gateway path, so
+  // session lifecycle invalidations ride the existing transport with no new code.
+  | 'remote_session'
 
 export type ResourceChangeData = {
   eventId: string

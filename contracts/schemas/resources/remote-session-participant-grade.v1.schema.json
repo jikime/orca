@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session-participant-grade.v1.schema.json",
+  "title": "Change remote session participant grade request",
+  "type": "object",
+  "required": ["grade"],
+  "properties": {
+    "grade": {
+      "enum": ["observer", "chat", "terminal_control", "desktop_control", "file_transfer", "admin"]
+    }
+  },
+  "additionalProperties": false
+}

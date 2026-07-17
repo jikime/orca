@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session-transition.v1.schema.json",
+  "title": "Transition remote session request",
+  "description": "Advances a remote session to a target status; legality is enforced against the doc 07 state machine server-side.",
+  "type": "object",
+  "required": ["toStatus"],
+  "properties": {
+    "toStatus": {
+      "enum": [
+        "requested",
+        "awaiting_consent",
+        "connecting",
+        "active",
+        "paused",
+        "ended",
+        "reviewed"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

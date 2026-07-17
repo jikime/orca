@@ -19,6 +19,7 @@ tags:
   - name: Artifacts
   - name: Sync
   - name: Operations
+  - name: RemoteSessions
 paths:
   /.well-known/pie:
     get:
@@ -1450,6 +1451,258 @@ paths:
             application/json:
               schema:
                 $ref: ../schemas/resources/operation.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [RemoteSessions]
+      operationId: listRemoteSessions
+      description: >-
+        The org's remote sessions, most-recent first (doc 34 A1). remote.view.
+      responses:
+        '200':
+          description: Remote sessions visible in the organization.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/remote-session.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [RemoteSessions]
+      operationId: createRemoteSession
+      description: >-
+        Opens a remote session in status `requested` (doc 34 A1, doc 07 state
+        machine). The creator becomes an `admin` participant. remote.view.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/remote-session-create.v1.schema.json
+      responses:
+        '201':
+          description: Remote session created.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/remote-session.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [RemoteSessions]
+      operationId: getRemoteSession
+      description: >-
+        One session with its active roster and latest consent state. Resource-
+        gated remote.view on this session (a widen grant lets a non-org-viewer
+        read a session they were added to).
+      responses:
+        '200':
+          description: Remote session with roster and consent state.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/remote-session.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}:transition:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [RemoteSessions]
+      operationId: transitionRemoteSession
+      description: >-
+        Advances the session along the doc 07 state machine with If-Match OCC.
+        Resource-gated remote.control. An illegal jump is 409, a stale version
+        409, a missing consent for `connecting` 422, a missing If-Match 428.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/remote-session-transition.v1.schema.json
+      responses:
+        '200':
+          description: Session transitioned.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/remote-session.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}/participants:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [RemoteSessions]
+      operationId: addRemoteSessionParticipant
+      description: >-
+        Adds a participant to the roster (doc 07 권한 등급). Resource-gated
+        remote.control; the store enforces host/admin authority.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/remote-session-participant-add.v1.schema.json
+      responses:
+        '201':
+          description: Participant added.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/remote-session-participant.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}/participants/{participantId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+      - name: participantId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    patch:
+      tags: [RemoteSessions]
+      operationId: changeRemoteSessionParticipantGrade
+      description: >-
+        Revokes/changes a participant's grade mid-session (doc 07: 권한은 세션
+        중에도 회수). Resource-gated remote.control; host/admin only. If-Match is
+        declared for symmetry but a roster row carries no version.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/remote-session-participant-grade.v1.schema.json
+      responses:
+        '200':
+          description: Participant grade changed.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/remote-session-participant.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [RemoteSessions]
+      operationId: removeRemoteSessionParticipant
+      description: >-
+        Removes a participant (leave). Resource-gated remote.control; the store
+        allows self-leave or host/admin removal.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Participant left.
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}/consent:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [RemoteSessions]
+      operationId: grantRemoteSessionConsent
+      description: >-
+        The subject records consent (doc 07 고객 동의). subjectUserId is always the
+        authenticated user (no consent-by-proxy). Resource-gated remote.view.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/remote-session-consent-grant.v1.schema.json
+      responses:
+        '200':
+          description: Consent recorded.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/remote-session-consent.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [RemoteSessions]
+      operationId: revokeRemoteSessionConsent
+      description: >-
+        The subject withdraws consent (doc 07: 동의 철회 → 입력 즉시 차단, 연결
+        종료). The store records it and forces the session to `ended`. Resource-
+        gated remote.view.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Consent revoked; session forced to a safe state.
         default:
           $ref: '#/components/responses/Problem'
 components:

@@ -30,6 +30,7 @@ function expectedTag(route) {
     ['/group-dms', 'Collaboration'],
     ['/dms', 'Collaboration'],
     ['/messages', 'Collaboration'],
+    ['/remote-sessions', 'RemoteSessions'],
     ['/notifications', 'Notifications'],
     ['/agent-events:batch', 'AgentIngest'],
     ['/artifacts/', 'Artifacts']

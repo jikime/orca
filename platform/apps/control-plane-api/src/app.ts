@@ -13,6 +13,7 @@ import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
 import { registerChannelRoutes } from './channel-routes'
 import { registerChannelMuteRoutes } from './channel-mute-routes'
+import { registerRemoteSessionRoutes } from './remote-session-routes'
 import { registerMessageSearchRoutes } from './message-search-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerDeliveryRoutes } from './delivery-routes'
@@ -164,6 +165,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {})
     })
     registerChannelMuteRoutes(app, { db: deps.db })
+    registerRemoteSessionRoutes(app, { db: deps.db, registry: deps.registry })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
     registerMessageSearchRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {

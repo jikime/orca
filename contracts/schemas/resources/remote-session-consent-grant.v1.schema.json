@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session-consent-grant.v1.schema.json",
+  "title": "Grant remote session consent request",
+  "description": "The subject records consent. scope is optional (defaults to the whole session server-side).",
+  "type": "object",
+  "properties": {
+    "scope": { "type": "string", "minLength": 1, "maxLength": 64 }
+  },
+  "additionalProperties": false
+}
