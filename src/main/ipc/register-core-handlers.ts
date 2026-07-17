@@ -36,6 +36,8 @@ import { setTrustedBrowserRendererWebContentsId, setAgentBrowserBridgeRef } from
 import { registerSessionHandlers } from './session'
 import { registerPieSessionHandlers } from './pie-session'
 import { registerPieRuntimeHandlers } from './pie-runtime'
+import { registerPieChatHandlers } from './pie-chat'
+import { getPieAuthAccessToken, getPieAuthApiBaseUrl } from '../pie-auth/pie-auth-service-registry'
 import { setTrustedPieRendererWebContentsId } from './pie-renderer-trust'
 import { registerSettingsHandlers } from './settings'
 import { registerDiagnosticsHandlers } from './diagnostics'
@@ -131,6 +133,13 @@ export function registerCoreHandlers(
   registerAppHandlers(store, { onBeforeRelaunch: lifecycleOptions.onBeforeRelaunch })
   registerPieSessionHandlers(desktopSessionBroker)
   registerPieRuntimeHandlers(runtime, desktopSessionBroker)
+  // Token + apiBaseUrl are resolved in Main from the auth lifecycle; org id comes
+  // from the session broker. None of these ever cross into the renderer.
+  registerPieChatHandlers({
+    getApiBaseUrl: getPieAuthApiBaseUrl,
+    getAccessToken: getPieAuthAccessToken,
+    getOrganizationId: () => desktopSessionBroker.getContext().organizationId
+  })
   registerCliHandlers()
   registerPreflightHandlers()
   registerClaudeUsageHandlers(claudeUsage)

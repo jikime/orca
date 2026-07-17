@@ -26,6 +26,7 @@ const {
   registerSessionHandlersMock,
   registerPieSessionHandlersMock,
   registerPieRuntimeHandlersMock,
+  registerPieChatHandlersMock,
   setTrustedPieRendererWebContentsIdMock,
   registerUIHandlersMock,
   setTrustedUIRendererWebContentsIdMock,
@@ -90,6 +91,7 @@ const {
   registerSessionHandlersMock: vi.fn(),
   registerPieSessionHandlersMock: vi.fn(),
   registerPieRuntimeHandlersMock: vi.fn(),
+  registerPieChatHandlersMock: vi.fn(),
   setTrustedPieRendererWebContentsIdMock: vi.fn(),
   registerUIHandlersMock: vi.fn(),
   setTrustedUIRendererWebContentsIdMock: vi.fn(),
@@ -166,6 +168,10 @@ vi.mock('./pie-session', () => ({
 
 vi.mock('./pie-runtime', () => ({
   registerPieRuntimeHandlers: registerPieRuntimeHandlersMock
+}))
+
+vi.mock('./pie-chat', () => ({
+  registerPieChatHandlers: registerPieChatHandlersMock
 }))
 
 vi.mock('./pie-renderer-trust', () => ({

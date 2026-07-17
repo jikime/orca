@@ -18,6 +18,7 @@ import type {
 import type { ReadClipboardTextOptions } from '../shared/clipboard-text'
 import type { PieSessionRendererApi } from '../shared/pie-session-contract'
 import type { PieRuntimeRendererApi } from '../shared/pie-runtime-handshake-contract'
+import type { PieChatRendererApi } from '../shared/pie-chat-contract'
 import type { AppIdentity } from '../shared/app-identity'
 import type { MobileRelayStatus } from '../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../shared/mobile-pairing-connection-mode'
@@ -913,6 +914,7 @@ export type PreloadApi = {
   pie: {
     session: PieSessionRendererApi
     runtime: PieRuntimeRendererApi
+    chat: PieChatRendererApi
   }
   orcaProfiles: {
     list: () => Promise<OrcaProfileListResult>
