@@ -27,6 +27,14 @@ export type MessageResource = {
   reactions: ReactionSummary[]
   attachments: AttachmentSummary[]
   createdAt: string
+  // Edit/tombstone markers (doc 33 §1·2). edited==an edit history exists;
+  // deleted==a redacted tombstone (body is '', audit metadata retained).
+  edited: boolean
+  revisionCount: number
+  deleted: boolean
+  deletedAt: string | null
+  deletedBy: string | null
+  deletionReason: string | null
 }
 
 type MessageRow = {
@@ -38,6 +46,9 @@ type MessageRow = {
   visibility: string
   version: string | number
   thread_root_message_id: string | null
+  deleted_at: Date | string | null
+  deleted_by: string | null
+  deletion_reason: string | null
   created_at: Date | string
 }
 
@@ -45,8 +56,10 @@ function mapMessage(
   row: MessageRow,
   replyCount: number,
   reactions: ReactionSummary[],
-  attachments: AttachmentSummary[]
+  attachments: AttachmentSummary[],
+  revisionCount = 0
 ): MessageResource {
+  const deleted = row.deleted_at !== null
   return {
     id: row.id,
     organizationId: row.organization_id,
@@ -59,7 +72,13 @@ function mapMessage(
     replyCount,
     reactions,
     attachments,
-    createdAt: new Date(row.created_at).toISOString()
+    createdAt: new Date(row.created_at).toISOString(),
+    edited: revisionCount > 0,
+    revisionCount,
+    deleted,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at).toISOString() : null,
+    deletedBy: row.deleted_by,
+    deletionReason: row.deletion_reason
   }
 }
 
@@ -106,12 +125,25 @@ async function enrichMessages(
     reactionsByMessage.set(row.message_id, list)
   }
   const attachmentsByMessage = await attachmentSummariesForMessages(trx, ids)
+  // Edit history size per message → the "(edited)" marker. Counted per read (a hot-path
+  // denormalized counter is a later optimization, mirroring reply/reaction counts).
+  const revisionRows = await trx
+    .selectFrom('collaboration.message_revisions')
+    .select(['message_id', sql<string>`count(*)`.as('count')])
+    .where('message_id', 'in', ids)
+    .groupBy('message_id')
+    .execute()
+  const revisionCounts = new Map<string, number>()
+  for (const row of revisionRows) {
+    revisionCounts.set(row.message_id, Number(row.count))
+  }
   return rows.map((row) =>
     mapMessage(
       row,
       replyCounts.get(row.id) ?? 0,
       reactionsByMessage.get(row.id) ?? [],
-      attachmentsByMessage.get(row.id) ?? []
+      attachmentsByMessage.get(row.id) ?? [],
+      revisionCounts.get(row.id) ?? 0
     )
   )
 }

@@ -794,6 +794,77 @@ paths:
                 $ref: ../schemas/resources/message.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    patch:
+      tags: [Collaboration]
+      operationId: editMessage
+      description: >-
+        Edits a message under optimistic concurrency (doc 33 §1). Author-only — a
+        moderator may delete but never edit. The original body is preserved in the
+        immutable revision history; the response carries the "(edited)" marker.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/message-edit.v1.schema.json
+      responses:
+        '200':
+          description: The updated message with its new body and edit marker.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/message.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [Collaboration]
+      operationId: deleteMessage
+      description: >-
+        Soft-deletes a message into a tombstone (doc 33 §2): author, or a channel
+        moderator (channel.manage). The body — and every stored revision body — is
+        redacted while who/when/why audit metadata is retained; the row, reactions and
+        thread pointer survive. A moderator deleting another user's message must supply a
+        reason. Idempotent — re-deleting a tombstone is a no-op 204.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '204':
+          description: Message deleted (or was already a tombstone).
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/messages/search:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

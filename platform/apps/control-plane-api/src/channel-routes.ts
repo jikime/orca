@@ -1,9 +1,12 @@
 import {
   addChannelMember,
   addReaction,
+  authorizeSubjectForOrg,
   createChannel,
   createDm,
   createGroupDm,
+  deleteMessage,
+  editMessage,
   fireEphemeralNotification,
   getChannelForMember,
   getChannelKind,
@@ -38,6 +41,7 @@ const GROUP_DM_CREATE_SCHEMA_ID =
   'https://schemas.pielab.ai/resources/group-dm-create.v1.schema.json'
 const MESSAGE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message.v1.schema.json'
 const MESSAGE_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-create.v1.schema.json'
+const MESSAGE_EDIT_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-edit.v1.schema.json'
 const READ_CURSOR_SCHEMA_ID = 'https://schemas.pielab.ai/resources/read-cursor.v1.schema.json'
 const CHANNELS_ROUTE = '/v1/organizations/{organizationId}/channels'
 const DMS_ROUTE = '/v1/organizations/{organizationId}/dms'
@@ -48,6 +52,18 @@ const CHANNEL_REACTIONS_ROUTE =
 const CHANNEL_READ_ROUTE = '/v1/organizations/{organizationId}/channels/{channelId}/read'
 const EMOJI_PATTERN = /^.{1,32}$/u
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// The message ETag / If-Match carrier for edit OCC — same shape as the work-item PATCH.
+function messageEtag(version: number): string {
+  return `"message-${version}"`
+}
+
+function ifMatchMessageVersion(request: FastifyRequest): number | null {
+  const raw = request.headers['if-match']
+  const value = Array.isArray(raw) ? raw[0] : raw
+  const match = value ? /^"message-(\d+)"$/.exec(value.trim()) : null
+  return match ? Number(match[1]) : null
+}
 
 export type ChannelRoutesDeps = {
   db: PieDatabase
@@ -593,6 +609,139 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       for (const message of result.messages)
         assertResponse(deps.registry, MESSAGE_SCHEMA_ID, message)
       return { items: result.messages, nextCursor: result.nextCursor }
+    }
+  )
+
+  // Edit a message (doc 33 §1). Auth message.post; the store enforces author-only + OCC
+  // (expectedVersion). Returns the updated message so the client re-renders with the new
+  // body + "(edited)" marker. reasons → HTTP: forbidden 403, version_conflict 409, gone 409.
+  app.patch(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.post'
+      )
+      if (!authz) return reply
+      // OCC via If-Match (message ETag), mirroring the work-item PATCH convention.
+      const expectedVersion = ifMatchMessageVersion(request)
+      if (expectedVersion === null)
+        return problem(reply, request, 428, 'IF_MATCH_REQUIRED', 'If-Match is required')
+      if (!validates(deps.registry, MESSAGE_EDIT_SCHEMA_ID, request.body))
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid message edit request')
+      const body = request.body as { body: string }
+      const userId = authz.userId ?? organizationId
+      const result = await editMessage(deps.db, {
+        organizationId,
+        channelId,
+        messageId,
+        actorUserId: userId,
+        newBody: body.body,
+        expectedVersion
+      })
+      if (!result.ok) {
+        if (result.reason === 'not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'message not found')
+        if (result.reason === 'forbidden')
+          return problem(reply, request, 403, 'FORBIDDEN', 'only the author may edit this message')
+        if (result.reason === 'gone')
+          return problem(reply, request, 409, 'MESSAGE_DELETED', 'message has been deleted')
+        return problem(reply, request, 409, 'VERSION_CONFLICT', 'message was modified concurrently')
+      }
+      const updated = await getMessageWithReactions(deps.db, organizationId, messageId, userId)
+      if (!updated) return problem(reply, request, 404, 'NOT_FOUND', 'message not found')
+      assertResponse(deps.registry, MESSAGE_SCHEMA_ID, updated)
+      void reply.header('etag', messageEtag(updated.version))
+      return updated
+    }
+  )
+
+  // Soft-delete a message (doc 33 §2). Auth message.read (membership); moderator-ness is
+  // then resolved by probing the actor's channel.manage grant (mirrors the member-add
+  // route's gate). The store allows author OR moderator and requires a reason for a
+  // moderator deleting another user's message. 204 on success (idempotent no-op included).
+  app.delete(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.read'
+      )
+      if (!authz) return reply
+      const rawBody = request.body as { reason?: string } | undefined
+      if (rawBody && rawBody.reason !== undefined && typeof rawBody.reason !== 'string')
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'reason must be a string')
+      // Moderator-ness = the actor holds channel.manage; a non-grant is not an error here,
+      // just "not a moderator" (the store still allows the author to delete their own).
+      const manage = await authorizeSubjectForOrg(
+        deps.db,
+        { issuer: principal.issuer, subject: principal.subject },
+        organizationId,
+        'channel.manage'
+      )
+      const result = await deleteMessage(deps.db, {
+        organizationId,
+        channelId,
+        messageId,
+        actorUserId: authz.userId ?? organizationId,
+        isModerator: manage.decision.allowed,
+        ...(rawBody?.reason ? { reason: rawBody.reason } : {})
+      })
+      if (!result.ok) {
+        if (result.reason === 'not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'message not found')
+        if (result.reason === 'moderator_reason_required')
+          return problem(
+            reply,
+            request,
+            400,
+            'VALIDATION_FAILED',
+            'a moderator deletion requires a reason'
+          )
+        return problem(
+          reply,
+          request,
+          403,
+          'FORBIDDEN',
+          'only the author or a channel moderator may delete this message'
+        )
+      }
+      void reply.code(204).send()
+      return reply
     }
   )
 

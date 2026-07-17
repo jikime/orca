@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/message-edit.v1.schema.json",
+  "title": "Edit message request",
+  "description": "Author-only message edit (doc 33 §1). Optimistic concurrency is carried by the If-Match header (the message ETag), matching the work-item/project PATCH convention; the body holds only the new text.",
+  "type": "object",
+  "required": ["body"],
+  "properties": {
+    "body": { "type": "string", "minLength": 1, "maxLength": 40000 }
+  },
+  "additionalProperties": false
+}

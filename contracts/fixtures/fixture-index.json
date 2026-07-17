@@ -398,6 +398,24 @@
       "expectedValid": false
     },
     {
+      "name": "channel message edit request",
+      "schemaId": "https://schemas.pielab.ai/resources/message-edit.v1.schema.json",
+      "document": "valid/message-edit.json",
+      "expectedValid": true
+    },
+    {
+      "name": "message edit rejects empty body",
+      "schemaId": "https://schemas.pielab.ai/resources/message-edit.v1.schema.json",
+      "document": "invalid/message-edit-empty-body.json",
+      "expectedValid": false
+    },
+    {
+      "name": "deleted message tombstone response",
+      "schemaId": "https://schemas.pielab.ai/resources/message.v1.schema.json",
+      "document": "valid/message-tombstone.json",
+      "expectedValid": true
+    },
+    {
       "name": "channel read cursor",
       "schemaId": "https://schemas.pielab.ai/resources/read-cursor.v1.schema.json",
       "document": "valid/read-cursor.json",
