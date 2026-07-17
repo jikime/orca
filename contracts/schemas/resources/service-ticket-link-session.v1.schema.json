@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-ticket-link-session.v1.schema.json",
+  "title": "Link a reused agent/remote session to a service ticket request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sessionId"],
+  "properties": {
+    "sessionId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  }
+}

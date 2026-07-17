@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-sla-policy-create.v1.schema.json",
+  "title": "Create service SLA policy request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "isDefault": { "type": "boolean" },
+    "targets": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "responseTargetMinutes": { "type": "integer", "minimum": 1 },
+          "resolutionTargetMinutes": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

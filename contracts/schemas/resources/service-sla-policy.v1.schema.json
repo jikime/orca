@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-sla-policy.v1.schema.json",
+  "title": "Service SLA policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "name",
+    "targets",
+    "isDefault",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "name": { "type": "string", "minLength": 1 },
+    "isDefault": { "type": "boolean" },
+    "targets": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["responseTargetMinutes", "resolutionTargetMinutes"],
+        "properties": {
+          "responseTargetMinutes": { "type": "integer", "minimum": 1 },
+          "resolutionTargetMinutes": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

@@ -46,6 +46,10 @@ export type ResourceChangeResourceType =
   // the same outbox → Worker → gateway path unchanged.
   | 'requirement'
   | 'requirement_acceptance'
+  // Service tickets + SLA (R6 slice 3). Ticket lifecycle + reply (public/internal) invalidations ride
+  // the same outbox → Worker → gateway path unchanged.
+  | 'service_ticket'
+  | 'service_ticket_reply'
 
 export type ResourceChangeData = {
   eventId: string

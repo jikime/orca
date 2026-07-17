@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-ticket-sla.v1.schema.json",
+  "title": "Service ticket SLA status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ticketId",
+    "response",
+    "resolution",
+    "firstResponseDueAt",
+    "resolutionDueAt",
+    "firstRespondedAt",
+    "resolvedAt"
+  ],
+  "properties": {
+    "ticketId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "response": { "enum": ["on_track", "at_risk", "breached"] },
+    "resolution": { "enum": ["on_track", "at_risk", "breached"] },
+    "firstResponseDueAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "resolutionDueAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "firstRespondedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "resolvedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

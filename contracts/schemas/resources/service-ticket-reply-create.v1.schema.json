@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-ticket-reply-create.v1.schema.json",
+  "title": "Create service ticket reply request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "body"],
+  "properties": {
+    "kind": { "enum": ["public_reply", "internal_memo"] },
+    "body": { "type": "string", "minLength": 1 }
+  }
+}

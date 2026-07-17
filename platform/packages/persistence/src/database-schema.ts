@@ -983,6 +983,57 @@ export interface RequirementWorkItemsTable {
   created_at: TimestampColumn
 }
 
+// === R6 s3 service ticket + SLA tables (20260821090001) ===
+// account_id / reporter_contact_id / project_id / contract_id / agent_session_id / remote_session_id
+// are OPAQUE cross-schema links (no FK). sla_policy_id is a same-schema nullable ref. version is OCC.
+export interface ServiceSlaPoliciesTable {
+  organization_id: string
+  id: Generated<string>
+  name: string
+  targets: JsonbColumn
+  is_default: Generated<boolean>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface ServiceTicketsTable {
+  organization_id: string
+  id: Generated<string>
+  account_id: string
+  reporter_contact_id: string | null
+  subject: string
+  body: Generated<string>
+  status: Generated<string>
+  priority: Generated<string>
+  assignee_user_id: string | null
+  project_id: string | null
+  contract_id: string | null
+  agent_session_id: string | null
+  remote_session_id: string | null
+  sla_policy_id: string | null
+  first_response_due_at: NullableTimestampColumn
+  resolution_due_at: NullableTimestampColumn
+  first_responded_at: NullableTimestampColumn
+  resolved_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// Append-only public-reply / internal-memo split (INSERT + SELECT only). visibility carries the
+// delivery/crm scope vocabulary so a customer-scoped read filters on it exactly like comments.
+export interface ServiceTicketRepliesTable {
+  organization_id: string
+  id: Generated<string>
+  ticket_id: string
+  kind: string
+  visibility: string
+  author_user_id: string
+  body: string
+  created_at: TimestampColumn
+}
+
 // Append-only 검수 evidence (INSERT + SELECT only). deliverable_ref is an opaque artifact link.
 export interface RequirementAcceptancesTable {
   organization_id: string
@@ -1068,6 +1119,9 @@ export interface Database {
   'crm.change_orders': CrmChangeOrdersTable
   'crm.change_order_scope_items': CrmChangeOrderScopeItemsTable
   'crm.contract_projects': CrmContractProjectsTable
+  'service.sla_policies': ServiceSlaPoliciesTable
+  'service.tickets': ServiceTicketsTable
+  'service.ticket_replies': ServiceTicketRepliesTable
   'requirements.requirements': RequirementsTable
   'requirements.requirement_work_items': RequirementWorkItemsTable
   'requirements.requirement_acceptances': RequirementAcceptancesTable
