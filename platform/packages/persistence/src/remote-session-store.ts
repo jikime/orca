@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely, Transaction } from 'kysely'
 import type { Database } from './database-schema'
+// Slice A2: ending a session revokes its live capabilities in the same tx (doc 34 §보안 제약 #7).
+// This module<->capability-store cycle is import-safe: both sides only call across the boundary
+// inside function bodies, never at module top level.
+import { revokeCapabilitiesForSessionTx } from './remote-session-capability-store'
 import { buildResourceChangeCloudEvent } from './resource-change-event'
 import { withTenantTransaction } from './tenant-transaction'
 
@@ -87,7 +91,10 @@ export type RemoteSessionDetail = RemoteSession & {
   latestConsent: RemoteSessionConsentState | null
 }
 
-type AuditEventType =
+// Shared audit event vocabulary for the support.remote_session_audit stream. Capability events
+// (slice A2) ride the same stream, so they are part of the union — the audit writer is reused by
+// the capability store rather than forked.
+export type RemoteSessionAuditEventType =
   | 'session_created'
   | 'state_changed'
   | 'participant_joined'
@@ -96,6 +103,9 @@ type AuditEventType =
   | 'driver_changed'
   | 'consent_granted'
   | 'consent_revoked'
+  | 'capability_issued'
+  | 'capability_consumed'
+  | 'capability_revoked'
 
 function mapSession(row: {
   id: string
@@ -161,13 +171,14 @@ async function emitRemoteSessionChange(
 }
 
 // Best-effort audit row (FK-free table). Written INSIDE the mutation tx but, because the
-// table has no session FK, it can never fail on a session-shape constraint.
-async function writeAudit(
+// table has no session FK, it can never fail on a session-shape constraint. Exported so the
+// capability store (slice A2) writes capability_* events through the SAME writer.
+export async function writeRemoteSessionAudit(
   trx: Transaction<Database>,
   input: {
     organizationId: string
     sessionId: string
-    eventType: AuditEventType
+    eventType: RemoteSessionAuditEventType
     actorUserId: string | null
     detail: Record<string, unknown>
   }
@@ -187,7 +198,7 @@ async function writeAudit(
 // Is the actor allowed to administer the roster / lifecycle of this session? The host or any
 // active `admin` participant (doc 07: 관리자 manages participants, 조작권, 종료). This is the
 // roster-authority gate; the HTTP layer separately enforces the remote.* RBAC permission.
-async function isSessionAdminTx(
+export async function isRemoteSessionAdminTx(
   trx: Transaction<Database>,
   sessionId: string,
   actorUserId: string,
@@ -207,7 +218,7 @@ async function isSessionAdminTx(
   return row !== undefined
 }
 
-async function loadSessionTx(
+export async function loadRemoteSessionTx(
   trx: Transaction<Database>,
   sessionId: string
 ): Promise<RemoteSession | null> {
@@ -271,14 +282,14 @@ export async function createRemoteSession(
         is_driver: false
       })
       .execute()
-    await writeAudit(trx, {
+    await writeRemoteSessionAudit(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       eventType: 'session_created',
       actorUserId: input.actorUserId,
       detail: { kind: input.kind, hostUserId: input.hostUserId }
     })
-    await writeAudit(trx, {
+    await writeRemoteSessionAudit(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       eventType: 'participant_joined',
@@ -334,13 +345,25 @@ async function applyTransition(
     // Lost the OCC race between our read and write.
     return { ok: false, reason: 'version_conflict', currentVersion: session.version }
   }
-  await writeAudit(trx, {
+  await writeRemoteSessionAudit(trx, {
     organizationId: input.organizationId,
     sessionId: session.id,
     eventType: 'state_changed',
     actorUserId: input.actorUserId,
     detail: { from: session.status, to: input.toStatus, ...input.auditDetail }
   })
+  // doc 34 §보안 제약 #7: ending a session (the emergency stop reached by BOTH an explicit
+  // transition and consent revocation) must invalidate every live capability. This is the single
+  // choke point every `ended` transition flows through, so revoking here — inside the same tx —
+  // covers both paths without a second code path.
+  if (input.toStatus === 'ended') {
+    await revokeCapabilitiesForSessionTx(trx, {
+      organizationId: input.organizationId,
+      sessionId: session.id,
+      reason: 'session_ended',
+      now: new Date()
+    })
+  }
   await emitRemoteSessionChange(trx, input.organizationId, session.id, newVersion, 'updated')
   return { ok: true, session: mapSession(updated) }
 }
@@ -361,11 +384,11 @@ export async function transitionRemoteSession(
   }
 ): Promise<TransitionResult | { ok: false; reason: 'forbidden' }> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
-    const session = await loadSessionTx(trx, input.sessionId)
+    const session = await loadRemoteSessionTx(trx, input.sessionId)
     if (!session) {
       return { ok: false, reason: 'not_found' }
     }
-    if (!(await isSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))) {
+    if (!(await isRemoteSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))) {
       return { ok: false, reason: 'forbidden' }
     }
     return applyTransition(trx, {
@@ -398,11 +421,11 @@ export async function joinParticipant(
   }
 ): Promise<JoinParticipantResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
-    const session = await loadSessionTx(trx, input.sessionId)
+    const session = await loadRemoteSessionTx(trx, input.sessionId)
     if (!session) {
       return { ok: false, reason: 'not_found' }
     }
-    if (!(await isSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))) {
+    if (!(await isRemoteSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))) {
       return { ok: false, reason: 'forbidden' }
     }
     if (session.status === 'ended' || session.status === 'reviewed') {
@@ -429,7 +452,7 @@ export async function joinParticipant(
       })
       .returningAll()
       .executeTakeFirstOrThrow()
-    await writeAudit(trx, {
+    await writeRemoteSessionAudit(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       eventType: 'participant_joined',
@@ -460,11 +483,11 @@ export async function updateParticipantGrade(
   }
 ): Promise<UpdateGradeResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
-    const session = await loadSessionTx(trx, input.sessionId)
+    const session = await loadRemoteSessionTx(trx, input.sessionId)
     if (!session) {
       return { ok: false, reason: 'not_found' }
     }
-    if (!(await isSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))) {
+    if (!(await isRemoteSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))) {
       return { ok: false, reason: 'forbidden' }
     }
     const current = await trx
@@ -483,7 +506,7 @@ export async function updateParticipantGrade(
       .where('id', '=', input.participantId)
       .returningAll()
       .executeTakeFirstOrThrow()
-    await writeAudit(trx, {
+    await writeRemoteSessionAudit(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       eventType: 'grade_changed',
@@ -514,7 +537,7 @@ export async function leaveParticipant(
   }
 ): Promise<LeaveParticipantResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
-    const session = await loadSessionTx(trx, input.sessionId)
+    const session = await loadRemoteSessionTx(trx, input.sessionId)
     if (!session) {
       return { ok: false, reason: 'not_found' }
     }
@@ -532,7 +555,7 @@ export async function leaveParticipant(
     const isSelf = current.user_id === input.actorUserId
     if (
       !isSelf &&
-      !(await isSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))
+      !(await isRemoteSessionAdminTx(trx, session.id, input.actorUserId, session.hostUserId))
     ) {
       return { ok: false, reason: 'forbidden' }
     }
@@ -541,7 +564,7 @@ export async function leaveParticipant(
       .set({ left_at: new Date(), is_driver: false })
       .where('id', '=', input.participantId)
       .execute()
-    await writeAudit(trx, {
+    await writeRemoteSessionAudit(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       eventType: 'participant_left',
@@ -571,7 +594,7 @@ export async function grantConsent(
   }
 ): Promise<GrantConsentResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
-    const session = await loadSessionTx(trx, input.sessionId)
+    const session = await loadRemoteSessionTx(trx, input.sessionId)
     if (!session) {
       return { ok: false, reason: 'not_found' }
     }
@@ -588,7 +611,7 @@ export async function grantConsent(
       })
       .returningAll()
       .executeTakeFirstOrThrow()
-    await writeAudit(trx, {
+    await writeRemoteSessionAudit(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       eventType: 'consent_granted',
@@ -619,7 +642,7 @@ export async function revokeConsent(
   }
 ): Promise<RevokeConsentResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
-    const session = await loadSessionTx(trx, input.sessionId)
+    const session = await loadRemoteSessionTx(trx, input.sessionId)
     if (!session) {
       return { ok: false, reason: 'not_found' }
     }
@@ -634,7 +657,7 @@ export async function revokeConsent(
     if (revoked.length === 0) {
       return { ok: false, reason: 'no_active_consent' }
     }
-    await writeAudit(trx, {
+    await writeRemoteSessionAudit(trx, {
       organizationId: input.organizationId,
       sessionId: session.id,
       eventType: 'consent_revoked',
@@ -672,7 +695,7 @@ export async function getRemoteSession(
   sessionId: string
 ): Promise<RemoteSessionDetail | null> {
   return withTenantTransaction(db, organizationId, async (trx) => {
-    const session = await loadSessionTx(trx, sessionId)
+    const session = await loadRemoteSessionTx(trx, sessionId)
     if (!session) {
       return null
     }

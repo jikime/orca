@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/capability-grant.v1.schema.json",
+  "title": "Redeemed capability grant",
+  "description": "The action a successfully redeemed capability grants (doc 34 A2). Deliberately minimal — no nonce, no audience echo — the redeemer already knows the target.",
+  "type": "object",
+  "required": ["capability", "participantId"],
+  "properties": {
+    "capability": {
+      "enum": ["view", "terminal_control", "desktop_control", "file_transfer"]
+    },
+    "participantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

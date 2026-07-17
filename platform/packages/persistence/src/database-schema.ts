@@ -565,6 +565,25 @@ export interface RemoteSessionConsentsTable {
   revoked_at: NullableTimestampColumn
 }
 
+// A scoped short-lived single-use capability token (R8 slice A2, doc 34 §데이터모델 / §보안 제약
+// #3). Bound to one session + one participant, audience-restricted, single-use via nonce, and
+// expiring. consumed_at/revoked_at are the redemption/invalidation tombstones.
+export interface RemoteSessionCapabilitiesTable {
+  organization_id: string
+  id: Generated<string>
+  session_id: string
+  participant_id: string
+  capability: string
+  audience: string
+  nonce: string
+  expires_at: TimestampColumn
+  consumed_at: NullableTimestampColumn
+  revoked_at: NullableTimestampColumn
+  requires_step_up: Generated<boolean>
+  issued_by: string
+  created_at: TimestampColumn
+}
+
 // FK-free best-effort audit stream (mirrors audit.authorization_denials). No session FK so an
 // audit write can never fail the main mutation tx.
 export interface RemoteSessionAuditTable {
@@ -627,5 +646,6 @@ export interface Database {
   'support.remote_sessions': RemoteSessionsTable
   'support.remote_session_participants': RemoteSessionParticipantsTable
   'support.remote_session_consents': RemoteSessionConsentsTable
+  'support.remote_session_capabilities': RemoteSessionCapabilitiesTable
   'support.remote_session_audit': RemoteSessionAuditTable
 }

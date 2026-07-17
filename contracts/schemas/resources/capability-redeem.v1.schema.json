@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/capability-redeem.v1.schema.json",
+  "title": "Redeem capability token request",
+  "description": "The redemption check a host/Relay performs (doc 34 A2). The nonce identifies the single-use capability within the session; audience must match the token's bound target.",
+  "type": "object",
+  "required": ["nonce", "audience"],
+  "properties": {
+    "nonce": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string", "minLength": 1, "maxLength": 256 }
+  },
+  "additionalProperties": false
+}
