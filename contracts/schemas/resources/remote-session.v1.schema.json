@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session.v1.schema.json",
+  "title": "Remote session",
+  "description": "A shared terminal/desktop/support session owned by the Control Plane (doc 34 A1, doc 07). status is the doc 07 state machine. participants/latestConsent are present on the single-session read and omitted on the list.",
+  "type": "object",
+  "required": [
+    "id",
+    "organizationId",
+    "kind",
+    "status",
+    "hostUserId",
+    "createdBy",
+    "ticketId",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "kind": { "enum": ["terminal", "desktop", "support"] },
+    "status": {
+      "enum": [
+        "requested",
+        "awaiting_consent",
+        "connecting",
+        "active",
+        "paused",
+        "ended",
+        "reviewed"
+      ]
+    },
+    "hostUserId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "createdBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "ticketId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "participants": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/remote-session-participant.v1.schema.json"
+      }
+    },
+    "latestConsent": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.pielab.ai/resources/remote-session-consent.v1.schema.json"
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

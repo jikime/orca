@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session-participant.v1.schema.json",
+  "title": "Remote session participant",
+  "description": "A roster entry on a remote session (doc 07 권한 등급, ascending). is_driver marks the single operator of an exclusive resource.",
+  "type": "object",
+  "required": ["id", "userId", "grade", "isDriver", "joinedAt", "leftAt"],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "grade": {
+      "enum": ["observer", "chat", "terminal_control", "desktop_control", "file_transfer", "admin"]
+    },
+    "isDriver": { "type": "boolean" },
+    "joinedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "leftAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

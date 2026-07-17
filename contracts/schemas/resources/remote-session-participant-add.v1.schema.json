@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session-participant-add.v1.schema.json",
+  "title": "Add remote session participant request",
+  "type": "object",
+  "required": ["userId", "grade"],
+  "properties": {
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "grade": {
+      "enum": ["observer", "chat", "terminal_control", "desktop_control", "file_transfer", "admin"]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session-consent.v1.schema.json",
+  "title": "Remote session consent state",
+  "description": "The customer's (subject's) recorded consent on a remote session (doc 07). revokedAt set means consent was withdrawn (never hard-deleted, for audit).",
+  "type": "object",
+  "required": ["id", "subjectUserId", "scope", "grantedAt", "revokedAt"],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "subjectUserId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "scope": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "grantedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "revokedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

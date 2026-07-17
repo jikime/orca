@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/remote-session-create.v1.schema.json",
+  "title": "Create remote session request",
+  "type": "object",
+  "required": ["kind", "hostUserId"],
+  "properties": {
+    "kind": { "enum": ["terminal", "desktop", "support"] },
+    "hostUserId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "ticketId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

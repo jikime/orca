@@ -534,6 +534,42 @@
       "schemaId": "https://schemas.pielab.ai/resources/attachment-download.v1.schema.json",
       "document": "valid/attachment-download.json",
       "expectedValid": true
+    },
+    {
+      "name": "remote session response",
+      "schemaId": "https://schemas.pielab.ai/resources/remote-session.v1.schema.json",
+      "document": "valid/remote-session.json",
+      "expectedValid": true
+    },
+    {
+      "name": "remote session participant response",
+      "schemaId": "https://schemas.pielab.ai/resources/remote-session-participant.v1.schema.json",
+      "document": "valid/remote-session-participant.json",
+      "expectedValid": true
+    },
+    {
+      "name": "remote session consent response",
+      "schemaId": "https://schemas.pielab.ai/resources/remote-session-consent.v1.schema.json",
+      "document": "valid/remote-session-consent.json",
+      "expectedValid": true
+    },
+    {
+      "name": "remote session create request",
+      "schemaId": "https://schemas.pielab.ai/resources/remote-session-create.v1.schema.json",
+      "document": "valid/remote-session-create.json",
+      "expectedValid": true
+    },
+    {
+      "name": "remote session transition request",
+      "schemaId": "https://schemas.pielab.ai/resources/remote-session-transition.v1.schema.json",
+      "document": "valid/remote-session-transition.json",
+      "expectedValid": true
+    },
+    {
+      "name": "remote session participant add request",
+      "schemaId": "https://schemas.pielab.ai/resources/remote-session-participant-add.v1.schema.json",
+      "document": "valid/remote-session-participant-add.json",
+      "expectedValid": true
     }
   ]
 }

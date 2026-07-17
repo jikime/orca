@@ -524,6 +524,59 @@ export interface MessageWorkItemLinksTable {
   created_at: TimestampColumn
 }
 
+// RemoteSession control-plane authority (R8 slice A1, doc 34 Phase A / doc 07). status is the
+// doc 07 state machine; the legal-transition table is enforced in the store (a CHECK cannot see
+// the prior value). ticket_id is a nullable forward pointer with NO cross-schema FK yet.
+export interface RemoteSessionsTable {
+  organization_id: string
+  id: Generated<string>
+  kind: string
+  status: Generated<string>
+  host_user_id: string
+  created_by: string
+  ticket_id: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// A roster row (doc 07 권한 등급, ascending). is_driver marks the single operator; left_at set
+// means the participant left (the active-roster unique index excludes left rows).
+export interface RemoteSessionParticipantsTable {
+  organization_id: string
+  id: Generated<string>
+  session_id: string
+  user_id: string
+  grade: string
+  is_driver: Generated<boolean>
+  joined_at: TimestampColumn
+  left_at: NullableTimestampColumn
+}
+
+// The customer's recorded consent (doc 07). Revocation sets revoked_at; a consent row is never
+// hard-deleted (audit). Cascades with its session.
+export interface RemoteSessionConsentsTable {
+  organization_id: string
+  id: Generated<string>
+  session_id: string
+  subject_user_id: string
+  scope: Generated<string>
+  granted_at: TimestampColumn
+  revoked_at: NullableTimestampColumn
+}
+
+// FK-free best-effort audit stream (mirrors audit.authorization_denials). No session FK so an
+// audit write can never fail the main mutation tx.
+export interface RemoteSessionAuditTable {
+  organization_id: string
+  id: Generated<string>
+  session_id: string
+  event_type: string
+  actor_user_id: string | null
+  detail: JsonbColumn
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -571,4 +624,8 @@ export interface Database {
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable
+  'support.remote_sessions': RemoteSessionsTable
+  'support.remote_session_participants': RemoteSessionParticipantsTable
+  'support.remote_session_consents': RemoteSessionConsentsTable
+  'support.remote_session_audit': RemoteSessionAuditTable
 }
