@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-ticket-transition.v1.schema.json",
+  "title": "Transition service ticket status request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["toStatus"],
+  "properties": {
+    "toStatus": { "enum": ["new", "open", "pending", "on_hold", "resolved", "closed"] }
+  }
+}

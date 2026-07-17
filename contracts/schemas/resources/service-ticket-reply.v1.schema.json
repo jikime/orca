@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-ticket-reply.v1.schema.json",
+  "title": "Service ticket reply",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "ticketId",
+    "kind",
+    "visibility",
+    "authorUserId",
+    "body",
+    "createdAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "ticketId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "kind": { "enum": ["public_reply", "internal_memo"] },
+    "visibility": { "enum": ["internal", "project", "customer"] },
+    "authorUserId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "body": { "type": "string" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

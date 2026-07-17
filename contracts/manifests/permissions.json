@@ -348,6 +348,24 @@
       "resource": "requirement",
       "action": "accept",
       "risk": "critical"
+    },
+    {
+      "id": "service.ticket.read",
+      "resource": "service_ticket",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "service.ticket.manage",
+      "resource": "service_ticket",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "service.ticket.reply_public",
+      "resource": "service_ticket",
+      "action": "reply_public",
+      "risk": "standard"
     }
   ]
 }

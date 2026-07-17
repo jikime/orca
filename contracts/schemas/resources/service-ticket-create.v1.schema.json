@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/service-ticket-create.v1.schema.json",
+  "title": "Create service ticket request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accountId", "subject"],
+  "properties": {
+    "accountId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "reporterContactId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "subject": { "type": "string", "minLength": 1 },
+    "body": { "type": "string" },
+    "priority": { "enum": ["low", "normal", "high", "urgent"] },
+    "assigneeUserId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "projectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "contractId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "slaPolicyId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  }
+}
