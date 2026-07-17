@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/requirement-coverage-status.v1.schema.json",
+  "title": "Requirement traceability coverage / gap summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hasWorkItem",
+    "hasCodeEvidence",
+    "hasTestEvidence",
+    "hasBuildEvidence",
+    "hasDeliverableEvidence",
+    "hasAcceptance",
+    "isFullyTraced",
+    "gaps"
+  ],
+  "properties": {
+    "hasWorkItem": { "type": "boolean" },
+    "hasCodeEvidence": { "type": "boolean" },
+    "hasTestEvidence": { "type": "boolean" },
+    "hasBuildEvidence": { "type": "boolean" },
+    "hasDeliverableEvidence": { "type": "boolean" },
+    "hasAcceptance": { "type": "boolean" },
+    "isFullyTraced": { "type": "boolean" },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "no_work_item",
+          "no_code_evidence",
+          "no_test_evidence",
+          "no_deliverable_evidence",
+          "no_acceptance"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/requirement-acceptance.v1.schema.json",
+  "title": "Requirement acceptance (검수) record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "requirementId",
+    "result",
+    "acceptedBy",
+    "acceptedAt",
+    "notes",
+    "deliverableRef",
+    "revision",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "requirementId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "result": {
+      "enum": ["pass", "fail", "conditional"]
+    },
+    "acceptedBy": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "acceptedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "notes": {
+      "type": ["string", "null"]
+    },
+    "deliverableRef": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

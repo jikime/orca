@@ -61,7 +61,10 @@
         "crm.account.manage",
         "crm.contract.read",
         "crm.contract.manage",
-        "crm.contract.approve"
+        "crm.contract.approve",
+        "requirement.read",
+        "requirement.manage",
+        "requirement.accept"
       ]
     },
     {
@@ -120,7 +123,10 @@
         "crm.account.manage",
         "crm.contract.read",
         "crm.contract.manage",
-        "crm.contract.approve"
+        "crm.contract.approve",
+        "requirement.read",
+        "requirement.manage",
+        "requirement.accept"
       ]
     },
     {
@@ -163,7 +169,9 @@
         "crm.account.read",
         "crm.account.manage",
         "crm.contract.read",
-        "crm.contract.manage"
+        "crm.contract.manage",
+        "requirement.read",
+        "requirement.manage"
       ]
     },
     {
@@ -196,7 +204,8 @@
         "message.read",
         "message.react",
         "crm.account.read",
-        "crm.contract.read"
+        "crm.contract.read",
+        "requirement.read"
       ]
     },
     {
@@ -216,7 +225,9 @@
         "message.react",
         "crm.account.read",
         "crm.contract.read",
-        "crm.contract.approve"
+        "crm.contract.approve",
+        "requirement.read",
+        "requirement.accept"
       ]
     },
     {

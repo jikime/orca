@@ -811,9 +811,13 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     }
     // Re-bind alice's session to a DIFFERENT osUser at the same host+path → refused.
     const s2 = randomUUID()
+    const alice = users[0]
+    if (!alice) {
+      throw new Error('seed: users[0] missing')
+    }
     const conflicting = signContext(kp, {
       installationId: kp.installationId,
-      agentSessionId: users[0].session.id,
+      agentSessionId: alice.session.id,
       hostType: 'native',
       hostId: sharedHostId,
       workspacePath: sharedPath,
@@ -821,7 +825,7 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     })
     const res = await ingest(
       'owner',
-      [envelope({ sessionId: users[0].session.id, streamId: s2, sequence: 2 })],
+      [envelope({ sessionId: alice.session.id, streamId: s2, sequence: 2 })],
       s2,
       conflicting
     )
@@ -869,9 +873,13 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     }
     // Re-bind the first session to a DIFFERENT provider → refused.
     const s2 = randomUUID()
+    const firstProvider = providers[0]
+    if (!firstProvider) {
+      throw new Error('seed: providers[0] missing')
+    }
     const conflicting = signContext(kp, {
       installationId: kp.installationId,
-      agentSessionId: providers[0].session.id,
+      agentSessionId: firstProvider.session.id,
       hostType: 'native',
       hostId: sharedHostId,
       workspacePath: sharedPath,
@@ -879,7 +887,7 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     })
     const res = await ingest(
       'owner',
-      [envelope({ sessionId: providers[0].session.id, streamId: s2, sequence: 2 })],
+      [envelope({ sessionId: firstProvider.session.id, streamId: s2, sequence: 2 })],
       s2,
       conflicting
     )

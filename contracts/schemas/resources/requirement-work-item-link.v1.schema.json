@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/requirement-work-item-link.v1.schema.json",
+  "title": "Requirement → work item link (opaque)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "requirementId", "workItemId"],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "requirementId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "workItemId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    }
+  }
+}

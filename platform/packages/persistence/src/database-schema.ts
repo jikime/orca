@@ -955,6 +955,48 @@ export interface CrmContractProjectsTable {
   created_at: TimestampColumn
 }
 
+// === R6 s2 requirements + traceability tables (20260820090001) ===
+// project_id / contract_scope_item_id are OPAQUE cross-schema links (no FK); version is the OCC counter.
+export interface RequirementsTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  contract_scope_item_id: string | null
+  code: string
+  title: string
+  description: string | null
+  status: Generated<string>
+  priority: Generated<string>
+  source: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// work_item_id is an OPAQUE id into delivery.work_items (no cross-schema FK).
+export interface RequirementWorkItemsTable {
+  organization_id: string
+  id: Generated<string>
+  requirement_id: string
+  work_item_id: string
+  created_by: string | null
+  created_at: TimestampColumn
+}
+
+// Append-only 검수 evidence (INSERT + SELECT only). deliverable_ref is an opaque artifact link.
+export interface RequirementAcceptancesTable {
+  organization_id: string
+  id: Generated<string>
+  requirement_id: string
+  result: string
+  accepted_by: string
+  accepted_at: TimestampColumn
+  notes: string | null
+  deliverable_ref: string | null
+  revision: Generated<number>
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -1026,4 +1068,7 @@ export interface Database {
   'crm.change_orders': CrmChangeOrdersTable
   'crm.change_order_scope_items': CrmChangeOrderScopeItemsTable
   'crm.contract_projects': CrmContractProjectsTable
+  'requirements.requirements': RequirementsTable
+  'requirements.requirement_work_items': RequirementWorkItemsTable
+  'requirements.requirement_acceptances': RequirementAcceptancesTable
 }

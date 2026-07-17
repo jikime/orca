@@ -330,6 +330,24 @@
       "resource": "crm_contract",
       "action": "approve",
       "risk": "critical"
+    },
+    {
+      "id": "requirement.read",
+      "resource": "requirement",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "requirement.manage",
+      "resource": "requirement",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "requirement.accept",
+      "resource": "requirement",
+      "action": "accept",
+      "risk": "critical"
     }
   ]
 }

@@ -42,6 +42,10 @@ export type ResourceChangeResourceType =
   | 'crm_opportunity'
   | 'crm_contract'
   | 'crm_change_order'
+  // Requirements + traceability (R6 slice 2). Requirement lifecycle + acceptance invalidations ride
+  // the same outbox → Worker → gateway path unchanged.
+  | 'requirement'
+  | 'requirement_acceptance'
 
 export type ResourceChangeData = {
   eventId: string
