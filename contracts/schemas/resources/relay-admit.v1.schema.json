@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/relay-admit.v1.schema.json",
+  "title": "Relay admission request",
+  "description": "The operator-authenticated Relay redeems a client-presented capability at the control plane before admitting a stream (doc 34 B2 §보안 제약 #5). The nonce is the single-use secret; audience is the stream the Relay binds the grant to; organizationId scopes the redemption to the correct tenant (RLS). No plaintext, no tokens cross here.",
+  "type": "object",
+  "required": ["nonce", "audience", "organizationId"],
+  "properties": {
+    "nonce": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  },
+  "additionalProperties": false
+}
