@@ -85,6 +85,30 @@ describe('Pie chat renderer', () => {
     expect(container.textContent).toContain('Message deleted')
   })
 
+  it('unpins a pinned message through the timeline action', async () => {
+    const unpinMessage = vi.fn().mockResolvedValue(undefined)
+    setChatApi(
+      makeChatApi({
+        listMessages: vi
+          .fn()
+          .mockResolvedValue({ items: [message({ pinned: true })], nextCursor: null }),
+        unpinMessage
+      })
+    )
+    ;({ root, container } = renderScreen())
+    await flush()
+
+    const unpinButton = Array.from(container.querySelectorAll('button')).find(
+      (element) => element.textContent === 'Unpin'
+    )
+    await act(async () => {
+      unpinButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    await flush()
+
+    expect(unpinMessage).toHaveBeenCalledWith(CHANNEL, message().id)
+  })
+
   it('live-updates the timeline on an onMessagesChanged event', async () => {
     const listMessages = vi
       .fn()
