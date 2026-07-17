@@ -217,7 +217,10 @@ export default defineConfig({
   preload: {
     build: {
       externalizeDeps: {
-        exclude: ['@electron-toolkit/preload']
+        // Why: the preload runs sandboxed, so `require`d externals aren't
+        // resolvable at runtime. zod is used by the session/chat contracts, so
+        // it must be BUNDLED into the preload rather than left as require('zod').
+        exclude: ['@electron-toolkit/preload', 'zod']
       }
     }
   },
