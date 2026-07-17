@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/realtime-remote-cursor-changed.v1.schema.json",
+  "title": "Realtime remote-session cursor change (ephemeral)",
+  "description": "Live cursor row/col for a remote-session participant (doc 34 C4). Ephemeral: no version, no replay, no persistence — the payload IS the state. Fanned out only to the session's participants.",
+  "type": "object",
+  "required": [
+    "type",
+    "schemaVersion",
+    "organizationId",
+    "sessionId",
+    "participantId",
+    "row",
+    "col",
+    "at"
+  ],
+  "properties": {
+    "type": { "const": "remote_cursor.changed" },
+    "schemaVersion": { "const": 1 },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sessionId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "participantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "row": { "type": "number", "minimum": 0 },
+    "col": { "type": "number", "minimum": 0 },
+    "at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

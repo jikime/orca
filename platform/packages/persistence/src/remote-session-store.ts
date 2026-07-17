@@ -756,6 +756,25 @@ export async function listRemoteSessions(
   })
 }
 
+/** The user-ids on a session's ACTIVE roster (left_at is null). The gateway uses this
+ *  to fan out remote-session ephemeral presence/cursor only to the session's participants
+ *  (doc 34 C4) — a non-participant must never see another's cursor. */
+export async function listRemoteSessionParticipantUserIds(
+  db: Kysely<Database>,
+  organizationId: string,
+  sessionId: string
+): Promise<string[]> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const rows = await trx
+      .selectFrom('support.remote_session_participants')
+      .select('user_id')
+      .where('session_id', '=', sessionId)
+      .where('left_at', 'is', null)
+      .execute()
+    return rows.map((row) => row.user_id)
+  })
+}
+
 function mapParticipant(row: {
   id: string
   user_id: string

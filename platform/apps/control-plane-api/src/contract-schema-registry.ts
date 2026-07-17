@@ -20,7 +20,11 @@ export const REALTIME_MESSAGE_SCHEMA_ID: Record<string, string> = {
     'https://schemas.pielab.ai/events/realtime-connection-closing.v1.schema.json',
   'session.revoked': 'https://schemas.pielab.ai/events/realtime-session-revoked.v1.schema.json',
   'typing.changed': 'https://schemas.pielab.ai/events/realtime-typing-changed.v1.schema.json',
-  'presence.changed': 'https://schemas.pielab.ai/events/realtime-presence-changed.v1.schema.json'
+  'presence.changed': 'https://schemas.pielab.ai/events/realtime-presence-changed.v1.schema.json',
+  'remote_presence.changed':
+    'https://schemas.pielab.ai/events/realtime-remote-presence-changed.v1.schema.json',
+  'remote_cursor.changed':
+    'https://schemas.pielab.ai/events/realtime-remote-cursor-changed.v1.schema.json'
 }
 
 function* walkJsonFiles(directory: string): Iterable<string> {
