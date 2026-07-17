@@ -512,6 +512,18 @@ export interface MessagePinsTable {
   created_at: TimestampColumn
 }
 
+// A message→WorkItem conversion link (doc 33 §4). One row = a chat message was turned into a
+// delivery work item. work_item_id has NO cross-schema FK — collaboration must not hard-depend
+// on delivery's layout; the same-org invariant is enforced in code (one org tenant tx).
+export interface MessageWorkItemLinksTable {
+  organization_id: string
+  id: Generated<string>
+  message_id: string
+  work_item_id: string
+  created_by: string
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -555,6 +567,7 @@ export interface Database {
   'collaboration.notifications': NotificationsTable
   'collaboration.channel_mutes': ChannelMutesTable
   'collaboration.message_pins': MessagePinsTable
+  'collaboration.message_work_item_links': MessageWorkItemLinksTable
   'agent.objects': ObjectsTable
   'agent.artifacts': ArtifactsTable
   'agent.artifact_revisions': ArtifactRevisionsTable

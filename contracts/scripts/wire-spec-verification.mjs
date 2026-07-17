@@ -12,7 +12,11 @@ function expectedTag(route) {
   const tagByExactRoute = {
     '/.well-known/pie': 'Discovery',
     '/v1/organizations': 'Organizations',
-    '/v1/session': 'Session'
+    '/v1/session': 'Session',
+    // Message→WorkItem conversion lives on the chat surface (nested under /channels), so it
+    // is Collaboration even though the generic /work-items fragment would otherwise win.
+    '/v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/work-items':
+      'Collaboration'
   }
   if (tagByExactRoute[route]) {
     return tagByExactRoute[route]

@@ -464,6 +464,24 @@
       "expectedValid": false
     },
     {
+      "name": "message to work item conversion request",
+      "schemaId": "https://schemas.pielab.ai/resources/message-work-item-conversion.v1.schema.json",
+      "document": "valid/message-work-item-conversion.json",
+      "expectedValid": true
+    },
+    {
+      "name": "message to work item conversion request (teamId only)",
+      "schemaId": "https://schemas.pielab.ai/resources/message-work-item-conversion.v1.schema.json",
+      "document": "valid/message-work-item-conversion-minimal.json",
+      "expectedValid": true
+    },
+    {
+      "name": "message to work item conversion rejects unknown field",
+      "schemaId": "https://schemas.pielab.ai/resources/message-work-item-conversion.v1.schema.json",
+      "document": "invalid/message-work-item-conversion-extra-field.json",
+      "expectedValid": false
+    },
+    {
       "name": "pinned messages list",
       "schemaId": "https://schemas.pielab.ai/resources/pinned-messages.v1.schema.json",
       "document": "valid/pinned-messages.json",

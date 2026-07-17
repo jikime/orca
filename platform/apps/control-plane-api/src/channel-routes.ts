@@ -2,6 +2,7 @@ import {
   addChannelMember,
   addReaction,
   authorizeSubjectForOrg,
+  convertMessageToWorkItem,
   createChannel,
   createDm,
   createGroupDm,
@@ -13,10 +14,12 @@ import {
   getMessageWithReactions,
   getPendingAttachment,
   getReadCursor,
+  getWorkItem,
   isOrgMember,
   listChannelMessages,
   listChannels,
   listPins,
+  listWorkItemLinksForMessage,
   markChannelRead,
   MAX_PINS_PER_CHANNEL,
   pinMessage,
@@ -28,7 +31,9 @@ import {
   type ChannelVisibility,
   type MessageResource,
   type PieDatabase,
-  type ReadCursorResource
+  type ReadCursorResource,
+  type WorkItemPriority,
+  type WorkItemResource
 } from '@pie/persistence'
 import type { ObjectStorage } from '@pie/object-storage-adapter'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
@@ -49,6 +54,11 @@ const MESSAGE_EDIT_SCHEMA_ID = 'https://schemas.pielab.ai/resources/message-edit
 const READ_CURSOR_SCHEMA_ID = 'https://schemas.pielab.ai/resources/read-cursor.v1.schema.json'
 const PINNED_MESSAGES_SCHEMA_ID =
   'https://schemas.pielab.ai/resources/pinned-messages.v1.schema.json'
+const WORK_ITEM_SCHEMA_ID = 'https://schemas.pielab.ai/resources/work-item.v1.schema.json'
+const MESSAGE_CONVERSION_SCHEMA_ID =
+  'https://schemas.pielab.ai/resources/message-work-item-conversion.v1.schema.json'
+const MESSAGE_WORK_ITEMS_ROUTE =
+  '/v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/work-items'
 const CHANNELS_ROUTE = '/v1/organizations/{organizationId}/channels'
 const DMS_ROUTE = '/v1/organizations/{organizationId}/dms'
 const GROUP_DMS_ROUTE = '/v1/organizations/{organizationId}/group-dms'
@@ -1118,4 +1128,158 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
     assertResponse(deps.registry, PINNED_MESSAGES_SCHEMA_ID, body)
     return body
   })
+
+  // Convert a message into a delivery work item (doc 33 §4). This bridges collaboration ↔
+  // delivery, so it crosses BOTH schemas' authz: a DUAL org-permission gate — message.read
+  // (read the source) AND work_item.create (create the target). Both must pass; a member who
+  // can read chat but lacks work_item.create is denied 403. The store then enforces channel
+  // membership on the source. Idempotency-Key REQUIRED (a conversion is a create). Returns
+  // 201 + Location to the new work item. reasons → HTTP: source_not_found 404,
+  // source_forbidden 403, source_deleted 409, team_not_found / invalid_state /
+  // project_not_found 422.
+  app.post(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId/work-items',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      // Gate 1 — source: read permission on the message surface.
+      const readAuthz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.read'
+      )
+      if (!readAuthz) return reply
+      // Gate 2 — target: create permission on the delivery work-item surface. Denied here is
+      // a 403 even though message.read passed (the conversion needs BOTH).
+      const createAuthz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'work_item.create'
+      )
+      if (!createAuthz) return reply
+      if (!validates(deps.registry, MESSAGE_CONVERSION_SCHEMA_ID, request.body))
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid conversion request')
+      const gate = await beginIdempotency(
+        deps.db,
+        request,
+        reply,
+        {
+          organizationId,
+          principalId: principal.subject,
+          method: 'POST',
+          route: MESSAGE_WORK_ITEMS_ROUTE
+        },
+        request.body
+      )
+      if (!gate) return reply
+      const respondCreated = (workItem: WorkItemResource): WorkItemResource => {
+        assertResponse(deps.registry, WORK_ITEM_SCHEMA_ID, workItem)
+        void reply
+          .code(201)
+          .header('location', `/v1/organizations/${organizationId}/work-items/${workItem.id}`)
+        return workItem
+      }
+      // Replay: the prior conversion produced this work item — return it, don't convert again.
+      if (gate.priorResourceId) {
+        const existing = await getWorkItem(deps.db, organizationId, gate.priorResourceId)
+        if (existing) return respondCreated(existing)
+      }
+      const body = request.body as {
+        teamId: string
+        projectId?: string | null
+        title?: string
+        priority?: WorkItemPriority
+        assigneeId?: string | null
+      }
+      const actorUserId = createAuthz.userId ?? organizationId
+      const result = await convertMessageToWorkItem(deps.db, {
+        organizationId,
+        actorUserId,
+        channelId,
+        messageId,
+        teamId: body.teamId,
+        projectId: body.projectId,
+        title: body.title,
+        priority: body.priority,
+        assigneeId: body.assigneeId
+      })
+      if (!result.ok) {
+        await gate.release()
+        if (result.reason === 'source_not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'source message not found')
+        if (result.reason === 'source_forbidden')
+          return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+        if (result.reason === 'source_deleted')
+          return problem(reply, request, 409, 'MESSAGE_DELETED', 'a deleted message cannot convert')
+        if (result.reason === 'team_not_found')
+          return problem(reply, request, 422, 'NO_TEAM', 'team not found for work item')
+        if (result.reason === 'project_not_found')
+          return problem(reply, request, 422, 'NO_PROJECT', 'project not found for work item')
+        return problem(reply, request, 422, 'INVALID_STATE', 'state is not in the team workflow')
+      }
+      await gate.complete(result.workItem.id)
+      return respondCreated(result.workItem)
+    }
+  )
+
+  // List the work items a message has been converted into (doc 33 §4). member-gated. Auth
+  // message.read; each item is the created work item's id, who converted it, and when.
+  app.get(
+    '/v1/organizations/:organizationId/channels/:channelId/messages/:messageId/work-items',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, channelId, messageId } = request.params as {
+        organizationId: string
+        channelId: string
+        messageId: string
+      }
+      if (
+        !UUID_PATTERN.test(organizationId) ||
+        !UUID_PATTERN.test(channelId) ||
+        !UUID_PATTERN.test(messageId)
+      )
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'message.read'
+      )
+      if (!authz) return reply
+      // Member gate: only a channel member may read the source and its conversion links.
+      const channel = await getChannelForMember(
+        deps.db,
+        organizationId,
+        channelId,
+        authz.userId ?? organizationId
+      )
+      if (!channel.ok) {
+        if (channel.reason === 'not_found')
+          return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
+        return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+      }
+      const items = await listWorkItemLinksForMessage(deps.db, organizationId, messageId)
+      return { items, nextCursor: null }
+    }
+  )
 }
