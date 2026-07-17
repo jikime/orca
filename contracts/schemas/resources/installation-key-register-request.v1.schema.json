@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/installation-key-register-request.v1.schema.json",
+  "title": "Installation key registration request",
+  "description": "R5 s2b: the producer registers its per-installation Ed25519 PUBLIC key (SPKI PEM) so the Control Plane can verify signed ExecutionContexts. The server computes the key fingerprint; only the public key crosses the wire.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["installationId", "publicKey", "algorithm"],
+  "properties": {
+    "installationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "algorithm": {
+      "const": "ed25519"
+    }
+  }
+}

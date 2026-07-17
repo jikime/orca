@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/events/signed-execution-context.v1.schema.json",
+  "title": "Signed execution context",
+  "description": "R5 s2b: an Ed25519-signed ExecutionContext binding a batch to one agent session on one host (native/wsl/ssh). The Control Plane verifies the signature against the producer's registered installation public key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["context", "installationId", "signature", "publicKeyId"],
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "installationId",
+        "hostType",
+        "hostId",
+        "workspacePath",
+        "launchId",
+        "agentSessionId",
+        "provider",
+        "notBefore",
+        "notAfter"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "installationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hostType": {
+          "type": "string",
+          "enum": ["native", "wsl", "ssh"]
+        },
+        "hostId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workspacePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "launchId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agentSessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notBefore": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notAfter": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "installationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "publicKeyId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

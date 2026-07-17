@@ -206,6 +206,12 @@
       "expectedValid": true
     },
     {
+      "name": "signed execution context",
+      "schemaId": "https://schemas.pielab.ai/events/signed-execution-context.v1.schema.json",
+      "document": "valid/signed-execution-context.json",
+      "expectedValid": true
+    },
+    {
       "name": "artifact upload intent request",
       "schemaId": "https://schemas.pielab.ai/resources/artifact-upload-intent-request.v1.schema.json",
       "document": "valid/artifact-upload-intent-request.json",

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SignedExecutionContextSchema } from './execution-context-contract'
 
 // Wire contract for the R5 s1 org-level ingest endpoint
 // `POST /v1/organizations/:organizationId/agent-events:batch`.
@@ -81,7 +82,11 @@ export const AgentEventBatchRequestSchema = z.object({
   clientCheckpoint: z.object({
     streamId: z.string().min(1),
     lastServerAck: z.number().int().nonnegative()
-  })
+  }),
+  // R5 s2b (ADDITIVE, optional): a signed, time-bounded, host-scoped ExecutionContext that binds
+  // this batch's producer to its session cryptographically. Absent → the server falls back to the
+  // s1 identity-based bind (local_observed), so existing identity-only ingest is unbroken.
+  executionContext: SignedExecutionContextSchema.optional()
 })
 
 export type AgentEventBatchRequest = z.infer<typeof AgentEventBatchRequestSchema>

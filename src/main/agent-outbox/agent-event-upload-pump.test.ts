@@ -11,7 +11,11 @@ import {
   type ClaimedOutboxItem,
   type OutboxAuditRecord
 } from './agent-event-outbox-store'
-import type { AgentEventBatchResponse } from '../../shared/agent-event-batch-contract'
+import type {
+  AgentEventBatchRequest,
+  AgentEventBatchResponse
+} from '../../shared/agent-event-batch-contract'
+import type { SignedExecutionContext } from '../../shared/execution-context-contract'
 import { makeEnvelope } from './__fixtures__/agent-event-envelope-fixture'
 
 const ORG = '20000000-0000-4000-8000-000000000001'
@@ -232,5 +236,50 @@ describe('agent-event-upload-pump', () => {
     const result = await pump().pumpOnce()
     expect(result).toEqual({ outcome: 'idle' })
     expect(upload).not.toHaveBeenCalled()
+  })
+
+  const signedContext = (notAfter: number): SignedExecutionContext => ({
+    context: {
+      schemaVersion: 1,
+      installationId: 'inst-1',
+      hostType: 'native',
+      hostId: 'host-1',
+      workspacePath: '/w',
+      launchId: 'launch-1',
+      agentSessionId: 'session-1',
+      provider: 'claude_code',
+      notBefore: 0,
+      notAfter
+    },
+    installationId: 'inst-1',
+    signature: 'c2ln',
+    publicKeyId: 'kid-1'
+  })
+
+  it('R5 s2b: attaches the current signed execution context to the batch', async () => {
+    seed(1)
+    upload.mockResolvedValue(response([{ id: 'evt-1', status: 'accepted' }], 1))
+    const ctx = signedContext(NOW + 10_000)
+    await pump({ executionContext: () => ctx }).pumpOnce()
+    const request = upload.mock.calls[0]?.[1] as AgentEventBatchRequest
+    expect(request.executionContext).toEqual(ctx)
+  })
+
+  it('R5 s2b: refuses to send an EXPIRED context, holding the batch for a re-signed launch', async () => {
+    seed(1)
+    const result = await pump({ executionContext: () => signedContext(NOW - 1) }).pumpOnce()
+    expect(result).toEqual({ outcome: 'held_expired_context', reclaimed: 1 })
+    expect(upload).not.toHaveBeenCalled()
+    // Held (nacked with backoff): still pending, not sent stale.
+    expect(store.pendingCount()).toBe(1)
+    expect(store.claimBatch(10, 1_000_000, NOW)).toHaveLength(0)
+  })
+
+  it('R5 s2b: a null context sends no executionContext (identity-only back-compat)', async () => {
+    seed(1)
+    upload.mockResolvedValue(response([{ id: 'evt-1', status: 'accepted' }], 1))
+    await pump({ executionContext: () => null }).pumpOnce()
+    const request = upload.mock.calls[0]?.[1] as AgentEventBatchRequest
+    expect(request.executionContext).toBeUndefined()
   })
 })
