@@ -1,28 +1,30 @@
 import { z } from 'zod'
 
-// IPC channel names for the Pie collaboration chat surface. Invoke channels are
-// request/response; the changed channel is a Main->renderer push nudge.
-export const PIE_CHAT_LIST_CHANNELS_CHANNEL = 'pie:chat:list-channels'
-export const PIE_CHAT_LIST_MESSAGES_CHANNEL = 'pie:chat:list-messages'
-export const PIE_CHAT_SEND_MESSAGE_CHANNEL = 'pie:chat:send-message'
-export const PIE_CHAT_EDIT_MESSAGE_CHANNEL = 'pie:chat:edit-message'
-export const PIE_CHAT_DELETE_MESSAGE_CHANNEL = 'pie:chat:delete-message'
-export const PIE_CHAT_MARK_READ_CHANNEL = 'pie:chat:mark-read'
-export const PIE_CHAT_ADD_REACTION_CHANNEL = 'pie:chat:add-reaction'
-export const PIE_CHAT_REMOVE_REACTION_CHANNEL = 'pie:chat:remove-reaction'
-export const PIE_CHAT_PIN_MESSAGE_CHANNEL = 'pie:chat:pin-message'
-export const PIE_CHAT_UNPIN_MESSAGE_CHANNEL = 'pie:chat:unpin-message'
-export const PIE_CHAT_LIST_PINS_CHANNEL = 'pie:chat:list-pins'
-export const PIE_CHAT_CREATE_CHANNEL_CHANNEL = 'pie:chat:create-channel'
-export const PIE_CHAT_CREATE_DM_CHANNEL = 'pie:chat:create-dm'
-export const PIE_CHAT_CREATE_GROUP_DM_CHANNEL = 'pie:chat:create-group-dm'
-export const PIE_CHAT_MUTE_CHANNEL_CHANNEL = 'pie:chat:mute-channel'
-export const PIE_CHAT_UNMUTE_CHANNEL_CHANNEL = 'pie:chat:unmute-channel'
-export const PIE_CHAT_SEARCH_MESSAGES_CHANNEL = 'pie:chat:search-messages'
-export const PIE_CHAT_CREATE_ATTACHMENT_INTENT_CHANNEL = 'pie:chat:create-attachment-intent'
-export const PIE_CHAT_DOWNLOAD_ATTACHMENT_CHANNEL = 'pie:chat:download-attachment'
-export const PIE_CHAT_LIST_MEMBERS_CHANNEL = 'pie:chat:list-members'
-export const PIE_CHAT_MESSAGES_CHANGED_CHANNEL = 'pie:chat:messages-changed'
+// IPC channel names live in a zod-free module so the sandboxed preload can import
+// them without pulling zod. Re-exported here for existing Main-side importers.
+export {
+  PIE_CHAT_ADD_REACTION_CHANNEL,
+  PIE_CHAT_CREATE_ATTACHMENT_INTENT_CHANNEL,
+  PIE_CHAT_CREATE_CHANNEL_CHANNEL,
+  PIE_CHAT_CREATE_DM_CHANNEL,
+  PIE_CHAT_CREATE_GROUP_DM_CHANNEL,
+  PIE_CHAT_DELETE_MESSAGE_CHANNEL,
+  PIE_CHAT_DOWNLOAD_ATTACHMENT_CHANNEL,
+  PIE_CHAT_EDIT_MESSAGE_CHANNEL,
+  PIE_CHAT_LIST_CHANNELS_CHANNEL,
+  PIE_CHAT_LIST_MEMBERS_CHANNEL,
+  PIE_CHAT_LIST_MESSAGES_CHANNEL,
+  PIE_CHAT_LIST_PINS_CHANNEL,
+  PIE_CHAT_MARK_READ_CHANNEL,
+  PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
+  PIE_CHAT_MUTE_CHANNEL_CHANNEL,
+  PIE_CHAT_PIN_MESSAGE_CHANNEL,
+  PIE_CHAT_REMOVE_REACTION_CHANNEL,
+  PIE_CHAT_SEARCH_MESSAGES_CHANNEL,
+  PIE_CHAT_SEND_MESSAGE_CHANNEL,
+  PIE_CHAT_UNMUTE_CHANNEL_CHANNEL,
+  PIE_CHAT_UNPIN_MESSAGE_CHANNEL
+} from './pie-chat-ipc-channels'
 
 // Resource types the chat surface reacts to (subset of the realtime union). A
 // realtime resource.changed of any of these nudges the timeline to refetch;
