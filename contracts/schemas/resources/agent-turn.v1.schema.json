@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-turn.v1.schema.json",
+  "title": "Projected agent turn",
+  "description": "A turn folded from the append-only event log (doc 19 :235-236). Provisional while streaming; finalized to an immutable revision once its content hash is confirmed by an observed/verified event.",
+  "type": "object",
+  "required": [
+    "id",
+    "turnId",
+    "status",
+    "contentHash",
+    "revision",
+    "firstSequence",
+    "lastSequence",
+    "eventCount",
+    "firstEventAt",
+    "lastEventAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "turnId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "status": { "enum": ["provisional", "finalized"] },
+    "contentHash": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 256 }, { "type": "null" }]
+    },
+    "revision": { "type": "integer", "minimum": 0 },
+    "firstSequence": { "type": "integer", "minimum": 1 },
+    "lastSequence": { "type": "integer", "minimum": 1 },
+    "eventCount": { "type": "integer", "minimum": 0 },
+    "firstEventAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "lastEventAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

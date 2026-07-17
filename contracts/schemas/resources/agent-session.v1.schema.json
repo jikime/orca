@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-session.v1.schema.json",
+  "title": "Agent session",
+  "description": "An AI agent (Claude Code / Codex) session owned by the Control Plane (doc 19, R5 s1). work_item_id is an opaque forward link with no cross-schema FK. status gates ingest: a closed/terminated session accepts no further events.",
+  "type": "object",
+  "required": [
+    "id",
+    "organizationId",
+    "workItemId",
+    "provider",
+    "providerSessionId",
+    "hostId",
+    "launchId",
+    "status",
+    "visibility",
+    "classification",
+    "createdBy",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "workItemId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "provider": { "enum": ["claude_code", "codex", "opencode", "other"] },
+    "providerSessionId": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 256 }, { "type": "null" }]
+    },
+    "hostId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "launchId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "status": { "enum": ["active", "closed", "terminated"] },
+    "visibility": { "enum": ["internal", "project", "customer"] },
+    "classification": {
+      "enum": ["public", "internal", "project_confidential", "restricted"]
+    },
+    "createdBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

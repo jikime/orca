@@ -48,7 +48,9 @@
         "channel_member",
         "message",
         "read_cursor",
-        "notification"
+        "notification",
+        "agent_event",
+        "agent_turn"
       ]
     },
     "resourceId": {

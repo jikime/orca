@@ -152,6 +152,12 @@
       "risk": "elevated"
     },
     {
+      "id": "agent_event.ingest",
+      "resource": "agent_event",
+      "action": "ingest",
+      "risk": "elevated"
+    },
+    {
       "id": "artifact.read",
       "resource": "artifact",
       "action": "read",
