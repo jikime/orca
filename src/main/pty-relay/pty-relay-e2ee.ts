@@ -26,6 +26,10 @@ export type PtyFrameOpener = (sealed: Uint8Array, counter: bigint) => Uint8Array
 
 // Host → viewer is the desktop-originated direction; PTY bytes are opaque binary.
 const HOST_DIRECTION: MobileE2EEDirection = 'desktop-to-mobile'
+// Driver → host (C3 stdin/control) is the viewer-originated reverse direction, so
+// control frames get a distinct direction byte and can never be confused with, or
+// replayed as, an `output` frame under the same shared key.
+const CONTROL_DIRECTION: MobileE2EEDirection = 'mobile-to-desktop'
 
 export function createPtyFrameSealer(shared: PtyRelayE2EEKey): PtyFrameSealer {
   return (payload, counter) =>
@@ -46,6 +50,30 @@ export function createPtyFrameOpener(shared: PtyRelayE2EEKey): PtyFrameOpener {
       key: shared.key,
       sessionId: shared.e2eeSessionId,
       direction: HOST_DIRECTION,
+      payloadKind: 'binary',
+      expectedCounter: counter
+    })
+}
+
+export function createPtyControlFrameSealer(shared: PtyRelayE2EEKey): PtyFrameSealer {
+  return (payload, counter) =>
+    sealMobileE2EEV2Frame({
+      payload,
+      key: shared.key,
+      sessionId: shared.e2eeSessionId,
+      direction: CONTROL_DIRECTION,
+      payloadKind: 'binary',
+      counter
+    })
+}
+
+export function createPtyControlFrameOpener(shared: PtyRelayE2EEKey): PtyFrameOpener {
+  return (sealed, counter) =>
+    openMobileE2EEV2Frame({
+      frame: sealed,
+      key: shared.key,
+      sessionId: shared.e2eeSessionId,
+      direction: CONTROL_DIRECTION,
       payloadKind: 'binary',
       expectedCounter: counter
     })
