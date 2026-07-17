@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import type { PieSessionState } from '../../../../shared/pie-session-contract'
 import type { PieChannel, PieMessage } from '../../../../shared/pie-chat-contract'
 import { ChannelSidebar } from './ChannelSidebar'
@@ -125,11 +126,16 @@ type ChatScreenProps = {
 export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX.Element {
   const [session, setSession] = useState<PieSessionState | null>(null)
   const [failed, setFailed] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
+
+  const readSession = useCallback(
+    () => getSessionState ?? (() => window.api.pie.session.getState()),
+    [getSessionState]
+  )
 
   useEffect(() => {
     let cancelled = false
-    const read = getSessionState ?? (() => window.api.pie.session.getState())
-    void read()
+    void readSession()()
       .then((state) => {
         if (!cancelled) {
           setSession(state)
@@ -143,7 +149,22 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
     return () => {
       cancelled = true
     }
-  }, [getSessionState])
+  }, [readSession])
+
+  // Triggers the dev-gated OIDC login (opens the system browser), then re-reads
+  // the now-signed-in session so the chat surface renders.
+  const signIn = useCallback(async (): Promise<void> => {
+    setSigningIn(true)
+    try {
+      await window.api.pie.auth.beginLogin()
+      setSession(await readSession()())
+      setFailed(false)
+    } catch {
+      setFailed(true)
+    } finally {
+      setSigningIn(false)
+    }
+  }, [readSession])
 
   if (failed) {
     return (
@@ -163,8 +184,11 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
 
   if (session.status === 'signed_out') {
     return (
-      <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        Sign in to use Pie chat
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-background">
+        <p className="text-sm text-muted-foreground">Sign in to use Pie chat</p>
+        <Button onClick={() => void signIn()} disabled={signingIn}>
+          {signingIn ? 'Signing in…' : 'Sign in'}
+        </Button>
       </div>
     )
   }

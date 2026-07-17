@@ -915,6 +915,7 @@ export type PreloadApi = {
     session: PieSessionRendererApi
     runtime: PieRuntimeRendererApi
     chat: PieChatRendererApi
+    auth: { beginLogin: () => Promise<void> }
   }
   orcaProfiles: {
     list: () => Promise<OrcaProfileListResult>

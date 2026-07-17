@@ -37,6 +37,7 @@ import { registerSessionHandlers } from './session'
 import { registerPieSessionHandlers } from './pie-session'
 import { registerPieRuntimeHandlers } from './pie-runtime'
 import { registerPieChatHandlers } from './pie-chat'
+import { registerPieAuthLoginHandlers } from './pie-auth-login'
 import { getPieAuthAccessToken, getPieAuthApiBaseUrl } from '../pie-auth/pie-auth-service-registry'
 import { setTrustedPieRendererWebContentsId } from './pie-renderer-trust'
 import { registerSettingsHandlers } from './settings'
@@ -133,6 +134,7 @@ export function registerCoreHandlers(
   registerAppHandlers(store, { onBeforeRelaunch: lifecycleOptions.onBeforeRelaunch })
   registerPieSessionHandlers(desktopSessionBroker)
   registerPieRuntimeHandlers(runtime, desktopSessionBroker)
+  registerPieAuthLoginHandlers()
   // Token + apiBaseUrl are resolved in Main from the auth lifecycle; org id comes
   // from the session broker. None of these ever cross into the renderer.
   registerPieChatHandlers({
