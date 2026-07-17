@@ -662,6 +662,18 @@ export interface InstallationPublicKeysTable {
   rotation_count: Generated<number>
 }
 
+// R5 s5 batch anti-replay: one row per consumed (org, installation, submission_nonce). A second
+// consumption of the same nonce under a DIFFERENT batch_id is a replay; the SAME batch_id is a
+// legit retry. not_after (the signed context's expiry) bounds a prune-on-write. INSERT/SELECT/DELETE.
+export interface BatchSubmissionNoncesTable {
+  organization_id: string
+  installation_id: string
+  submission_nonce: string
+  batch_id: string
+  consumed_at: TimestampColumn
+  not_after: TimestampColumn
+}
+
 // The append-only envelope log (doc 19 :203). event_id is the per-org idempotency key.
 // stream_id + sequence is for gap detection; occurred/captured/received are kept distinct.
 // pie_app gets INSERT + SELECT only — never UPDATE/DELETE (append-only).
@@ -857,4 +869,5 @@ export interface Database {
   'execution.agent_session_intake': AgentSessionIntakeTable
   'execution.agent_capture_gaps': AgentCaptureGapsTable
   'execution.installation_public_keys': InstallationPublicKeysTable
+  'execution.batch_submission_nonces': BatchSubmissionNoncesTable
 }

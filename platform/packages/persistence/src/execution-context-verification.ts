@@ -24,6 +24,8 @@ export type ExecutionContextRejectionCode =
   | 'KEY_NOT_REGISTERED'
   | 'SIGNATURE_INVALID'
   | 'BINDING_HOST_MISMATCH'
+  // R5 s5: a consumed batch nonce re-presented under a different batchId (batch-level replay).
+  | 'SUBMISSION_REPLAYED'
 
 export type VerifiedBinding = {
   installationId: string

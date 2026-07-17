@@ -86,7 +86,12 @@ export const AgentEventBatchRequestSchema = z.object({
   // R5 s2b (ADDITIVE, optional): a signed, time-bounded, host-scoped ExecutionContext that binds
   // this batch's producer to its session cryptographically. Absent → the server falls back to the
   // s1 identity-based bind (local_observed), so existing identity-only ingest is unbroken.
-  executionContext: SignedExecutionContextSchema.optional()
+  executionContext: SignedExecutionContextSchema.optional(),
+  // R5 s5 anti-replay (ADDITIVE, optional): a one-time-use per-batch nonce. It rides the BATCH, not
+  // the signed context, so the signed canonical form is unchanged. Keyed to batchId on the client
+  // so an idempotent retry reuses it; the server rejects a consumed nonce re-presented with a
+  // different batchId. Only meaningful (enforced) when a signed executionContext is present.
+  submissionNonce: z.string().min(1).optional()
 })
 
 export type AgentEventBatchRequest = z.infer<typeof AgentEventBatchRequestSchema>
