@@ -130,6 +130,7 @@ import {
 } from './startup/startup-diagnostics'
 import { reconnectSshTargetForRendererStartup } from './startup/ssh-startup-reconnect'
 import { bootstrapPieDesktopBoundary } from './pie/pie-desktop-bootstrap'
+import { PieChatOverlay } from './pie/chat/PieChatOverlay'
 import { shouldRenderPetOverlay } from './components/pet/pet-overlay-visibility'
 import { applyDocumentTheme } from './lib/document-theme'
 import { getSystemPrefersDark } from './lib/terminal-theme'
@@ -2248,6 +2249,9 @@ function App(): React.JSX.Element {
       }
     >
       <TooltipProvider delayDuration={400}>
+        {/* Self-contained, dev-gated Pie chat surface. Renders nothing until
+        toggled with Cmd/Ctrl+Shift+K, so it never disturbs the workspace. */}
+        <PieChatOverlay />
         <ConfirmationDialogProvider>
           <LinkRoutingPreferenceDialogProvider>
             <WorkspacePortScanner enabled={workspaceSessionReady} />

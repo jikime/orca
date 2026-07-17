@@ -8,7 +8,32 @@ export const PIE_CHAT_SEND_MESSAGE_CHANNEL = 'pie:chat:send-message'
 export const PIE_CHAT_EDIT_MESSAGE_CHANNEL = 'pie:chat:edit-message'
 export const PIE_CHAT_DELETE_MESSAGE_CHANNEL = 'pie:chat:delete-message'
 export const PIE_CHAT_MARK_READ_CHANNEL = 'pie:chat:mark-read'
+export const PIE_CHAT_ADD_REACTION_CHANNEL = 'pie:chat:add-reaction'
+export const PIE_CHAT_REMOVE_REACTION_CHANNEL = 'pie:chat:remove-reaction'
+export const PIE_CHAT_PIN_MESSAGE_CHANNEL = 'pie:chat:pin-message'
+export const PIE_CHAT_UNPIN_MESSAGE_CHANNEL = 'pie:chat:unpin-message'
+export const PIE_CHAT_LIST_PINS_CHANNEL = 'pie:chat:list-pins'
+export const PIE_CHAT_CREATE_CHANNEL_CHANNEL = 'pie:chat:create-channel'
+export const PIE_CHAT_CREATE_DM_CHANNEL = 'pie:chat:create-dm'
+export const PIE_CHAT_CREATE_GROUP_DM_CHANNEL = 'pie:chat:create-group-dm'
+export const PIE_CHAT_MUTE_CHANNEL_CHANNEL = 'pie:chat:mute-channel'
+export const PIE_CHAT_UNMUTE_CHANNEL_CHANNEL = 'pie:chat:unmute-channel'
+export const PIE_CHAT_SEARCH_MESSAGES_CHANNEL = 'pie:chat:search-messages'
+export const PIE_CHAT_CREATE_ATTACHMENT_INTENT_CHANNEL = 'pie:chat:create-attachment-intent'
+export const PIE_CHAT_DOWNLOAD_ATTACHMENT_CHANNEL = 'pie:chat:download-attachment'
+export const PIE_CHAT_LIST_MEMBERS_CHANNEL = 'pie:chat:list-members'
 export const PIE_CHAT_MESSAGES_CHANGED_CHANNEL = 'pie:chat:messages-changed'
+
+// Resource types the chat surface reacts to (subset of the realtime union). A
+// realtime resource.changed of any of these nudges the timeline to refetch;
+// reactions/pins/edits/deletes all arrive as a 'message' change.
+export const PIE_CHAT_REALTIME_RESOURCE_TYPES = new Set<string>([
+  'channel',
+  'channel_member',
+  'message',
+  'read_cursor',
+  'notification'
+])
 
 const opaqueIdSchema = z.string().uuid()
 
@@ -104,6 +129,64 @@ export const PieChatListMessagesOptionsSchema = z
   })
   .strict()
 
+// Extra POST-message fields. Body stays plain text; mention targets ride
+// out-of-band as user ids (backend resolves + drops non-members), and
+// attachmentIds link previously-uploaded objects at post time.
+export const PieSendMessageOptionsSchema = z
+  .object({
+    threadRootMessageId: opaqueIdSchema.optional(),
+    mentions: z.array(opaqueIdSchema).max(100).optional(),
+    mentionChannel: z.boolean().optional(),
+    mentionHere: z.boolean().optional(),
+    attachmentIds: z.array(z.string()).max(10).optional()
+  })
+  .strict()
+
+export const PiePinnedMessageSchema = z
+  .object({
+    message: PieMessageSchema,
+    pinnedBy: z.string(),
+    pinnedAt: z.string()
+  })
+  .passthrough()
+
+export const PiePinListResponseSchema = z
+  .object({ items: z.array(PiePinnedMessageSchema) })
+  .passthrough()
+
+export const PieMessageSearchResponseSchema = z
+  .object({
+    items: z.array(PieMessageSchema),
+    nextCursor: z.string().nullable()
+  })
+  .passthrough()
+
+// One org member the composer can @-mention and the sidebar can DM.
+export const PieChatMemberSchema = z
+  .object({
+    userId: opaqueIdSchema,
+    displayName: z.string()
+  })
+  .passthrough()
+
+export const PieAttachmentIntentSchema = z
+  .object({
+    id: z.string(),
+    objectId: z.string(),
+    uploadUrl: z.string(),
+    expiresAt: z.string()
+  })
+  .passthrough()
+
+export const PieAttachmentDownloadSchema = z
+  .object({
+    url: z.string(),
+    filename: z.string(),
+    contentType: z.string(),
+    expiresAt: z.string()
+  })
+  .passthrough()
+
 export type ChannelVisibility = z.infer<typeof ChannelVisibilitySchema>
 export type ChannelKind = z.infer<typeof ChannelKindSchema>
 export type PieChannel = z.infer<typeof PieChannelSchema>
@@ -114,6 +197,13 @@ export type PieChannelListResponse = z.infer<typeof PieChannelListResponseSchema
 export type PieMessageListResponse = z.infer<typeof PieMessageListResponseSchema>
 export type PieChatMessagesChanged = z.infer<typeof PieChatMessagesChangedSchema>
 export type PieChatListMessagesOptions = z.infer<typeof PieChatListMessagesOptionsSchema>
+export type PieSendMessageOptions = z.infer<typeof PieSendMessageOptionsSchema>
+export type PiePinnedMessage = z.infer<typeof PiePinnedMessageSchema>
+export type PiePinListResponse = z.infer<typeof PiePinListResponseSchema>
+export type PieMessageSearchResponse = z.infer<typeof PieMessageSearchResponseSchema>
+export type PieChatMember = z.infer<typeof PieChatMemberSchema>
+export type PieAttachmentIntent = z.infer<typeof PieAttachmentIntentSchema>
+export type PieAttachmentDownload = z.infer<typeof PieAttachmentDownloadSchema>
 
 // Renderer-facing bridge. It never carries tokens or the org/user ids the renderer
 // should not hold — Main resolves those from the auth lifecycle + session broker.
@@ -123,7 +213,11 @@ export type PieChatRendererApi = {
     channelId: string,
     opts?: PieChatListMessagesOptions
   ) => Promise<PieMessageListResponse>
-  sendMessage: (channelId: string, body: string) => Promise<PieMessage>
+  sendMessage: (
+    channelId: string,
+    body: string,
+    opts?: PieSendMessageOptions
+  ) => Promise<PieMessage>
   editMessage: (
     channelId: string,
     messageId: string,
@@ -132,5 +226,26 @@ export type PieChatRendererApi = {
   ) => Promise<PieMessage>
   deleteMessage: (channelId: string, messageId: string) => Promise<void>
   markRead: (channelId: string, lastReadMessageId: string) => Promise<void>
+  addReaction: (channelId: string, messageId: string, emoji: string) => Promise<PieMessage>
+  removeReaction: (channelId: string, messageId: string, emoji: string) => Promise<void>
+  pinMessage: (channelId: string, messageId: string) => Promise<void>
+  unpinMessage: (channelId: string, messageId: string) => Promise<void>
+  listPins: (channelId: string) => Promise<PiePinnedMessage[]>
+  createChannel: (name: string, visibility?: ChannelVisibility) => Promise<PieChannel>
+  createDm: (otherUserId: string) => Promise<PieChannel>
+  createGroupDm: (participantUserIds: string[]) => Promise<PieChannel>
+  muteChannel: (channelId: string) => Promise<void>
+  unmuteChannel: (channelId: string) => Promise<void>
+  searchMessages: (query: string, cursor?: string) => Promise<PieMessageSearchResponse>
+  listMembers: () => Promise<PieChatMember[]>
+  // Uploads bytes and returns the attachment intent whose id links the file to a
+  // subsequent sendMessage via opts.attachmentIds. Both the intent and the
+  // presigned PUT happen in Main.
+  uploadAttachment: (
+    channelId: string,
+    meta: { filename: string; contentType: string; byteSize: number },
+    file: ArrayBuffer
+  ) => Promise<PieAttachmentIntent>
+  downloadAttachment: (channelId: string, attachmentId: string) => Promise<PieAttachmentDownload>
   onMessagesChanged: (callback: (event: PieChatMessagesChanged) => void) => () => void
 }

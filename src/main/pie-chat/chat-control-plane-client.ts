@@ -3,37 +3,20 @@ import {
   PieChatListMessagesOptionsSchema,
   PieMessageListResponseSchema,
   PieMessageSchema,
+  PieSendMessageOptionsSchema,
   type PieChannel,
   type PieChatListMessagesOptions,
   type PieMessage,
-  type PieMessageListResponse
+  type PieMessageListResponse,
+  type PieSendMessageOptions
 } from '../../shared/pie-chat-contract'
+import { authHeaders, channelsBase, jsonHeaders, PieChatError } from './chat-control-plane-http'
 
-// Thin client for the Control Plane collaboration (chat) endpoints. The access
-// token is sent as a bearer; it never appears in a log line here. apiBaseUrl
-// already includes /v1 (mirrors platform-session-client).
+// Thin client for the core Control Plane collaboration (chat) endpoints:
+// channels + messages. Reaction/pin, channel-admin, and search/attachment
+// operations live in sibling modules so no one file outgrows the size budget.
 
-export class PieChatError extends Error {
-  readonly status: number | null
-
-  constructor(message: string, status: number | null = null) {
-    super(message)
-    this.name = 'PieChatError'
-    this.status = status
-  }
-}
-
-function authHeaders(accessToken: string): Record<string, string> {
-  return { authorization: `Bearer ${accessToken}`, accept: 'application/json' }
-}
-
-function jsonHeaders(accessToken: string): Record<string, string> {
-  return { ...authHeaders(accessToken), 'content-type': 'application/json' }
-}
-
-function channelsBase(apiBaseUrl: string, organizationId: string): string {
-  return `${apiBaseUrl}/organizations/${organizationId}/channels`
-}
+export { PieChatError } from './chat-control-plane-http'
 
 export async function listChannels(
   apiBaseUrl: string,
@@ -93,9 +76,12 @@ export async function sendMessage(
   accessToken: string,
   organizationId: string,
   channelId: string,
-  input: { body: string; idempotencyKey: string },
+  input: { body: string; idempotencyKey: string; opts?: PieSendMessageOptions },
   fetchImpl: typeof fetch = fetch
 ): Promise<PieMessage> {
+  // threadRootMessageId/mentions/attachmentIds ride the same POST body; the
+  // backend resolves mentions and drops non-members. Validate the extra fields.
+  const opts = input.opts ? PieSendMessageOptionsSchema.parse(input.opts) : {}
   const response = await fetchImpl(
     `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/messages`,
     {
@@ -103,7 +89,7 @@ export async function sendMessage(
       // Idempotency-Key makes a retried send safe: the server returns the prior
       // message instead of creating a duplicate.
       headers: { ...jsonHeaders(accessToken), 'idempotency-key': input.idempotencyKey },
-      body: JSON.stringify({ body: input.body })
+      body: JSON.stringify({ body: input.body, ...opts })
     }
   )
   if (!response.ok) {
