@@ -52,7 +52,9 @@
         "agent_event",
         "agent_turn",
         "agent_provenance",
-        "agent_session_intake"
+        "agent_session_intake",
+        "requirement",
+        "requirement_acceptance"
       ]
     },
     "resourceId": {

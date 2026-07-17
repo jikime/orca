@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/requirement-coverage.v1.schema.json",
+  "title": "Requirement coverage list item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requirement", "coverage"],
+  "properties": {
+    "requirement": {
+      "$ref": "https://schemas.pielab.ai/resources/requirement.v1.schema.json"
+    },
+    "coverage": {
+      "$ref": "https://schemas.pielab.ai/resources/requirement-coverage-status.v1.schema.json"
+    }
+  }
+}

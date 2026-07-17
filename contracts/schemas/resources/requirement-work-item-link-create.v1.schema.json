@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/requirement-work-item-link-create.v1.schema.json",
+  "title": "Link requirement to work item request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workItemId"],
+  "properties": {
+    "workItemId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    }
+  }
+}

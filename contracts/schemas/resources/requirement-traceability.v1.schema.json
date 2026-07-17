@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/requirement-traceability.v1.schema.json",
+  "title": "Requirement traceability chain (requirement → scope → work/code/test/deliverable → 검수)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requirement", "contractScopeItem", "workItems", "acceptances", "coverage"],
+  "properties": {
+    "requirement": {
+      "$ref": "https://schemas.pielab.ai/resources/requirement.v1.schema.json"
+    },
+    "contractScopeItem": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "contractId",
+            "serviceType",
+            "description",
+            "quantity",
+            "rate",
+            "sortKey"
+          ],
+          "properties": {
+            "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+            "contractId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+            "serviceType": { "type": "string" },
+            "description": { "type": ["string", "null"] },
+            "quantity": { "type": "string" },
+            "rate": { "type": "string" },
+            "sortKey": { "type": "integer" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "workItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["linkId", "workItemId", "workItem", "evidence"],
+        "properties": {
+          "linkId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+          "workItemId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+          "workItem": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "identifier", "title", "stateId", "projectId", "assigneeId"],
+                "properties": {
+                  "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+                  "identifier": { "type": "string" },
+                  "title": { "type": "string" },
+                  "stateId": {
+                    "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+                  },
+                  "projectId": {
+                    "oneOf": [
+                      { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "assigneeId": {
+                    "oneOf": [
+                      { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+                      { "type": "null" }
+                    ]
+                  }
+                }
+              },
+              { "type": "null" }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "trustDomain",
+                "verifiedEvidence",
+                "workItemId",
+                "commitSha",
+                "changeRequestRef",
+                "command",
+                "exitCode",
+                "artifactId",
+                "filePath",
+                "occurredAt"
+              ],
+              "properties": {
+                "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+                "kind": {
+                  "enum": [
+                    "file_change",
+                    "artifact",
+                    "commit",
+                    "pull_request",
+                    "test_result",
+                    "build_result"
+                  ]
+                },
+                "trustDomain": {
+                  "enum": ["local_observed", "server_verified", "declared"]
+                },
+                "verifiedEvidence": { "type": "boolean" },
+                "workItemId": {
+                  "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+                },
+                "commitSha": { "type": ["string", "null"] },
+                "changeRequestRef": { "type": ["string", "null"] },
+                "command": { "type": ["string", "null"] },
+                "exitCode": { "type": ["integer", "null"] },
+                "artifactId": {
+                  "oneOf": [
+                    { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+                    { "type": "null" }
+                  ]
+                },
+                "filePath": { "type": ["string", "null"] },
+                "occurredAt": {
+                  "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "acceptances": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/requirement-acceptance.v1.schema.json"
+      }
+    },
+    "coverage": {
+      "$ref": "https://schemas.pielab.ai/resources/requirement-coverage-status.v1.schema.json"
+    }
+  }
+}
