@@ -1464,6 +1464,146 @@ paths:
                 $ref: ../schemas/resources/agent-session-provenance.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-session-intake:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [AgentIngest]
+      operationId: listAgentSessionIntake
+      description: >-
+        The unassigned-session intake queue, searchable by capture scope (doc 19 :162,
+        doc 24 CAP-001, R5 s4b). A session with no work_item binding is queued here — never
+        auto-attached to a project — until a human explicitly assigns it. Defaults to pending;
+        filterable by host, workspace, provider, source type. agent_session.read.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            enum: [pending, assigned, dismissed]
+        - name: hostId
+          in: query
+          required: false
+          schema:
+            $ref: ../schemas/common/opaque-id.v1.schema.json
+        - name: workspaceId
+          in: query
+          required: false
+          schema:
+            $ref: ../schemas/common/opaque-id.v1.schema.json
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sourceType
+          in: query
+          required: false
+          schema:
+            enum: [unassigned_agent_session]
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: The intake queue page.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session-intake-list.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-session-intake/{intakeId}:assign:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: intakeId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [AgentIngest]
+      operationId: assignAgentSessionIntake
+      description: >-
+        Explicitly binds the queued session to a work item (doc 24 CAP-001: a human assigns,
+        never the server) — sets session.work_item_id and marks the intake assigned, in one tx,
+        with If-Match OCC. A stale version is 409, a missing If-Match 428, an already-assigned
+        intake 409. agent_session.assign.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/agent-session-intake-assign.v1.schema.json
+      responses:
+        '200':
+          description: Intake assigned.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session-intake.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-session-intake/{intakeId}:reclassify:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: intakeId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [AgentIngest]
+      operationId: reclassifyAgentSessionIntake
+      description: >-
+        Reclassifies a pending intake (change detectedReason/sourceType) or dismisses it so it
+        leaves the queue (doc 19 :162, R5 s4b), with If-Match OCC. Never binds the session. A
+        stale version is 409, a missing If-Match 428, an already-terminal intake 409.
+        agent_session.assign.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/agent-session-intake-reclassify.v1.schema.json
+      responses:
+        '200':
+          description: Intake reclassified or dismissed.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session-intake.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/artifacts/upload-intents:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

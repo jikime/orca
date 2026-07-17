@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-session-intake.v1.schema.json",
+  "title": "Agent session intake item",
+  "description": "One unassigned-session intake queue item (doc 19 :162, doc 24 CAP-001, R5 s4b). A session that exists without a work_item binding is queued here — never auto-attached to a project — until a human EXPLICITLY assigns it to a work item (the only path that sets session.work_item_id). workItemId is an opaque link (no cross-schema FK); it is null until assigned. hostId/workspaceId/provider are the capture scope carried for search.",
+  "type": "object",
+  "required": [
+    "id",
+    "organizationId",
+    "agentSessionId",
+    "sourceType",
+    "status",
+    "detectedReason",
+    "hostId",
+    "workspaceId",
+    "provider",
+    "workItemId",
+    "assignedBy",
+    "assignedAt",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "agentSessionId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sourceType": { "enum": ["unassigned_agent_session"] },
+    "status": { "enum": ["pending", "assigned", "dismissed"] },
+    "detectedReason": { "enum": ["no_work_item", "binding_failed", "started_outside_app"] },
+    "hostId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "workspaceId": { "$ref": "#/$defs/nullableId" },
+    "provider": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "workItemId": { "$ref": "#/$defs/nullableId" },
+    "assignedBy": { "$ref": "#/$defs/nullableId" },
+    "assignedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "$defs": {
+    "nullableId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

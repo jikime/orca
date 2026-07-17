@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-session-intake-reclassify.v1.schema.json",
+  "title": "Agent session intake reclassify request",
+  "description": "Reclassifies a pending intake item — changes its detectedReason/sourceType, or dismisses it (dismiss=true → status=dismissed) so it leaves the queue (doc 19 :162, R5 s4b). Never binds the session. Requires If-Match for OCC. At least one field must be present.",
+  "type": "object",
+  "additionalProperties": false,
+  "minProperties": 1,
+  "properties": {
+    "dismiss": { "type": "boolean" },
+    "detectedReason": { "enum": ["no_work_item", "binding_failed", "started_outside_app"] },
+    "sourceType": { "enum": ["unassigned_agent_session"] }
+  }
+}

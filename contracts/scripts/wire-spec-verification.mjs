@@ -33,6 +33,7 @@ function expectedTag(route) {
     ['/remote-sessions', 'RemoteSessions'],
     ['/notifications', 'Notifications'],
     ['/agent-events:batch', 'AgentIngest'],
+    ['/agent-session-intake', 'AgentIngest'],
     ['/agent-sessions', 'AgentIngest'],
     ['/artifacts/', 'Artifacts']
   ]) {

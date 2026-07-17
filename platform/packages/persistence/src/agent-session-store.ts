@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely, Transaction } from 'kysely'
+import { ensurePendingIntakeTx } from './agent-session-intake-store'
 import type { Database } from './database-schema'
 import {
   buildResourceChangeCloudEvent,
@@ -82,7 +83,7 @@ export async function emitAgentExecutionChange(
   organizationId: string,
   resourceType: Extract<
     ResourceChangeResourceType,
-    'agent_session' | 'agent_event' | 'agent_turn' | 'agent_provenance'
+    'agent_session' | 'agent_event' | 'agent_turn' | 'agent_provenance' | 'agent_session_intake'
   >,
   resourceId: string,
   version: number,
@@ -176,6 +177,17 @@ export async function createAgentSession(
       session.version,
       'created'
     )
+    // CAP-001: a session created WITHOUT a work_item is queued for explicit assignment — it is
+    // never auto-attached to a project. A session created WITH a work_item is already bound, so
+    // it is NOT queued.
+    if (session.workItemId === null) {
+      await ensurePendingIntakeTx(trx, input.organizationId, {
+        agentSessionId: session.id,
+        hostId: session.hostId,
+        provider: session.provider,
+        detectedReason: 'no_work_item'
+      })
+    }
     return session
   })
 }
