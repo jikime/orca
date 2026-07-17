@@ -206,7 +206,8 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
         redirectUri: channel.redirectUri,
         state,
         nonce,
-        codeChallenge: pkce.challenge
+        codeChallenge: pkce.challenge,
+        prompt: config.prompt ?? undefined
       })
       await deps.openAuthorizationUrl(authorizationUrl)
       const outcome = await channel.waitForCallback()

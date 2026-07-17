@@ -46,6 +46,10 @@ export type AuthorizationRequestInput = {
   codeChallenge: string
   // Defaults to the identity scopes; openid is always required for an ID token.
   scope?: string
+  // OIDC prompt (e.g. 'login' / 'select_account'). Forces the IdP to re-auth or
+  // show the account chooser instead of silently reusing a browser SSO session —
+  // used in dev to log two different accounts into two instances.
+  prompt?: string
 }
 
 /**
@@ -64,5 +68,8 @@ export function buildAuthorizationUrl(input: AuthorizationRequestInput): string 
   params.set('nonce', input.nonce)
   params.set('code_challenge', input.codeChallenge)
   params.set('code_challenge_method', 'S256')
+  if (input.prompt) {
+    params.set('prompt', input.prompt)
+  }
   return url.toString()
 }
