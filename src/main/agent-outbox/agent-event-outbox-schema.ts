@@ -33,12 +33,14 @@ export type OutboxStatements = {
   setAcked: SqliteStatement
   ackedByteSum: SqliteStatement
   nack: SqliteStatement
-  oldestPending: SqliteStatement
+  oldestPendingLowValue: SqliteStatement
   selectUnacked: SqliteStatement
   deleteEvent: SqliteStatement
   pruneAcked: SqliteStatement
   upsertCursor: SqliteStatement
   getCursor: SqliteStatement
+  insertPressureMarker: SqliteStatement
+  pressureMarkerCount: SqliteStatement
 }
 
 // UNIQUE(event_id): a re-enqueue of the same eventId (crash-retry) is a no-op, so the outbox
@@ -65,6 +67,22 @@ export const OUTBOX_DDL = `
   CREATE TABLE IF NOT EXISTS agent_event_cursor (
     stream_id          TEXT PRIMARY KEY,
     contiguous_through INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- SYN-002 durable degradation marker: a persisted receipt that capture was under quota pressure
+  -- (payload degraded, non-observed paused, or an observed event rejected at the cap). Survives
+  -- restart so the tracking service / UI can surface that capture degraded and nothing observed was
+  -- lost silently. Never stores payload content — only envelope identity + reason.
+  CREATE TABLE IF NOT EXISTS agent_event_capture_pressure (
+    marker_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage       TEXT NOT NULL,
+    reason      TEXT NOT NULL,
+    event_id    TEXT,
+    stream_id   TEXT,
+    sequence    INTEGER,
+    byte_size   INTEGER,
+    assertion   TEXT,
+    recorded_at INTEGER NOT NULL
   );
 `
 
@@ -101,10 +119,12 @@ export function prepareOutboxStatements(db: SyncDatabase): OutboxStatements {
       SET state = 'pending', attempt_count = attempt_count + 1, next_visible_at = ?
       WHERE event_id = ?
     `),
-    oldestPending: db.prepare(`
+    // Eviction candidate for an over-cap observed event: oldest pending NON-observed (lower-value)
+    // row only. Observed rows are never selected here, so evidence is never evicted to admit another.
+    oldestPendingLowValue: db.prepare(`
       SELECT event_id, stream_id, sequence, byte_size, assertion
       FROM agent_event_outbox
-      WHERE state = 'pending'
+      WHERE state = 'pending' AND assertion != 'observed'
       ORDER BY row_id ASC
       LIMIT ?
     `),
@@ -124,6 +144,12 @@ export function prepareOutboxStatements(db: SyncDatabase): OutboxStatements {
     `),
     getCursor: db.prepare(
       'SELECT contiguous_through AS c FROM agent_event_cursor WHERE stream_id = ?'
-    )
+    ),
+    insertPressureMarker: db.prepare(`
+      INSERT INTO agent_event_capture_pressure
+        (stage, reason, event_id, stream_id, sequence, byte_size, assertion, recorded_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    pressureMarkerCount: db.prepare('SELECT COUNT(*) AS c FROM agent_event_capture_pressure')
   }
 }

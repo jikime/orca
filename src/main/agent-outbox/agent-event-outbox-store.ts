@@ -1,6 +1,13 @@
 import SyncDatabase from '../sqlite/sync-database'
 import type { AgentEventEnvelope } from '../../shared/agent-event-batch-contract'
-import { evaluateEnqueue, type QuotaLimits, type QuotaState } from './agent-event-outbox-quota'
+import type { QuotaLimits, QuotaState } from './agent-event-outbox-quota'
+import {
+  computeQuotaStage,
+  DEFAULT_QUOTA_THRESHOLDS,
+  type QuotaStage,
+  type QuotaThresholds
+} from './agent-event-outbox-quota-stages'
+import { applyQuotaDecision } from './agent-event-outbox-quota-executor'
 import {
   OUTBOX_DDL,
   prepareOutboxStatements,
@@ -21,7 +28,15 @@ export type AgentEventAssertion = AgentEventEnvelope['data']['assertion']
 
 export type OutboxAuditReason =
   | 'over_quota_low_priority'
+  // A lower-value (declared/verified) row evicted to make room for an observed event.
   | 'over_quota_observed_evicted'
+  // Non-observed refused because the outbox is paused (near cap) to keep headroom for evidence.
+  | 'paused_non_observed'
+  // Non-observed admitted but its payload body stripped to a metadata-only receipt.
+  | 'degraded_metadata_only'
+  // Observed event rejected at the absolute cap because no lower-value row could be evicted. Kept
+  // as a durable record so evidence is never lost silently — it is rejected-with-record, not dropped.
+  | 'over_quota_observed_capacity'
   | 'revoked_purged'
   | 'permanent_rejected'
 
@@ -50,9 +65,17 @@ export type EnqueueResult = {
   rejected: boolean
 }
 
+export type QuotaStageTransition = {
+  from: QuotaStage
+  to: QuotaStage
+}
+
 export type EnqueueQuota = {
   limits: QuotaLimits
+  thresholds?: QuotaThresholds
   onAudit?: (record: OutboxAuditRecord) => void
+  // Fired when the degradation stage changes across an enqueue (never carries payload content).
+  onStageTransition?: (transition: QuotaStageTransition) => void
 }
 
 export type OutboxStoreOptions = {
@@ -71,6 +94,11 @@ export class AgentEventOutboxStore {
   private readonly checkpointByteThreshold: number
   private acksSinceCheckpoint = 0
   private ackedBytesSinceCheckpoint = 0
+  // Last observed degradation stage + config, so the stage can be surfaced (quotaStage) and
+  // transitions detected between enqueues without a clock.
+  private lastStage: QuotaStage = 'normal'
+  private lastQuotaLimits: QuotaLimits | null = null
+  private lastQuotaThresholds: QuotaThresholds = DEFAULT_QUOTA_THRESHOLDS
 
   private readonly stmts: OutboxStatements
 
@@ -96,89 +124,84 @@ export class AgentEventOutboxStore {
     return { rowCount: Number(count.c), byteSize: Number(bytes.b) }
   }
 
-  /** Idempotent by eventId. When `quota` is supplied, applies the bound-the-outbox policy:
-   *  a low-priority new event is rejected over quota; an `observed` event evicts the oldest
-   *  pending row (audited) rather than being silently lost. */
+  /** Idempotent by eventId. When `quota` is supplied, applies the staged-degradation policy:
+   *  under pressure non-observed payloads degrade to metadata-only then pause, while an `observed`
+   *  event is admitted by evicting only lower-value rows — never another observed row. An event
+   *  that cannot be admitted is rejected-with-record (audit + durable marker), never dropped. */
   enqueue(event: AgentEventEnvelope, opts: { now: number; quota?: EnqueueQuota }): EnqueueResult {
     const eventId = event.id
     if (this.stmts.existsEvent.get(eventId)) {
       return { inserted: false, duplicate: true, rejected: false }
     }
-    const serialized = JSON.stringify(event)
-    const byteSize = Buffer.byteLength(serialized, 'utf8')
+    let toStore = event
+    let serialized = JSON.stringify(event)
+    let byteSize = Buffer.byteLength(serialized, 'utf8')
     const assertion = event.data.assertion
+    let rejected = false
 
     if (opts.quota) {
-      const decision = evaluateEnqueue(this.state(), { byteSize, assertion }, opts.quota.limits)
-      if (decision.kind === 'reject') {
-        // Never silently drop: the rejection of a low-priority event is recorded.
-        opts.quota.onAudit?.({
-          eventId,
-          streamId: event.piestream,
-          sequence: event.piesequence,
-          byteSize,
-          assertion,
-          reason: 'over_quota_low_priority'
-        })
-        return { inserted: false, duplicate: false, rejected: true }
-      }
-      if (decision.kind === 'admit_evicting') {
-        this.evictOldestPending(byteSize, opts.quota.limits, opts.quota.onAudit)
+      const ctx = { stmts: this.stmts, readState: () => this.state() }
+      const outcome = applyQuotaDecision(ctx, event, byteSize, opts.now, opts.quota)
+      if (outcome.store) {
+        toStore = outcome.envelope
+        serialized = outcome.serialized
+        byteSize = outcome.byteSize
+      } else {
+        rejected = true
       }
     }
 
-    const result = this.stmts.insertEvent.run(
-      eventId,
-      event.piestream,
-      event.piesequence,
-      serialized,
-      byteSize,
-      assertion,
-      opts.now
-    )
+    const result = rejected
+      ? { changes: 0 }
+      : this.stmts.insertEvent.run(
+          eventId,
+          toStore.piestream,
+          toStore.piesequence,
+          serialized,
+          byteSize,
+          assertion,
+          opts.now
+        )
+    // Recompute the stage AFTER the row lands so surfacing/transitions reflect real usage.
+    if (opts.quota) {
+      this.updateStage(opts.quota)
+    }
+    if (rejected) {
+      return { inserted: false, duplicate: false, rejected: true }
+    }
     return { inserted: result.changes > 0, duplicate: result.changes === 0, rejected: false }
   }
 
-  // Make room for one incoming observed event by dropping the oldest pending rows. Only pending
-  // rows are evictable — an inflight row may be mid-upload under the single writer's await, so
-  // dropping it could lose a row the server is about to accept. Each drop is audited.
-  private evictOldestPending(
-    incomingBytes: number,
-    limits: QuotaLimits,
-    onAudit?: (record: OutboxAuditRecord) => void
-  ): void {
-    let guard = 0
-    while (guard < limits.maxRows + 1) {
-      guard += 1
-      const state = this.state()
-      const fits =
-        state.rowCount + 1 <= limits.maxRows && state.byteSize + incomingBytes <= limits.maxBytes
-      if (fits) {
-        return
-      }
-      const victim = this.stmts.oldestPending.get(1) as
-        | {
-            event_id: string
-            stream_id: string
-            sequence: number
-            byte_size: number
-            assertion: AgentEventAssertion
-          }
-        | undefined
-      if (!victim) {
-        // Only inflight rows remain; admit the observed event over quota rather than lose it.
-        return
-      }
-      this.stmts.deleteEvent.run(victim.event_id)
-      onAudit?.({
-        eventId: victim.event_id,
-        streamId: victim.stream_id,
-        sequence: victim.sequence,
-        byteSize: victim.byte_size,
-        assertion: victim.assertion,
-        reason: 'over_quota_observed_evicted'
-      })
+  // Recompute the stage from current usage and fire a transition callback on change. Kept separate
+  // from the decision so surfacing/telemetry never influences the pure admission logic.
+  private updateStage(quota: EnqueueQuota): void {
+    this.lastQuotaLimits = quota.limits
+    this.lastQuotaThresholds = quota.thresholds ?? DEFAULT_QUOTA_THRESHOLDS
+    const stage = computeQuotaStage(this.state(), this.lastQuotaLimits, this.lastQuotaThresholds)
+    if (stage !== this.lastStage) {
+      quota.onStageTransition?.({ from: this.lastStage, to: stage })
+      this.lastStage = stage
     }
+  }
+
+  /** Current degradation stage (normal|warn|degraded|paused) from live usage, for the tracking
+   *  service / UI. Returns 'normal' until a quota-bearing enqueue has established the limits. */
+  quotaStage(): QuotaStage {
+    if (!this.lastQuotaLimits) {
+      return 'normal'
+    }
+    return computeQuotaStage(this.state(), this.lastQuotaLimits, this.lastQuotaThresholds)
+  }
+
+  /** True when capture is degrading (payloads stripped) or paused (non-observed refused). */
+  captureDegraded(): boolean {
+    const stage = this.quotaStage()
+    return stage === 'degraded' || stage === 'paused'
+  }
+
+  /** Count of durable pressure markers recorded (degrade/pause/observed-cap). Survives restart. */
+  pressureMarkerCount(): number {
+    return Number((this.stmts.pressureMarkerCount.get() as { c: number }).c)
   }
 
   /** Oldest-first claim of pending, currently-visible rows, bounded by count and byte budget.

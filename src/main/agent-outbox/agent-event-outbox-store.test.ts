@@ -70,15 +70,21 @@ describe('agent-event-outbox-store', () => {
     expect(claimed).toHaveLength(1)
   })
 
-  it('quota: an observed event over-limit evicts the oldest pending row WITH an audit', () => {
+  it('quota: an over-cap observed event evicts only a LOWER-VALUE (declared) row, audited', () => {
     const audits: OutboxAuditRecord[] = []
     const quota = {
       limits: { maxRows: 2, maxBytes: 1_000_000 },
       onAudit: (r: OutboxAuditRecord) => audits.push(r)
     }
-    store.enqueue(makeEnvelope({ id: 'old-1', sequence: 1 }), { now: NOW, quota })
-    store.enqueue(makeEnvelope({ id: 'old-2', sequence: 2 }), { now: NOW, quota })
-    // Third observed event is over the row bound → evict oldest (old-1), admit new, audit the drop.
+    store.enqueue(makeEnvelope({ id: 'old-1', sequence: 1, assertion: 'declared' }), {
+      now: NOW,
+      quota
+    })
+    store.enqueue(makeEnvelope({ id: 'old-2', sequence: 2, assertion: 'declared' }), {
+      now: NOW,
+      quota
+    })
+    // Over the row bound → evict the oldest lower-value row (old-1), admit the observed event.
     const result = store.enqueue(
       makeEnvelope({ id: 'new-3', sequence: 3, assertion: 'observed' }),
       {
@@ -90,9 +96,43 @@ describe('agent-event-outbox-store', () => {
     expect(store.pendingCount()).toBe(2)
     expect(audits).toHaveLength(1)
     expect(audits[0]).toMatchObject({ eventId: 'old-1', reason: 'over_quota_observed_evicted' })
+    expect(store.claimBatch(10, 1_000_000, NOW).map((c) => c.eventId)).toEqual(['old-2', 'new-3'])
   })
 
-  it('quota: a low-priority event over-limit is rejected and audited, never silently lost', () => {
+  it('INVARIANT: an observed row is NEVER evicted to admit another event (reject-with-record)', () => {
+    // The exact scenario the audit flagged: the only pending rows are themselves observed and a new
+    // observed event is over the cap. Evidence must survive; the NEW enqueue is rejected-with-record.
+    const audits: OutboxAuditRecord[] = []
+    const quota = {
+      limits: { maxRows: 2, maxBytes: 1_000_000 },
+      onAudit: (r: OutboxAuditRecord) => audits.push(r)
+    }
+    store.enqueue(makeEnvelope({ id: 'obs-1', sequence: 1, assertion: 'observed' }), {
+      now: NOW,
+      quota
+    })
+    store.enqueue(makeEnvelope({ id: 'obs-2', sequence: 2, assertion: 'observed' }), {
+      now: NOW,
+      quota
+    })
+    const result = store.enqueue(
+      makeEnvelope({ id: 'obs-3', sequence: 3, assertion: 'observed' }),
+      {
+        now: NOW,
+        quota
+      }
+    )
+    expect(result).toEqual({ inserted: false, duplicate: false, rejected: true })
+    // Both original observed rows survived; neither was evicted for the newcomer.
+    expect(store.pendingCount()).toBe(2)
+    expect(store.claimBatch(10, 1_000_000, NOW).map((c) => c.eventId)).toEqual(['obs-1', 'obs-2'])
+    // The rejected observed event is recorded (audit + durable marker) — never a silent drop.
+    expect(audits).toHaveLength(1)
+    expect(audits[0]).toMatchObject({ eventId: 'obs-3', reason: 'over_quota_observed_capacity' })
+    expect(store.pressureMarkerCount()).toBe(1)
+  })
+
+  it('quota: a paused non-observed event is rejected and recorded, never silently lost', () => {
     const audits: OutboxAuditRecord[] = []
     const quota = {
       limits: { maxRows: 1, maxBytes: 1_000_000 },
@@ -110,9 +150,113 @@ describe('agent-event-outbox-store', () => {
       }
     )
     expect(result).toEqual({ inserted: false, duplicate: false, rejected: true })
-    // The observed event survived; the declared one was rejected but recorded.
+    // The observed event survived; the declared one was rejected but recorded (audit + marker).
     expect(store.pendingCount()).toBe(1)
-    expect(audits[0]).toMatchObject({ eventId: 'dec-2', reason: 'over_quota_low_priority' })
+    expect(audits[0]).toMatchObject({ eventId: 'dec-2', reason: 'paused_non_observed' })
+    expect(store.pressureMarkerCount()).toBe(1)
+  })
+
+  const STAGE_THRESHOLDS = { warnPct: 0.3, degradePct: 0.5, fullPct: 0.8 }
+
+  it('quota: degrade stage strips a NON-observed payload but keeps observed evidence intact', () => {
+    const audits: OutboxAuditRecord[] = []
+    const quota = {
+      limits: { maxRows: 10, maxBytes: 5_000_000 },
+      thresholds: STAGE_THRESHOLDS,
+      onAudit: (r: OutboxAuditRecord) => audits.push(r)
+    }
+    // Fill to the degrade band (5/10 = 0.5) with observed evidence.
+    for (let i = 0; i < 5; i += 1) {
+      store.enqueue(
+        makeEnvelope({ id: `obs-${i}`, sequence: i, assertion: 'observed', contentHash: `h${i}` }),
+        { now: NOW, quota }
+      )
+    }
+    expect(store.quotaStage()).toBe('degraded')
+    // A non-observed event is admitted but its payload body is stripped to a metadata-only receipt.
+    const degraded = store.enqueue(
+      makeEnvelope({ id: 'dec-x', sequence: 99, assertion: 'declared', contentHash: 'keep-me' }),
+      { now: NOW, quota }
+    )
+    expect(degraded.inserted).toBe(true)
+    expect(audits.some((a) => a.eventId === 'dec-x' && a.reason === 'degraded_metadata_only')).toBe(
+      true
+    )
+    const claimed = store.claimBatch(50, 5_000_000, NOW)
+    // Non-observed payload body gone, only the contentHash receipt + marker remain.
+    expect(claimed.find((c) => c.eventId === 'dec-x')?.envelope.data.payload).toEqual({
+      degraded: 'metadata_only',
+      contentHash: 'keep-me'
+    })
+    // Observed evidence keeps its full payload.
+    expect(claimed.find((c) => c.eventId === 'obs-0')?.envelope.data.payload).toMatchObject({
+      note: 'streamed'
+    })
+  })
+
+  it('quota: paused stage rejects non-observed but still admits observed until the cap', () => {
+    const audits: OutboxAuditRecord[] = []
+    const quota = {
+      limits: { maxRows: 10, maxBytes: 5_000_000 },
+      thresholds: STAGE_THRESHOLDS,
+      onAudit: (r: OutboxAuditRecord) => audits.push(r)
+    }
+    // Fill to the paused band (8/10 = 0.8) with observed evidence.
+    for (let i = 0; i < 8; i += 1) {
+      store.enqueue(makeEnvelope({ id: `obs-${i}`, sequence: i, assertion: 'observed' }), {
+        now: NOW,
+        quota
+      })
+    }
+    expect(store.quotaStage()).toBe('paused')
+    expect(store.captureDegraded()).toBe(true)
+    // Non-observed refused (recorded); observed evidence still admitted until the absolute cap.
+    const rejected = store.enqueue(
+      makeEnvelope({ id: 'dec-x', sequence: 80, assertion: 'declared' }),
+      {
+        now: NOW,
+        quota
+      }
+    )
+    expect(rejected.rejected).toBe(true)
+    expect(audits.some((a) => a.eventId === 'dec-x' && a.reason === 'paused_non_observed')).toBe(
+      true
+    )
+    const admitted = store.enqueue(
+      makeEnvelope({ id: 'obs-8', sequence: 8, assertion: 'observed' }),
+      {
+        now: NOW,
+        quota
+      }
+    )
+    expect(admitted.inserted).toBe(true)
+    expect(store.pendingCount()).toBe(9)
+  })
+
+  it('quota: fires a stage-transition callback when the degradation level changes', () => {
+    const transitions: { from: string; to: string }[] = []
+    const quota = {
+      limits: { maxRows: 4, maxBytes: 5_000_000 },
+      thresholds: { warnPct: 0.25, degradePct: 0.5, fullPct: 0.75 },
+      onStageTransition: (t: { from: string; to: string }) => transitions.push(t)
+    }
+    store.enqueue(makeEnvelope({ id: 'e0', sequence: 0, assertion: 'observed' }), {
+      now: NOW,
+      quota
+    })
+    store.enqueue(makeEnvelope({ id: 'e1', sequence: 1, assertion: 'observed' }), {
+      now: NOW,
+      quota
+    })
+    store.enqueue(makeEnvelope({ id: 'e2', sequence: 2, assertion: 'observed' }), {
+      now: NOW,
+      quota
+    })
+    expect(transitions).toEqual([
+      { from: 'normal', to: 'warn' },
+      { from: 'warn', to: 'degraded' },
+      { from: 'degraded', to: 'paused' }
+    ])
   })
 
   it('purgeUnacked drops every not-yet-acked event with an audit (CAP-006 purge-on-revoke)', () => {
@@ -156,6 +300,27 @@ describe('agent-event-outbox-store crash safety (real file)', () => {
     const reEnqueue = reopened.enqueue(makeEnvelope({ id: 'evt-1', sequence: 1 }), { now: NOW })
     expect(reEnqueue.duplicate).toBe(true)
     expect(reopened.pendingCount()).toBe(1)
+    reopened.close()
+  })
+
+  it('persists the degradation pressure marker across a restart (durable, nothing lost)', () => {
+    const path = join(dir, 'pressure.db')
+    const quota = { limits: { maxRows: 1, maxBytes: 1_000_000 } }
+    const first = new AgentEventOutboxStore(path)
+    first.enqueue(makeEnvelope({ id: 'obs-1', sequence: 1, assertion: 'observed' }), {
+      now: NOW,
+      quota
+    })
+    // Over the cap, non-observed → rejected-with-record: a durable marker is written.
+    first.enqueue(makeEnvelope({ id: 'dec-2', sequence: 2, assertion: 'declared' }), {
+      now: NOW,
+      quota
+    })
+    expect(first.pressureMarkerCount()).toBe(1)
+    first.close()
+    // The marker survives the restart so the tracking service can still see capture degraded.
+    const reopened = new AgentEventOutboxStore(path)
+    expect(reopened.pressureMarkerCount()).toBe(1)
     reopened.close()
   })
 
