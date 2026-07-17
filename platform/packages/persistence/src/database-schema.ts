@@ -613,6 +613,81 @@ export interface RemoteSessionAuditTable {
   created_at: TimestampColumn
 }
 
+// R5 s1: one AI agent session (Claude Code / Codex). work_item_id is an opaque forward
+// link (no FK). status gates ingest — a closed/terminated session accepts no more events.
+export interface AgentSessionsTable {
+  organization_id: string
+  id: Generated<string>
+  work_item_id: string | null
+  provider: string
+  provider_session_id: string | null
+  host_id: string
+  launch_id: string | null
+  status: Generated<string>
+  visibility: string
+  classification: string
+  created_by: string
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// The append-only envelope log (doc 19 :203). event_id is the per-org idempotency key.
+// stream_id + sequence is for gap detection; occurred/captured/received are kept distinct.
+// pie_app gets INSERT + SELECT only — never UPDATE/DELETE (append-only).
+export interface AgentEventsTable {
+  organization_id: string
+  id: Generated<string>
+  event_id: string
+  agent_session_id: string
+  schema_version: Generated<number>
+  stream_id: string
+  sequence: BigIntColumn
+  type: string
+  source_uri: string
+  subject: string
+  producer_id: string
+  producer_type: string
+  provider: string
+  parser_version: string
+  trust_domain: string
+  assertion: string
+  classification: string
+  visibility: string
+  agent_run_id: string | null
+  turn_id: string | null
+  subagent_id: string | null
+  occurred_at: TimestampColumn
+  captured_at: TimestampColumn
+  received_at: TimestampColumn
+  content_hash: string | null
+  payload: NullableJsonbColumn
+  payload_object: NullableJsonbColumn
+  correlation_id: string | null
+  causation_id: string | null
+  created_at: TimestampColumn
+}
+
+// The projected timeline (doc 19 :235-236). A streaming event makes/updates a provisional
+// turn; a confirmed content_hash from an observed/verified event finalizes it (immutable).
+export interface AgentTurnsTable {
+  organization_id: string
+  id: Generated<string>
+  agent_session_id: string
+  turn_id: string
+  status: Generated<string>
+  content_hash: string | null
+  first_sequence: BigIntColumn
+  last_sequence: BigIntColumn
+  first_stream_id: string
+  revision: Generated<number>
+  event_count: Generated<number>
+  first_event_at: TimestampColumn
+  last_event_at: TimestampColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -666,4 +741,7 @@ export interface Database {
   'support.remote_session_capabilities': RemoteSessionCapabilitiesTable
   'support.remote_session_driver_grants': RemoteSessionDriverGrantsTable
   'support.remote_session_audit': RemoteSessionAuditTable
+  'execution.agent_sessions': AgentSessionsTable
+  'execution.agent_events': AgentEventsTable
+  'execution.agent_turns': AgentTurnsTable
 }

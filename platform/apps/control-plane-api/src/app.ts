@@ -5,6 +5,7 @@ import Ajv2020 from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
+import { registerAgentSessionRoutes } from './agent-session-routes'
 import { registerArtifactRoutes } from './artifact-routes'
 import { registerAttachmentRoutes } from './attachment-routes'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
@@ -183,6 +184,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerRemoteSessionCapabilityRoutes(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionDriverRoutes(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionPresenceRoutes(app, { db: deps.db })
+    registerAgentSessionRoutes(app, { db: deps.db, registry: deps.registry })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
     registerMessageSearchRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {

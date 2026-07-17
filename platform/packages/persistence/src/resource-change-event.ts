@@ -25,6 +25,10 @@ export type ResourceChangeResourceType =
   // RemoteSession (R8 slice A1). Additive to the same outbox → Worker → gateway path, so
   // session lifecycle invalidations ride the existing transport with no new code.
   | 'remote_session'
+  // Agent execution tracking (R5 slice 1). Additive to the same outbox → Worker → gateway
+  // path — event-batch ingest and turn finalization ride the existing transport unchanged.
+  | 'agent_event'
+  | 'agent_turn'
 
 export type ResourceChangeData = {
   eventId: string

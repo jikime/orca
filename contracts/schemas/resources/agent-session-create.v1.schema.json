@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-session-create.v1.schema.json",
+  "title": "Create agent session request",
+  "type": "object",
+  "required": ["provider", "hostId"],
+  "properties": {
+    "provider": { "enum": ["claude_code", "codex", "opencode", "other"] },
+    "hostId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "providerSessionId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "launchId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "workItemId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "visibility": { "enum": ["internal", "project", "customer"] },
+    "classification": {
+      "enum": ["public", "internal", "project_confidential", "restricted"]
+    }
+  },
+  "additionalProperties": false
+}

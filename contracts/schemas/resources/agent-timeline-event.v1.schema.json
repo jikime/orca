@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-timeline-event.v1.schema.json",
+  "title": "Agent timeline event",
+  "description": "One append-only event in a session's timeline (doc 19). assertion and trustDomain are surfaced so a caller can never treat a declared/client-observed event as server-verified. occurredAt/capturedAt/receivedAt are kept distinct (no cross-host global order from client time).",
+  "type": "object",
+  "required": [
+    "id",
+    "eventId",
+    "streamId",
+    "sequence",
+    "type",
+    "producerType",
+    "provider",
+    "assertion",
+    "trustDomain",
+    "classification",
+    "visibility",
+    "turnId",
+    "agentRunId",
+    "contentHash",
+    "occurredAt",
+    "capturedAt",
+    "receivedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "eventId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "streamId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "type": {
+      "type": "string",
+      "pattern": "^ai\\.pielab\\.agent\\.[a-z0-9_.-]+\\.v[1-9][0-9]*$"
+    },
+    "producerType": {
+      "enum": ["hook", "transcript_reconciler", "runtime_observer", "mcp"]
+    },
+    "provider": { "enum": ["claude_code", "codex", "opencode", "other"] },
+    "assertion": { "enum": ["observed", "declared", "verified"] },
+    "trustDomain": {
+      "enum": ["client_observed", "provider_asserted", "server_verified"]
+    },
+    "classification": {
+      "enum": ["public", "internal", "project_confidential", "restricted"]
+    },
+    "visibility": { "enum": ["internal", "project", "customer"] },
+    "turnId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "agentRunId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "contentHash": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 256 }, { "type": "null" }]
+    },
+    "occurredAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "capturedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "receivedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

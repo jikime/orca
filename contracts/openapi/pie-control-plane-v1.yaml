@@ -1361,6 +1361,71 @@ paths:
                 $ref: ../schemas/events/agent-event-batch-response.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-sessions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [AgentIngest]
+      operationId: createAgentSession
+      description: >-
+        Opens an AI agent session that ingested events bind to (doc 19, R5 s1).
+        agent_event.ingest.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/agent-session-create.v1.schema.json
+      responses:
+        '201':
+          description: Agent session created.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-sessions/{sessionId}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [AgentIngest]
+      operationId: getAgentSessionTimeline
+      description: >-
+        The session's projected turn/event timeline, cursor-paged (doc 19, R5 s1).
+        Events are ordered within a stream by sequence. agent_session.read.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: The session timeline page.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session-timeline.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/artifacts/upload-intents:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'
