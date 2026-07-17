@@ -9,7 +9,8 @@ import {
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_SEND_MESSAGE_CHANNEL,
   PieChatListMessagesOptionsSchema,
-  PieChatMessagesChangedSchema
+  PieChatMessagesChangedSchema,
+  PieSendMessageOptionsSchema
 } from '../../shared/pie-chat-contract'
 import {
   deleteMessage,
@@ -20,42 +21,17 @@ import {
   sendMessage
 } from '../pie-chat/chat-control-plane-client'
 import { assertTrustedPieMainFrame, getTrustedPieRendererWebContentsId } from './pie-renderer-trust'
+import {
+  assertBody,
+  assertChannelId,
+  resolveAuth,
+  type PieChatHandlerDeps
+} from './pie-chat-ipc-shared'
+import { registerPieChatActionHandlers } from './pie-chat-actions'
+import { registerPieChatAdminHandlers } from './pie-chat-admin'
+import { registerPieChatSearchAttachmentHandlers } from './pie-chat-search-attachments'
 
-export type PieChatHandlerDeps = {
-  // Resolved in Main so the token and org/user ids never reach the renderer.
-  getApiBaseUrl: () => string | null
-  getAccessToken: () => string | null
-  getOrganizationId: () => string | null
-  fetchImpl?: typeof fetch
-}
-
-type ResolvedAuth = { apiBaseUrl: string; accessToken: string; organizationId: string }
-
-function resolveAuth(deps: PieChatHandlerDeps): ResolvedAuth {
-  const apiBaseUrl = deps.getApiBaseUrl()
-  const accessToken = deps.getAccessToken()
-  const organizationId = deps.getOrganizationId()
-  if (!apiBaseUrl || !accessToken || !organizationId) {
-    throw new Error('PIE_CHAT_NOT_AUTHENTICATED')
-  }
-  return { apiBaseUrl, accessToken, organizationId }
-}
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function assertChannelId(value: unknown): string {
-  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
-    throw new Error('PIE_CHAT_INVALID_REQUEST')
-  }
-  return value
-}
-
-function assertBody(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error('PIE_CHAT_INVALID_REQUEST')
-  }
-  return value
-}
+export type { PieChatHandlerDeps } from './pie-chat-ipc-shared'
 
 /** Nudges the trusted renderer to refetch the active channel. Mirrors the
  *  pie-session change fan-out (only the current trusted renderer receives it). */
@@ -97,9 +73,11 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
   ipcMain.removeHandler(PIE_CHAT_SEND_MESSAGE_CHANNEL)
   ipcMain.handle(PIE_CHAT_SEND_MESSAGE_CHANNEL, (event, input: unknown) => {
     assertTrustedPieMainFrame(event)
-    const payload = input as { channelId?: unknown; body?: unknown }
+    const payload = input as { channelId?: unknown; body?: unknown; opts?: unknown }
     const channelId = assertChannelId(payload?.channelId)
     const body = assertBody(payload?.body)
+    const opts =
+      payload?.opts === undefined ? undefined : PieSendMessageOptionsSchema.parse(payload.opts)
     const { apiBaseUrl, accessToken, organizationId } = resolveAuth(deps)
     // A fresh Idempotency-Key per send attempt: a network retry cannot duplicate.
     return sendMessage(
@@ -107,7 +85,7 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
       accessToken,
       organizationId,
       channelId,
-      { body, idempotencyKey: randomUUID() },
+      { body, idempotencyKey: randomUUID(), opts },
       fetchImpl
     )
   })
@@ -168,4 +146,8 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
       fetchImpl
     )
   })
+
+  registerPieChatActionHandlers(deps)
+  registerPieChatAdminHandlers(deps)
+  registerPieChatSearchAttachmentHandlers(deps)
 }

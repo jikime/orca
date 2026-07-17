@@ -1,0 +1,174 @@
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { vi } from 'vitest'
+import { ChatScreen } from './ChatScreen'
+import type {
+  PieChannel,
+  PieChatMember,
+  PieChatMessagesChanged,
+  PieChatRendererApi,
+  PieMessage,
+  PiePinnedMessage
+} from '../../../../shared/pie-chat-contract'
+import type { PieSessionState } from '../../../../shared/pie-session-contract'
+
+// Shared fixtures + a fully-stubbed chat API for the renderer suites. Every
+// PieChatRendererApi method resolves to a benign default; specific tests override
+// only the calls they exercise.
+
+export const USER = '20000000-0000-4000-8000-0000000000aa'
+export const OTHER = '20000000-0000-4000-8000-0000000000bb'
+export const ORG = '20000000-0000-4000-8000-000000000001'
+export const CHANNEL = '20000000-0000-4000-8000-000000000002'
+
+export function channel(overrides: Partial<PieChannel> = {}): PieChannel {
+  return {
+    id: CHANNEL,
+    organizationId: ORG,
+    name: 'general',
+    kind: 'channel',
+    scopeType: 'organization',
+    scopeId: null,
+    visibility: 'internal',
+    version: 1,
+    createdAt: '2026-07-16T00:00:00.000Z',
+    updatedAt: '2026-07-16T00:00:00.000Z',
+    ...overrides
+  }
+}
+
+export function message(overrides: Partial<PieMessage> = {}): PieMessage {
+  return {
+    id: '20000000-0000-4000-8000-000000000010',
+    organizationId: ORG,
+    channelId: CHANNEL,
+    authorId: OTHER,
+    body: 'hello world',
+    visibility: 'internal',
+    version: 1,
+    threadRootMessageId: null,
+    replyCount: 0,
+    reactions: [],
+    attachments: [],
+    createdAt: '2026-07-16T00:00:00.000Z',
+    edited: false,
+    revisionCount: 0,
+    deleted: false,
+    deletedAt: null,
+    deletedBy: null,
+    deletionReason: null,
+    pinned: false,
+    ...overrides
+  }
+}
+
+export function member(userId: string, displayName: string): PieChatMember {
+  return { userId, displayName }
+}
+
+export function pinnedMessage(msg: PieMessage): PiePinnedMessage {
+  return { message: msg, pinnedBy: USER, pinnedAt: '2026-07-16T00:00:00.000Z' }
+}
+
+export const signedInSession: PieSessionState = {
+  status: 'signed_in',
+  instanceId: 'local-desktop',
+  userId: USER,
+  displayName: 'Pie User',
+  organizationId: ORG,
+  permissions: ['message.post'],
+  expiresAt: '2026-07-16T01:00:00.000Z'
+}
+
+export type FakeChat = PieChatRendererApi & {
+  changedCallbacks: ((event: PieChatMessagesChanged) => void)[]
+}
+
+export function makeChatApi(overrides: Partial<PieChatRendererApi> = {}): FakeChat {
+  const changedCallbacks: ((event: PieChatMessagesChanged) => void)[] = []
+  const api: FakeChat = {
+    changedCallbacks,
+    listChannels: vi.fn().mockResolvedValue([channel()]),
+    listMessages: vi.fn().mockResolvedValue({ items: [message()], nextCursor: null }),
+    sendMessage: vi.fn().mockResolvedValue(message({ authorId: USER })),
+    editMessage: vi.fn(),
+    deleteMessage: vi.fn().mockResolvedValue(undefined),
+    markRead: vi.fn().mockResolvedValue(undefined),
+    addReaction: vi.fn().mockResolvedValue(message()),
+    removeReaction: vi.fn().mockResolvedValue(undefined),
+    pinMessage: vi.fn().mockResolvedValue(undefined),
+    unpinMessage: vi.fn().mockResolvedValue(undefined),
+    listPins: vi.fn().mockResolvedValue([]),
+    createChannel: vi.fn().mockResolvedValue(channel()),
+    createDm: vi.fn().mockResolvedValue(channel({ kind: 'dm' })),
+    createGroupDm: vi.fn().mockResolvedValue(channel({ kind: 'dm' })),
+    muteChannel: vi.fn().mockResolvedValue(undefined),
+    unmuteChannel: vi.fn().mockResolvedValue(undefined),
+    searchMessages: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    listMembers: vi.fn().mockResolvedValue([]),
+    uploadAttachment: vi
+      .fn()
+      .mockResolvedValue({
+        id: 'att-1',
+        objectId: 'obj-1',
+        uploadUrl: 'https://up',
+        expiresAt: 'x'
+      }),
+    downloadAttachment: vi
+      .fn()
+      .mockResolvedValue({
+        url: 'https://dl',
+        filename: 'f',
+        contentType: 'image/png',
+        expiresAt: 'x'
+      }),
+    onMessagesChanged: (callback) => {
+      changedCallbacks.push(callback)
+      return () => {
+        const index = changedCallbacks.indexOf(callback)
+        if (index !== -1) {
+          changedCallbacks.splice(index, 1)
+        }
+      }
+    },
+    ...overrides
+  }
+  return api
+}
+
+export function setChatApi(chat: PieChatRendererApi): void {
+  ;(window as unknown as { api: { pie: { chat: PieChatRendererApi } } }).api = { pie: { chat } }
+}
+
+export async function flush(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+}
+
+export function renderScreen(): { root: Root; container: HTMLDivElement } {
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const root = createRoot(container)
+  act(() => {
+    root.render(<ChatScreen getSessionState={() => Promise.resolve(signedInSession)} />)
+  })
+  return { root, container }
+}
+
+export function typeInto(container: HTMLElement, text: string): void {
+  const textarea = container.querySelector('textarea') as HTMLTextAreaElement
+  const setValue = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    'value'
+  )?.set
+  setValue?.call(textarea, text)
+  textarea.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+export function pressEnter(container: HTMLElement): void {
+  const textarea = container.querySelector('textarea') as HTMLTextAreaElement
+  textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+}

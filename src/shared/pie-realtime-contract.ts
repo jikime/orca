@@ -26,7 +26,17 @@ export const RESOURCE_CHANGE_RESOURCE_TYPES = [
   'artifact',
   'agent_session',
   'operation',
-  'permission'
+  'permission',
+  // Collaboration (chat). Additive to the union so the server's channel/message
+  // invalidations pass client validation instead of being dropped. The backend
+  // emits 'channel', 'message' (reactions/pins/edits/deletes all ride as a
+  // 'message' change), and 'notification'; 'channel_member'/'read_cursor' are
+  // declared server-side and added here so a future emit is not silently lost.
+  'channel',
+  'channel_member',
+  'message',
+  'read_cursor',
+  'notification'
 ] as const
 export const RESOURCE_CHANGE_KINDS = ['created', 'updated', 'archived', 'deleted'] as const
 

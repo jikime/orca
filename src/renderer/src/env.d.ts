@@ -80,6 +80,8 @@ declare global {
 // oxlint-disable-next-line typescript-eslint/consistent-type-definitions -- declaration merging requires interface
 interface ImportMetaEnv {
   readonly VITE_EXPOSE_STORE?: boolean
+  // Dev-gated entry point for the Pie chat overlay (PieChatOverlay).
+  readonly VITE_ENABLE_PIE_CHAT?: string
 }
 
 export {}
