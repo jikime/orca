@@ -32,14 +32,104 @@ export function createStubAdmissionVerifier(
   return { verify: async (request) => decide(request) }
 }
 
-// B2 seam: redeem the presented capability at the control plane
-// (support.remote_session_capabilities: {sessionId, nonce, audience}) and map the
-// returned grade to a relay role. Deliberately unimplemented in B1.
-export function createControlPlaneAdmissionVerifier(): AdmissionVerifier {
+// The capability kinds the control plane can grant. view = read-only; the three control kinds all
+// mean "can drive". Kept as a local literal so the relay never imports control-plane types.
+type CapabilityKind = 'view' | 'terminal_control' | 'desktop_control' | 'file_transfer'
+
+// doc 34 B2: view→viewer; any control kind (terminal/desktop/file)→driver. The relay's single-driver
+// ownership is then enforced against this role.
+export function mapCapabilityToRole(capability: CapabilityKind): RelayRole {
+  return capability === 'view' ? 'viewer' : 'driver'
+}
+
+// The credential a client presents to the relay (carried as the opaque `credential` string, encoded
+// as JSON). organizationId scopes the redeem to the correct tenant; nonce is the single-use secret.
+// The relay never interprets the nonce beyond passing it through — it is NEVER logged.
+export type RelayAdmissionCredential = {
+  organizationId: string
+  nonce: string
+}
+
+// Structural subset of the global fetch so the verifier needs no DOM lib and tests can inject a stub.
+type AdmissionResponse = { ok: boolean; status: number; json: () => Promise<unknown> }
+export type AdmissionFetch = (
+  url: string,
+  init: { method: string; headers: Record<string, string>; body: string }
+) => Promise<AdmissionResponse>
+
+function parseCredential(credential: string): RelayAdmissionCredential | null {
+  try {
+    const parsed = JSON.parse(credential) as Partial<RelayAdmissionCredential>
+    if (typeof parsed?.organizationId === 'string' && typeof parsed?.nonce === 'string') {
+      return { organizationId: parsed.organizationId, nonce: parsed.nonce }
+    }
+  } catch {
+    // fall through to fail-closed
+  }
+  return null
+}
+
+const CAPABILITY_KINDS: ReadonlySet<string> = new Set([
+  'view',
+  'terminal_control',
+  'desktop_control',
+  'file_transfer'
+])
+
+// B2: redeem the presented capability at the control plane's operator-gated relay-admit endpoint and
+// map the granted kind to a relay role. Fail-closed: a missing/parse-failed credential, any network
+// or parse error, or a non-200 response yields {ok:false} — the relay never admits unverified.
+export function createControlPlaneAdmissionVerifier(config: {
+  controlPlaneBaseUrl: string
+  operatorToken: string
+  fetchImpl?: AdmissionFetch
+}): AdmissionVerifier {
+  const doFetch = config.fetchImpl ?? (globalThis.fetch as unknown as AdmissionFetch)
+  const base = config.controlPlaneBaseUrl.replace(/\/+$/, '')
   return {
-    verify: async () => {
-      // TODO(B2): call control-plane capability redemption; map grade->role.
-      throw new Error('control-plane admission verifier is not implemented until B2')
+    verify: async (request) => {
+      const credential = parseCredential(request.credential)
+      if (!credential) {
+        return { ok: false, reason: 'invalid_credential' }
+      }
+      try {
+        const response = await doFetch(
+          `${base}/internal/remote-sessions/${encodeURIComponent(request.sessionId)}/relay-admit`,
+          {
+            method: 'POST',
+            headers: {
+              authorization: `Bearer ${config.operatorToken}`,
+              'content-type': 'application/json'
+            },
+            // audience is the stream the grant is bound to; the nonce is a secret and never logged.
+            body: JSON.stringify({
+              nonce: credential.nonce,
+              audience: request.streamId,
+              organizationId: credential.organizationId
+            })
+          }
+        )
+        if (!response.ok) {
+          return { ok: false, reason: `admission_rejected_${response.status}` }
+        }
+        const grant = (await response.json()) as { participantId?: unknown; capability?: unknown }
+        if (
+          typeof grant?.participantId !== 'string' ||
+          typeof grant?.capability !== 'string' ||
+          !CAPABILITY_KINDS.has(grant.capability)
+        ) {
+          return { ok: false, reason: 'admission_malformed' }
+        }
+        return {
+          ok: true,
+          participantId: grant.participantId,
+          role: mapCapabilityToRole(grant.capability as CapabilityKind)
+        }
+      } catch {
+        // Network/parse failure → fail closed. The error is intentionally not logged (may reference
+        // the request); the relay refuses the connection rather than admitting it.
+        return { ok: false, reason: 'admission_unavailable' }
+      }
     }
   }
 }

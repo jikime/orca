@@ -608,6 +608,24 @@
       "expectedValid": false
     },
     {
+      "name": "relay admission request",
+      "schemaId": "https://schemas.pielab.ai/resources/relay-admit.v1.schema.json",
+      "document": "valid/relay-admit.json",
+      "expectedValid": true
+    },
+    {
+      "name": "relay admission result response",
+      "schemaId": "https://schemas.pielab.ai/resources/relay-admit-result.v1.schema.json",
+      "document": "valid/relay-admit-result.json",
+      "expectedValid": true
+    },
+    {
+      "name": "relay admission rejects unknown field",
+      "schemaId": "https://schemas.pielab.ai/resources/relay-admit.v1.schema.json",
+      "document": "invalid/relay-admit-unknown-field.json",
+      "expectedValid": false
+    },
+    {
       "name": "driver grant request",
       "schemaId": "https://schemas.pielab.ai/resources/driver-grant.v1.schema.json",
       "document": "valid/driver-grant.json",

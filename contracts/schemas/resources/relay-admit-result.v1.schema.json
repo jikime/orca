@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/relay-admit-result.v1.schema.json",
+  "title": "Relay admission result",
+  "description": "The grant a successfully redeemed capability yields to the Relay (doc 34 B2). Deliberately minimal — no nonce echo. The Relay maps capability→role (view→viewer; control kinds→driver).",
+  "type": "object",
+  "required": ["participantId", "capability"],
+  "properties": {
+    "participantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "capability": {
+      "enum": ["view", "terminal_control", "desktop_control", "file_transfer"]
+    }
+  },
+  "additionalProperties": false
+}

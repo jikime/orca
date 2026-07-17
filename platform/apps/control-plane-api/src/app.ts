@@ -13,6 +13,7 @@ import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
 import { registerChannelRoutes } from './channel-routes'
 import { registerChannelMuteRoutes } from './channel-mute-routes'
+import { registerRelayAdmissionRoutes } from './relay-admission-routes'
 import { registerRemoteSessionCapabilityRoutes } from './remote-session-capability-routes'
 import { registerRemoteSessionDriverRoutes } from './remote-session-driver-routes'
 import { registerRemoteSessionRoutes } from './remote-session-routes'
@@ -148,6 +149,16 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       deps.tokenVerifier,
       db ? { isSessionRevoked: (sessionId) => isSessionRevoked(db, sessionId) } : {}
     )
+  }
+
+  if (deps.db && deps.registry) {
+    // Operator-gated (not keycloak-gated): the Relay is a machine that redeems capabilities with the
+    // operator bearer, so this registers independently of the user token verifier.
+    registerRelayAdmissionRoutes(app, {
+      db: deps.db,
+      registry: deps.registry,
+      operatorToken: deps.operatorToken
+    })
   }
 
   if (deps.db && deps.registry && deps.tokenVerifier) {
