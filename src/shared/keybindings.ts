@@ -426,7 +426,9 @@ export const KEYBINDING_DEFINITIONS: readonly KeybindingDefinition[] = [
     group: 'Global',
     scope: 'global',
     searchKeywords: ['shortcut', 'sidebar', 'worktree', 'focus'],
-    defaultBindings: platformBindings(['Mod+0'])
+    // Why: keep zoom.reset on the browser-standard Mod+0; this chord was
+    // unreachable while it shared that default (#8584).
+    defaultBindings: platformBindings(['Mod+Shift+0'])
   },
   {
     id: 'floatingTerminal.toggle',

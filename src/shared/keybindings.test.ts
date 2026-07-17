@@ -242,6 +242,43 @@ describe('keybindings', () => {
     })
   })
 
+  it('keeps zoom reset on Mod+0 and focuses worktree list on a distinct chord', () => {
+    // Why: both actions previously defaulted to Mod+0, so main-process zoom
+    // reset always won and Focus worktree list was unreachable (#8584).
+    for (const platform of ['darwin', 'linux', 'win32'] as const) {
+      expect(getEffectiveKeybindingsForAction('zoom.reset', platform)).toEqual(['Mod+0'])
+      expect(getEffectiveKeybindingsForAction('sidebar.focusWorktreeList', platform)).toEqual([
+        'Mod+Shift+0'
+      ])
+    }
+
+    const zoomResetInput = {
+      key: '0',
+      code: 'Digit0',
+      meta: true,
+      control: false,
+      alt: false,
+      shift: false
+    }
+    const focusListInput = { ...zoomResetInput, shift: true }
+
+    expect(keybindingMatchesAction('zoom.reset', zoomResetInput, 'darwin')).toBe(true)
+    expect(keybindingMatchesAction('sidebar.focusWorktreeList', zoomResetInput, 'darwin')).toBe(
+      false
+    )
+    expect(keybindingMatchesAction('sidebar.focusWorktreeList', focusListInput, 'darwin')).toBe(
+      true
+    )
+    expect(keybindingMatchesAction('zoom.reset', focusListInput, 'darwin')).toBe(false)
+
+    expect(
+      findKeybindingConflicts('darwin', { 'sidebar.focusWorktreeList': ['Mod+0'] })
+    ).toContainEqual({
+      binding: 'Mod+0',
+      actionIds: expect.arrayContaining(['zoom.reset', 'sidebar.focusWorktreeList'])
+    })
+  })
+
   it('reports quick-command menu conflicts with global shortcuts and digit ranges', () => {
     expect(
       findKeybindingConflicts('darwin', {
