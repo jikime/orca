@@ -16,6 +16,7 @@ import {
   type ProvenancePayload
 } from './agent-provenance-projection'
 import { normalizeVisibility } from './agent-visibility-scope'
+import { scanForSecrets, type SecretScanResult } from './agent-content-secret-scan'
 import type { SignedExecutionContext } from './execution-context-canonical'
 import {
   applySessionBindingTx,
@@ -129,13 +130,45 @@ function rejectionCode(event: AgentEventEnvelope, session: AgentSession | null):
   return null
 }
 
+// SEC-003 content-floor-over-label: the payload body a `full`-capture event will store, scanned for
+// a secret regardless of the client's declared classification. Returns null when the body is
+// stripped (metadata_only) — no content is stored, so there is nothing to floor or leak.
+function scanEventPayload(event: AgentEventEnvelope): SecretScanResult {
+  const body =
+    event.data.payloadObject !== undefined ? event.data.payloadObject : (event.data.payload ?? {})
+  return scanForSecrets(JSON.stringify(body))
+}
+
+// never-log-the-secret: the audit fact carries only the detected KINDS and a COUNT, never any
+// matched secret text, so the audit stream can prove detection without re-leaking the secret.
+async function auditSecretDetected(
+  trx: Transaction<Database>,
+  organizationId: string,
+  actorId: string | null,
+  eventId: string,
+  scan: SecretScanResult
+): Promise<void> {
+  await trx
+    .insertInto('audit.audit_events')
+    .values({
+      organization_id: organizationId,
+      actor_id: actorId,
+      action: 'agent_event.secret_detected',
+      target_type: 'agent_event',
+      target_id: eventId,
+      after_digest: `${scan.kinds.join('+')}:${scan.count}`
+    })
+    .execute()
+}
+
 async function insertEventTx(
   trx: Transaction<Database>,
   organizationId: string,
   producerId: string,
   event: AgentEventEnvelope,
   contentHash: string | null,
-  stripPayload: boolean
+  stripPayload: boolean,
+  effectiveClassification: string
 ): Promise<boolean> {
   const carriesObject = event.data.payloadObject !== undefined
   // capture_mode='metadata_only' drops the payload BODY but keeps the envelope metadata (type,
@@ -169,7 +202,11 @@ async function insertEventTx(
       parser_version: event.data.producer.parserVersion,
       trust_domain: event.data.producer.trustDomain,
       assertion: event.data.assertion,
-      classification: event.data.classification,
+      // SEC-003: the stored classification is the content-floored one (raised to `restricted` when
+      // the body contains a secret) — never the raw client label — so all downstream scope/
+      // redaction treats a mislabeled secret correctly. The raw payload bytes are still stored
+      // (append-only; evidence is not silently mutated), protected by RLS/scope + read redaction.
+      classification: effectiveClassification,
       visibility: event.data.visibility,
       agent_run_id: event.data.context.agentRunId,
       turn_id: event.data.context.turnId,
@@ -493,18 +530,37 @@ export async function ingestAgentEvents(
         results.push({ id: event.id, status: 'accepted' })
         continue
       }
+      const stripPayload = session.captureMode === 'metadata_only'
+      // SEC-003: content-floor-over-label. A secret in the body raises the stored classification to
+      // `restricted` no matter what label the client declared. metadata_only stores no body, so
+      // there is nothing to scan or floor.
+      const secretScan = stripPayload ? null : scanEventPayload(event)
+      const effectiveClassification = secretScan?.hasSecret
+        ? 'restricted'
+        : event.data.classification
       const inserted = await insertEventTx(
         trx,
         input.organizationId,
         input.producerId,
         event,
         contentHash,
-        session.captureMode === 'metadata_only'
+        stripPayload,
+        effectiveClassification
       )
       if (!inserted) {
         // Same eventId already stored → idempotent no-op (no duplicate event, turn, or provenance).
         results.push({ id: event.id, status: 'duplicate' })
         continue
+      }
+      if (secretScan?.hasSecret) {
+        // Metadata-only audit fact (kind + count); the secret text is never recorded.
+        await auditSecretDetected(
+          trx,
+          input.organizationId,
+          input.actorId ?? null,
+          event.id,
+          secretScan
+        )
       }
       touchedSessions.add(session.id)
       touchedStreams.set(event.piestream, session.id)

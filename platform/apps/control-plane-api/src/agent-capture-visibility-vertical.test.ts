@@ -84,6 +84,7 @@ type EnvelopeOverrides = {
   visibility?: 'internal' | 'project' | 'customer'
   classification?: 'public' | 'internal' | 'project_confidential' | 'restricted'
   note?: string
+  contentHash?: string
 }
 
 function envelope(o: EnvelopeOverrides): Record<string, unknown> {
@@ -119,7 +120,10 @@ function envelope(o: EnvelopeOverrides): Record<string, unknown> {
       assertion: 'observed',
       classification: o.classification ?? 'internal',
       visibility: o.visibility ?? 'internal',
-      payload: { note: o.note ?? 'streamed' },
+      payload: {
+        note: o.note ?? 'streamed',
+        ...(o.contentHash ? { contentHash: o.contentHash } : {})
+      },
       capturedAt: new Date().toISOString()
     }
   }
@@ -630,5 +634,168 @@ describe('agent capture + visibility + redaction vertical (R5 s5a)', () => {
       }
     )
     expect(write.status).toBe(403)
+  })
+})
+
+// R5 slice 5b (SEC-003): the CONTENT-based secret scanner + deny-path. The s5a redaction trusted the
+// client `classification`; a secret mislabeled `classification:public` was stored + returned +
+// searchable in cleartext. These prove a mislabeled secret is caught by CONTENT, floored to
+// `restricted`, redacted on read, absent from search, and audited (kind/count only) — while a clean
+// public event is unaffected and the append-only raw content (+ its hash) is preserved.
+describe('SEC-003 content-based secret redaction (R5 s5b)', () => {
+  const AWS_CANARY = 'AKIAIOSFODNN7EXAMPLE'
+  const GH_CANARY = 'ghp_0123456789abcdefghij0123456789abcdef'
+  const ENV_CANARY = 'PASSWORD=hunter2-canary-value'
+
+  // A `classification:public`, customer-visible event whose body carries seeded secrets.
+  async function seedMislabeledSecret(contentHash?: string): Promise<{
+    session: SessionWire
+    streamId: string
+  }> {
+    const session = await createSession('owner')
+    const streamId = randomUUID()
+    await ingest(
+      'owner',
+      [
+        envelope({
+          sessionId: session.id,
+          streamId,
+          sequence: 1,
+          turnId: randomUUID(),
+          type: 'ai.pielab.agent.tool_output.streamed.v1',
+          visibility: 'customer',
+          classification: 'public',
+          note: `leaked ${AWS_CANARY} and ${GH_CANARY} and ${ENV_CANARY} end`,
+          ...(contentHash ? { contentHash } : {})
+        })
+      ],
+      streamId
+    )
+    return { session, streamId }
+  }
+
+  it('(l) EXIT: a mislabeled public secret is floored to restricted, redacted on read, absent from search', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const { session } = await seedMislabeledSecret()
+
+    // Customer-scoped evidence: the event is present (customer-visible) but its secret is gone.
+    const evidence = await jsonOf<EvidenceWire>(
+      await bearerFetch('owner', `${sessionsPath()}/${session.id}/evidence?scope=customer`)
+    )
+    expect(evidence.items).toHaveLength(1)
+    const item = evidence.items[0]
+    expect(item?.redacted).toBe(true)
+    expect(item?.preview).not.toContain('AKIA')
+    expect(item?.preview).not.toContain('ghp_')
+    expect(item?.preview).not.toContain('hunter2')
+
+    // Search for each secret string → no hit and no snippet, at customer AND internal scope.
+    for (const scope of ['customer', 'internal']) {
+      for (const q of [AWS_CANARY, GH_CANARY, 'hunter2-canary-value']) {
+        const hits = await jsonOf<EvidenceWire>(
+          await bearerFetch(
+            'owner',
+            `${sessionsPath()}/${session.id}/evidence?scope=${scope}&q=${encodeURIComponent(q)}`
+          )
+        )
+        expect(hits.items).toHaveLength(0)
+      }
+    }
+
+    // The stored classification was floored from `public` to `restricted` (content over label).
+    const stored = await withTenantTransaction(db, orgId, (trx) =>
+      trx
+        .selectFrom('execution.agent_events')
+        .select('classification')
+        .where('agent_session_id', '=', session.id)
+        .executeTakeFirstOrThrow()
+    )
+    expect(stored.classification).toBe('restricted')
+  })
+
+  it('(m) an audit fact records the detection with kind + count only — never the secret text', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    await seedMislabeledSecret()
+    const facts = await withoutTenantContext(db, (trx) =>
+      trx
+        .selectFrom('audit.audit_events')
+        .select(['action', 'target_id', 'after_digest'])
+        .where('action', '=', 'agent_event.secret_detected')
+        .where('organization_id', '=', orgId)
+        .execute()
+    )
+    expect(facts.length).toBeGreaterThan(0)
+    const fact = facts[0]
+    // Digest is `kinds:count` metadata — carries the detected kinds and a count, never a secret.
+    expect(fact?.after_digest).toMatch(/^[a-z+-]+:\d+$/)
+    expect(fact?.after_digest).toContain('aws-access-key')
+    expect(fact?.after_digest).not.toContain('AKIA')
+    expect(fact?.after_digest).not.toContain('ghp_')
+    expect(fact?.after_digest).not.toContain('hunter2')
+  })
+
+  it('(n) append-only preserved: the raw secret payload + its content hash survive at rest', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const contentHash = `sha256:${randomUUID().replace(/-/g, '')}`
+    const { session } = await seedMislabeledSecret(contentHash)
+    // Redaction is on the read projection only — the append-only bytes and hash are untouched.
+    const row = await withTenantTransaction(db, orgId, (trx) =>
+      trx
+        .selectFrom('execution.agent_events')
+        .select(['payload', 'content_hash'])
+        .where('agent_session_id', '=', session.id)
+        .executeTakeFirstOrThrow()
+    )
+    expect(JSON.stringify(row.payload)).toContain(AWS_CANARY)
+    expect(row.content_hash).toBe(contentHash)
+  })
+
+  it('(o) a clean public event is unaffected: not floored, not redacted, searchable', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const session = await createSession('owner')
+    const streamId = randomUUID()
+    await ingest(
+      'owner',
+      [
+        envelope({
+          sessionId: session.id,
+          streamId,
+          sequence: 1,
+          turnId: randomUUID(),
+          visibility: 'customer',
+          classification: 'public',
+          note: 'CLEANSUMMARY ordinary delivery text with no secrets'
+        })
+      ],
+      streamId
+    )
+    const stored = await withTenantTransaction(db, orgId, (trx) =>
+      trx
+        .selectFrom('execution.agent_events')
+        .select('classification')
+        .where('agent_session_id', '=', session.id)
+        .executeTakeFirstOrThrow()
+    )
+    expect(stored.classification).toBe('public')
+    const evidence = await jsonOf<EvidenceWire>(
+      await bearerFetch('owner', `${sessionsPath()}/${session.id}/evidence?scope=customer`)
+    )
+    expect(evidence.items[0]?.redacted).toBe(false)
+    expect(evidence.items[0]?.preview).toContain('CLEANSUMMARY')
+    const hits = await jsonOf<EvidenceWire>(
+      await bearerFetch(
+        'owner',
+        `${sessionsPath()}/${session.id}/evidence?scope=customer&q=CLEANSUMMARY`
+      )
+    )
+    expect(hits.items).toHaveLength(1)
   })
 })
