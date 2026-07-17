@@ -324,6 +324,76 @@ describe('agent-event-outbox-store crash safety (real file)', () => {
     reopened.close()
   })
 
+  it('SYN-001 crash AFTER claim, BEFORE ack: inflight is reclaimed and a re-upload is idempotent (no loss, no double-submit)', () => {
+    const path = join(dir, 'claim-ack.db')
+    const first = new AgentEventOutboxStore(path)
+    first.enqueue(makeEnvelope({ id: 'evt-1', sequence: 1 }), { now: NOW })
+    first.enqueue(makeEnvelope({ id: 'evt-2', sequence: 2 }), { now: NOW })
+    // Both inflight; the server ack never made it back before the crash.
+    first.claimBatch(10, 1_000_000, NOW)
+    first.close()
+
+    const reopened = new AgentEventOutboxStore(path)
+    // Nothing lost: both inflight rows are reclaimed to pending and re-claimable.
+    expect(reopened.pendingCount()).toBe(2)
+    expect(reopened.claimBatch(10, 1_000_000, NOW).map((c) => c.eventId)).toEqual([
+      'evt-1',
+      'evt-2'
+    ])
+    // A re-upload of an already-persisted event is an idempotent no-op (UNIQUE(event_id)) — no 2nd row.
+    expect(
+      reopened.enqueue(makeEnvelope({ id: 'evt-1', sequence: 1 }), { now: NOW }).duplicate
+    ).toBe(true)
+    expect(reopened.pendingCount()).toBe(2)
+    reopened.close()
+  })
+
+  it('SYN-001 crash AFTER ack, BEFORE cursor advance: acked rows are never resurrected, re-sent, or double-acked', () => {
+    const path = join(dir, 'ack-cursor.db')
+    const first = new AgentEventOutboxStore(path)
+    first.enqueue(makeEnvelope({ id: 'evt-1', sequence: 1 }), { now: NOW })
+    first.enqueue(makeEnvelope({ id: 'evt-2', sequence: 2 }), { now: NOW })
+    first.enqueue(makeEnvelope({ id: 'evt-3', sequence: 3 }), { now: NOW })
+    first.claimBatch(10, 1_000_000, NOW)
+    // Server acked 1 & 2; the crash struck in the seam BEFORE advanceCursor ran.
+    first.ackBatch(['evt-1', 'evt-2'])
+    expect(first.getCursor('stream-a')).toBe(0)
+    first.close()
+
+    const reopened = new AgentEventOutboxStore(path)
+    // The acked rows are NOT resurrected — only the still-inflight evt-3 returns to pending.
+    expect(reopened.pendingCount()).toBe(1)
+    expect(reopened.claimBatch(10, 1_000_000, NOW).map((c) => c.eventId)).toEqual(['evt-3'])
+    // The lagging cursor is safe: acked events are never re-claimed (no double-submit), and a stray
+    // re-enqueue of an acked event is an idempotent duplicate (UNIQUE), never a second ack.
+    expect(
+      reopened.enqueue(makeEnvelope({ id: 'evt-1', sequence: 1 }), { now: NOW }).duplicate
+    ).toBe(true)
+    expect(reopened.getCursor('stream-a')).toBe(0)
+    reopened.close()
+  })
+
+  it('SYN-001 crash across prune + cursor advance: on reopen the cursor stays consistent with the surviving rows', () => {
+    const path = join(dir, 'prune-cursor.db')
+    // Low checkpoint cadence so the ack deterministically triggers the prune (atomic single DELETE).
+    const first = new AgentEventOutboxStore(path, { checkpointEveryAcks: 2 })
+    first.enqueue(makeEnvelope({ id: 'evt-1', sequence: 1 }), { now: NOW })
+    first.enqueue(makeEnvelope({ id: 'evt-2', sequence: 2 }), { now: NOW })
+    first.enqueue(makeEnvelope({ id: 'evt-3', sequence: 3 }), { now: NOW })
+    first.claimBatch(10, 1_000_000, NOW)
+    first.advanceCursor('stream-a', 2) // cursor written for the ingested contiguous prefix
+    first.ackBatch(['evt-1', 'evt-2']) // crosses the cadence → prune removes the acked rows
+    expect(first.pendingCount()).toBe(1)
+    first.close()
+
+    const reopened = new AgentEventOutboxStore(path)
+    // Cursor survived and is consistent with the one surviving row (seq 3 > contiguousThrough 2).
+    expect(reopened.getCursor('stream-a')).toBe(2)
+    expect(reopened.claimBatch(10, 1_000_000, NOW).map((c) => c.eventId)).toEqual(['evt-3'])
+    expect(reopened.pendingCount()).toBe(1)
+    reopened.close()
+  })
+
   it('uses WAL journal mode on a real file (single-writer + non-blocking reads)', () => {
     const path = join(dir, 'wal.db')
     const s = new AgentEventOutboxStore(path)

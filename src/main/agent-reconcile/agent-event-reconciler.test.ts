@@ -123,6 +123,96 @@ describe('reconcileAgentEvents — CAP-002 (hook timing + transcript content)', 
     expect(turn.contentHash).toBe('final-hash')
     expect(turn.toolCallRefs).toEqual(['call-1'])
   })
+
+  it('a pre_tool with NO post_tool (crash) still surfaces the tool-start and leaves the turn un-finalized', () => {
+    const outbox = fakeOutbox()
+    const preStart = hookEvent({
+      sequence: 2,
+      kind: 'pre_tool',
+      turnRef: 'turn-1',
+      toolName: 'Bash',
+      toolCallRef: 'call-1',
+      providerRecordKey: 'rec-pre'
+    })
+    const result = reconcileAgentEvents({
+      hookEvents: [
+        hookEvent({
+          sequence: 1,
+          kind: 'user_prompt',
+          turnRef: 'turn-1',
+          providerRecordKey: 'rec-u'
+        }),
+        preStart
+        // No post_tool and no transcript: the process crashed after the tool started.
+      ],
+      transcriptRecords: [],
+      enqueue: outbox.enqueue
+    })
+
+    // The interrupted tool-start (real-time observed) is surfaced with its start timing, not dropped.
+    const started = result.emitted.find((e) => e.type === 'ai.pielab.agent.tool.started.v1')
+    expect(started?.time).toBe(preStart.occurredAt)
+    // The tool never completed — no completion event was fabricated.
+    expect(result.emitted.some((e) => e.type === 'ai.pielab.agent.tool.completed.v1')).toBe(false)
+
+    // The incomplete tool stays on the turn timeline; the turn is un-finalized (no transcript hash yet).
+    const turn = result.turns[0]
+    expect(turn.toolCallRefs).toEqual(['call-1'])
+    expect(turn.finalized).toBe(false)
+    expect(turn.contentHash).toBeNull()
+  })
+
+  it('a later transcript finalizes the crashed turn while preserving the hook tool-start (folded, not doubled)', () => {
+    const outbox = fakeOutbox()
+    const preStart = hookEvent({
+      sequence: 2,
+      kind: 'pre_tool',
+      turnRef: 'turn-1',
+      toolName: 'Bash',
+      toolCallRef: 'call-1',
+      providerRecordKey: 'rec-pre'
+    })
+    const result = reconcileAgentEvents({
+      hookEvents: [
+        hookEvent({
+          sequence: 1,
+          kind: 'user_prompt',
+          turnRef: 'turn-1',
+          providerRecordKey: 'rec-u'
+        }),
+        preStart
+      ],
+      // The transcript flushed AFTER the crash carries the same tool call + the finalizing content.
+      transcriptRecords: [
+        transcriptRecord({
+          sequence: 3,
+          kind: 'tool_call',
+          turnRef: 'turn-1',
+          toolCallRef: 'call-1',
+          providerRecordKey: 'txn-tool'
+        }),
+        transcriptRecord({
+          sequence: 4,
+          kind: 'assistant_message',
+          turnRef: 'turn-1',
+          contentHash: 'final-hash',
+          providerRecordKey: 'txn-fin'
+        })
+      ],
+      enqueue: outbox.enqueue
+    })
+
+    // The hook tool-start timing survives the later finalize.
+    const started = result.emitted.find((e) => e.type === 'ai.pielab.agent.tool.started.v1')
+    expect(started?.time).toBe(preStart.occurredAt)
+    // The transcript's tool record folded into the one timeline — not re-emitted as a second tool.
+    expect(result.emitted.some((e) => e.type === 'ai.pielab.agent.tool.recorded.v1')).toBe(false)
+
+    const turn = result.turns[0]
+    expect(turn.finalized).toBe(true)
+    expect(turn.contentHash).toBe('final-hash')
+    expect(turn.toolCallRefs).toEqual(['call-1'])
+  })
 })
 
 describe('reconcileAgentEvents — CAP-003 (replay vs re-run vs duplicate prompt)', () => {

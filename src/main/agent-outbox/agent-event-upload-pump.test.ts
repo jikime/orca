@@ -120,6 +120,17 @@ describe('planBatchOutcome (pure)', () => {
     expect(plan.drop).toHaveLength(1)
     expect(plan.drop[0].code).toBe('SESSION_NOT_FOUND')
   })
+
+  it('holds (nacks) a retryable_rejected item — distinct from ack and from drop', () => {
+    const plan = planBatchOutcome(
+      [item('evt-1', 1)],
+      response([{ id: 'evt-1', status: 'retryable_rejected', retryAfterMs: 500 }], 0)
+    )
+    // retryable is not ingested (never acked) and not poison (never dropped) → held for retry.
+    expect(plan.ack).toEqual([])
+    expect(plan.drop).toEqual([])
+    expect(plan.nack).toEqual(['evt-1'])
+  })
 })
 
 describe('computeBackoffMs (pure)', () => {
@@ -230,6 +241,43 @@ describe('agent-event-upload-pump', () => {
     expect(result).toMatchObject({ outcome: 'uploaded', dropped: 1 })
     expect(store.pendingCount()).toBe(0)
     expect(audits[0]).toMatchObject({ eventId: 'evt-1', reason: 'permanent_rejected' })
+  })
+
+  it('SYN-003: a single mixed-status batch acks ingested, dead-letters permanent, holds retryable + beyond-gap, advances only the contiguous prefix', async () => {
+    seed(5)
+    upload.mockResolvedValue(
+      response(
+        [
+          { id: 'evt-1', status: 'accepted' },
+          { id: 'evt-2', status: 'duplicate' },
+          { id: 'evt-3', status: 'retryable_rejected', retryAfterMs: 2000 },
+          { id: 'evt-4', status: 'permanent_rejected', code: 'SESSION_NOT_FOUND' },
+          { id: 'evt-5', status: 'accepted' }
+        ],
+        // The retryable at seq 3 breaks the prefix → the server ingested only 1..2 contiguously.
+        2,
+        [3, 4]
+      )
+    )
+    const result = await pump().pumpOnce()
+    // accepted+duplicate within the prefix acked (2), permanent dropped (1), retryable+beyond-gap held (2).
+    expect(result).toEqual({ outcome: 'uploaded', acked: 2, dropped: 1, nacked: 2 })
+
+    // The cursor only advances over the truly-ingested contiguous prefix.
+    expect(store.getCursor('stream-a')).toBe(2)
+
+    // The permanent rejection is dead-lettered with a durable audit record — never retried forever.
+    expect(audits).toHaveLength(1)
+    expect(audits[0]).toMatchObject({ eventId: 'evt-4', reason: 'permanent_rejected' })
+
+    // Only the held rows remain pending (retryable evt-3 + beyond-gap accepted evt-5).
+    expect(store.pendingCount()).toBe(2)
+    // Held rows are backed off — not visible until the backoff elapses.
+    expect(store.claimBatch(10, 1_000_000, NOW)).toHaveLength(0)
+    const retried = store.claimBatch(10, 1_000_000, NOW + 1000)
+    expect(retried.map((c) => c.eventId)).toEqual(['evt-3', 'evt-5'])
+    // retryable_rejected is retried with backoff and its attempt is bumped (not acked, not dropped).
+    expect(retried.every((c) => c.attemptCount === 1)).toBe(true)
   })
 
   it('is idle when nothing is claimable', async () => {
