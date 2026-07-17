@@ -1119,6 +1119,69 @@ paths:
           description: Channel unmuted (or was already not muted).
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/messages/{messageId}/pin:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+      - name: messageId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    put:
+      tags: [Collaboration]
+      operationId: pinMessage
+      description: >-
+        Pins a message in its channel (member-gated). v1 lets any channel member pin, up
+        to a per-channel cap. Idempotent — a repeat pin is a no-op 204. A deleted
+        (tombstoned) message is not pinnable (409), and the cap is enforced (409).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Message pinned (or was already pinned).
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [Collaboration]
+      operationId: unpinMessage
+      description: >-
+        Unpins a message (member-gated). Idempotent — unpinning a message that is not
+        pinned is a no-op 204, not an error.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Message unpinned (or was already not pinned).
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/pins:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: listPinnedMessages
+      description: >-
+        Lists a channel's pinned messages, most-recent-pin first (member-gated). Each
+        item is a message summary plus who pinned it and when.
+      responses:
+        '200':
+          description: The channel's pinned messages.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/pinned-messages.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/notifications:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

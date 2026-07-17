@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/pinned-messages.v1.schema.json",
+  "title": "Pinned messages",
+  "description": "A channel's pinned messages, most-recent-pin first (doc 33 §3). Member-scoped. Each item carries the full message summary plus who pinned it and when.",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["message", "pinnedBy", "pinnedAt"],
+        "properties": {
+          "message": {
+            "$ref": "https://schemas.pielab.ai/resources/message.v1.schema.json"
+          },
+          "pinnedBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+          "pinnedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

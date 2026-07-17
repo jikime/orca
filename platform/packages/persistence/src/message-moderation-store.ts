@@ -179,6 +179,14 @@ export async function deleteMessage(
       .set({ body: REDACTED_BODY })
       .where('message_id', '=', input.messageId)
       .execute()
+    // A tombstone must not stay pinned (doc 33 §3): dropping the pins here mirrors the
+    // pin store's refusal to pin a tombstone. The message_pins → messages FK cascade only
+    // covers a HARD row delete (e.g. channel deletion); a soft delete needs this explicit
+    // cleanup so a pinned message disappears from the pin list when moderated away.
+    await trx
+      .deleteFrom('collaboration.message_pins')
+      .where('message_id', '=', input.messageId)
+      .execute()
     await trx
       .insertInto('audit.audit_events')
       .values({

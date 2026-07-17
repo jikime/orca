@@ -35,6 +35,8 @@ export type MessageResource = {
   deletedAt: string | null
   deletedBy: string | null
   deletionReason: string | null
+  // Pinned marker (doc 33 §3): true when a message_pins row exists for this message.
+  pinned: boolean
 }
 
 type MessageRow = {
@@ -57,7 +59,8 @@ function mapMessage(
   replyCount: number,
   reactions: ReactionSummary[],
   attachments: AttachmentSummary[],
-  revisionCount = 0
+  revisionCount = 0,
+  pinned = false
 ): MessageResource {
   const deleted = row.deleted_at !== null
   return {
@@ -78,7 +81,8 @@ function mapMessage(
     deleted,
     deletedAt: row.deleted_at ? new Date(row.deleted_at).toISOString() : null,
     deletedBy: row.deleted_by,
-    deletionReason: row.deletion_reason
+    deletionReason: row.deletion_reason,
+    pinned
   }
 }
 
@@ -137,15 +141,47 @@ async function enrichMessages(
   for (const row of revisionRows) {
     revisionCounts.set(row.message_id, Number(row.count))
   }
+  // Which of this page's messages are pinned (doc 33 §3) — a set membership lookup scoped
+  // to the page ids, mirroring the reaction/revision per-read enrichment.
+  const pinRows = await trx
+    .selectFrom('collaboration.message_pins')
+    .select('message_id')
+    .where('message_id', 'in', ids)
+    .execute()
+  const pinnedMessages = new Set(pinRows.map((row) => row.message_id))
   return rows.map((row) =>
     mapMessage(
       row,
       replyCounts.get(row.id) ?? 0,
       reactionsByMessage.get(row.id) ?? [],
       attachmentsByMessage.get(row.id) ?? [],
-      revisionCounts.get(row.id) ?? 0
+      revisionCounts.get(row.id) ?? 0,
+      pinnedMessages.has(row.id)
     )
   )
+}
+
+/**
+ * Loads a set of messages by id and returns them fully enriched (reactions, replies,
+ * attachments, edit markers), keyed by id. Shared with the pin read model so a pinned
+ * item carries the same body/author/reactions shape as a timeline message — one enrichment
+ * path, no drift. Runs inside the caller's org tenant tx.
+ */
+export async function enrichMessagesByIdsTx(
+  trx: Transaction<Database>,
+  messageIds: readonly string[],
+  userId: string
+): Promise<Map<string, MessageResource>> {
+  if (messageIds.length === 0) {
+    return new Map()
+  }
+  const rows = await trx
+    .selectFrom('collaboration.messages')
+    .selectAll()
+    .where('id', 'in', [...messageIds])
+    .execute()
+  const enriched = await enrichMessages(trx, rows, userId)
+  return new Map(enriched.map((message) => [message.id, message]))
 }
 
 export type PostMessageResult =

@@ -464,6 +464,18 @@
       "expectedValid": false
     },
     {
+      "name": "pinned messages list",
+      "schemaId": "https://schemas.pielab.ai/resources/pinned-messages.v1.schema.json",
+      "document": "valid/pinned-messages.json",
+      "expectedValid": true
+    },
+    {
+      "name": "pinned messages list with extra field",
+      "schemaId": "https://schemas.pielab.ai/resources/pinned-messages.v1.schema.json",
+      "document": "invalid/pinned-messages-extra-field.json",
+      "expectedValid": false
+    },
+    {
       "name": "start dm request",
       "schemaId": "https://schemas.pielab.ai/resources/dm-create.v1.schema.json",
       "document": "valid/dm-create.json",
