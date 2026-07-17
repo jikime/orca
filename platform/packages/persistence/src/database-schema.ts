@@ -809,6 +809,29 @@ export interface AgentSessionIntakeTable {
   updated_at: TimestampColumn
 }
 
+// OPS-001 poison-event quarantine (dead-letter). One row per per-item-rejected agent event, so a
+// poison is durably visible to operators, not just a transient batch status. METADATA ONLY: the
+// raw poison body is never stored (content_hash + payload_size_bytes stand in for it). FK-free
+// (the rejected event is never inserted, its session may not exist). pie_app gets INSERT + SELECT
+// (write on rejection, read the queue) + UPDATE (operator discard/recover); trail lives in audit.
+export interface AgentEventQuarantineTable {
+  organization_id: string
+  id: Generated<string>
+  event_id: string
+  agent_session_id: string
+  stream_id: string
+  sequence: BigIntColumn
+  reason_code: string
+  content_hash: string | null
+  payload_size_bytes: number
+  status: Generated<string>
+  resolved_by: string | null
+  resolved_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  quarantined_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -868,6 +891,7 @@ export interface Database {
   'execution.agent_provenance': AgentProvenanceTable
   'execution.agent_session_intake': AgentSessionIntakeTable
   'execution.agent_capture_gaps': AgentCaptureGapsTable
+  'execution.agent_event_quarantine': AgentEventQuarantineTable
   'execution.installation_public_keys': InstallationPublicKeysTable
   'execution.batch_submission_nonces': BatchSubmissionNoncesTable
 }

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-event-quarantine.v1.schema.json",
+  "title": "Agent event quarantine item",
+  "description": "One quarantined (dead-lettered) poison agent event (doc 20 OPS-001). A per-item-rejected event is parked here so the poison is durably visible to operators, while its valid batch siblings still commit (progress-around-poison). METADATA ONLY: the raw poison body is never stored — only its identity, the rejection reasonCode, a contentHash, and the byte size stand in for it, so a secret or a huge payload can never leak into or bloat the quarantine. status transitions quarantined → recovered | discarded via operator recovery.",
+  "type": "object",
+  "required": [
+    "id",
+    "organizationId",
+    "eventId",
+    "agentSessionId",
+    "streamId",
+    "sequence",
+    "reasonCode",
+    "contentHash",
+    "payloadSizeBytes",
+    "status",
+    "resolvedBy",
+    "resolvedAt",
+    "version",
+    "quarantinedAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "eventId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "agentSessionId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "streamId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "reasonCode": {
+      "enum": [
+        "schema_invalid",
+        "provenance_invalid",
+        "oversized",
+        "producer_mismatch",
+        "session_not_found",
+        "session_closed",
+        "org_mismatch"
+      ]
+    },
+    "contentHash": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 256 }, { "type": "null" }]
+    },
+    "payloadSizeBytes": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["quarantined", "recovered", "discarded"] },
+    "resolvedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "resolvedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "quarantinedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

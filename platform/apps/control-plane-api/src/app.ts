@@ -6,6 +6,7 @@ import addFormats from 'ajv-formats'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
 import { registerAgentCaptureRoutes } from './agent-capture-routes'
+import { registerAgentEventQuarantineRoutes } from './agent-event-quarantine-routes'
 import { registerAgentSessionIntakeRoutes } from './agent-session-intake-routes'
 import { registerAgentSessionRoutes } from './agent-session-routes'
 import { registerInstallationKeyRoutes } from './installation-key-routes'
@@ -191,6 +192,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerInstallationKeyRoutes(app, { db: deps.db, registry: deps.registry })
     registerAgentCaptureRoutes(app, { db: deps.db, registry: deps.registry })
     registerAgentSessionIntakeRoutes(app, { db: deps.db, registry: deps.registry })
+    registerAgentEventQuarantineRoutes(app, { db: deps.db, registry: deps.registry })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
     registerMessageSearchRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {
