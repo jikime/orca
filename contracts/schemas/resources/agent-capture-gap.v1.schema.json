@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-capture-gap.v1.schema.json",
+  "title": "Agent capture gap",
+  "description": "An append-only tombstone marking a window where capture was PAUSED (R5 s5a). The event was intentionally dropped at (streamId, sequence); recording the gap keeps a paused window an explicit gap on the timeline rather than a silent false-complete (doc 14 §R5 기록 표시·pause). Surfaced only within the reader's authorized scope.",
+  "type": "object",
+  "required": ["id", "streamId", "sequence", "turnId", "reason", "occurredAt"],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "streamId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "turnId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "reason": { "enum": ["capture_paused"] },
+    "occurredAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

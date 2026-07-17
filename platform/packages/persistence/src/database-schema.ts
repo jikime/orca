@@ -376,6 +376,8 @@ export interface ProjectsTable {
   name: string
   summary: string | null
   status: Generated<string>
+  // R5 s5a: the project-level capture-mode default a new agent session inherits.
+  default_capture_mode: Generated<string>
   version: DefaultedBigIntColumn
   archived_at: NullableTimestampColumn
   created_at: TimestampColumn
@@ -626,6 +628,8 @@ export interface AgentSessionsTable {
   status: Generated<string>
   visibility: string
   classification: string
+  // R5 s5a: full | metadata_only | paused — the ingest capture policy for this session.
+  capture_mode: Generated<string>
   created_by: string
   version: DefaultedBigIntColumn
   created_at: TimestampColumn
@@ -725,6 +729,26 @@ export interface AgentProvenanceTable {
   created_at: TimestampColumn
 }
 
+// R5 s5a: an append-only capture-gap tombstone. A session in capture_mode='paused' drops the
+// event but writes one of these so a paused window shows an EXPLICIT gap on the timeline, never a
+// silent false-complete. Carries the dropped event's visibility so the per-scope read filter hides
+// an internal-only gap from a customer-scoped reader. pie_app gets INSERT + SELECT only.
+export interface AgentCaptureGapsTable {
+  organization_id: string
+  id: Generated<string>
+  event_id: string
+  agent_session_id: string
+  stream_id: string
+  sequence: BigIntColumn
+  turn_id: string | null
+  visibility: string
+  reason: Generated<string>
+  occurred_at: TimestampColumn
+  captured_at: TimestampColumn
+  received_at: TimestampColumn
+  created_at: TimestampColumn
+}
+
 // The unassigned-session intake queue (doc 19 :162, doc 24 CAP-001, R5 s4b). One MUTABLE row per
 // session that exists without a work_item binding; a human explicitly assigns it (which sets the
 // session's work_item_id) — a session is never auto-attached to a project. pie_app gets INSERT +
@@ -805,4 +829,5 @@ export interface Database {
   'execution.agent_turns': AgentTurnsTable
   'execution.agent_provenance': AgentProvenanceTable
   'execution.agent_session_intake': AgentSessionIntakeTable
+  'execution.agent_capture_gaps': AgentCaptureGapsTable
 }

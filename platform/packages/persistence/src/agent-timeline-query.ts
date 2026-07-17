@@ -1,5 +1,6 @@
 import type { Kysely } from 'kysely'
 import { loadAgentSessionTx, type AgentSession } from './agent-session-store'
+import { allowedVisibilitiesForScope, type VisibilityScope } from './agent-visibility-scope'
 import type { Database } from './database-schema'
 import { withTenantTransaction } from './tenant-transaction'
 
@@ -7,6 +8,10 @@ import { withTenantTransaction } from './tenant-transaction'
 // projection; events are the append-only log ordered WITHIN a stream by sequence (never a
 // cross-host global order from client time). assertion + trustDomain are surfaced so a
 // caller can never silently treat a `declared`/`client_observed` event as server-verified.
+//
+// R5 slice 5a: the read takes a requested VISIBILITY SCOPE and NEVER returns content above it —
+// above-scope events, turns, and capture gaps are ABSENT (filtered in SQL, so they cannot leak via
+// a count or a preview), and a turn's eventCount is recomputed from ONLY its in-scope events.
 
 export type AgentTurnView = {
   id: string
@@ -41,10 +46,21 @@ export type AgentTimelineEventView = {
   receivedAt: string
 }
 
+// A capture-gap tombstone surfaced on the timeline so a paused window reads as an explicit gap.
+export type AgentCaptureGapView = {
+  id: string
+  streamId: string
+  sequence: number
+  turnId: string | null
+  reason: string
+  occurredAt: string
+}
+
 export type AgentSessionTimeline = {
   session: AgentSession
   turns: AgentTurnView[]
   events: AgentTimelineEventView[]
+  captureGaps: AgentCaptureGapView[]
   nextCursor: string | null
 }
 
@@ -79,15 +95,31 @@ export async function listSessionTimeline(
   db: Kysely<Database>,
   organizationId: string,
   sessionId: string,
-  options: { limit?: number; cursor?: string | null } = {}
+  options: { limit?: number; cursor?: string | null; scope?: VisibilityScope } = {}
 ): Promise<AgentSessionTimeline | null> {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 200)
   const cursor = options.cursor ? decodeCursor(options.cursor) : null
+  // Default-deny: an unspecified scope reads at the narrowest audience (`customer`).
+  const scope = options.scope ?? 'customer'
+  const allowedVisibilities = allowedVisibilitiesForScope(scope)
   return withTenantTransaction(db, organizationId, async (trx) => {
     const session = await loadAgentSessionTx(trx, sessionId)
     if (!session) {
       return null
     }
+    // Per-turn IN-SCOPE event counts, so a turn's eventCount never reveals above-scope events and a
+    // turn with zero in-scope events is dropped entirely (e.g. an internal-only system-prompt turn
+    // is absent at customer scope).
+    const inScopeTurnRows = await trx
+      .selectFrom('execution.agent_events')
+      .select((eb) => ['turn_id', eb.fn.countAll<string>().as('c')])
+      .where('agent_session_id', '=', sessionId)
+      .where('visibility', 'in', allowedVisibilities)
+      .where('turn_id', 'is not', null)
+      .groupBy('turn_id')
+      .execute()
+    const inScopeCount = new Map(inScopeTurnRows.map((row) => [row.turn_id, Number(row.c)]))
+
     const turnRows = await trx
       .selectFrom('execution.agent_turns')
       .selectAll()
@@ -96,10 +128,20 @@ export async function listSessionTimeline(
       .orderBy('id', 'asc')
       .execute()
 
+    const captureGapRows = await trx
+      .selectFrom('execution.agent_capture_gaps')
+      .selectAll()
+      .where('agent_session_id', '=', sessionId)
+      .where('visibility', 'in', allowedVisibilities)
+      .orderBy('stream_id', 'asc')
+      .orderBy('sequence', 'asc')
+      .execute()
+
     let eventQuery = trx
       .selectFrom('execution.agent_events')
       .selectAll()
       .where('agent_session_id', '=', sessionId)
+      .where('visibility', 'in', allowedVisibilities)
     if (cursor) {
       // Keyset page over the (stream_id, sequence, id) order.
       eventQuery = eventQuery.where((eb) =>
@@ -132,17 +174,28 @@ export async function listSessionTimeline(
 
     return {
       session,
-      turns: turnRows.map((row) => ({
+      // Only turns with at least one in-scope event, and their eventCount is the in-scope count.
+      turns: turnRows
+        .filter((row) => (inScopeCount.get(row.turn_id) ?? 0) > 0)
+        .map((row) => ({
+          id: row.id,
+          turnId: row.turn_id,
+          status: row.status as 'provisional' | 'finalized',
+          contentHash: row.content_hash,
+          revision: row.revision,
+          firstSequence: Number(row.first_sequence),
+          lastSequence: Number(row.last_sequence),
+          eventCount: inScopeCount.get(row.turn_id) ?? 0,
+          firstEventAt: new Date(row.first_event_at).toISOString(),
+          lastEventAt: new Date(row.last_event_at).toISOString()
+        })),
+      captureGaps: captureGapRows.map((row) => ({
         id: row.id,
+        streamId: row.stream_id,
+        sequence: Number(row.sequence),
         turnId: row.turn_id,
-        status: row.status as 'provisional' | 'finalized',
-        contentHash: row.content_hash,
-        revision: row.revision,
-        firstSequence: Number(row.first_sequence),
-        lastSequence: Number(row.last_sequence),
-        eventCount: row.event_count,
-        firstEventAt: new Date(row.first_event_at).toISOString(),
-        lastEventAt: new Date(row.last_event_at).toISOString()
+        reason: row.reason,
+        occurredAt: new Date(row.occurred_at).toISOString()
       })),
       events: pageRows.map((row) => ({
         id: row.id,

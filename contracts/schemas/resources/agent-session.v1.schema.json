@@ -15,6 +15,7 @@
     "status",
     "visibility",
     "classification",
+    "captureMode",
     "createdBy",
     "version",
     "createdAt",
@@ -45,6 +46,7 @@
     "classification": {
       "enum": ["public", "internal", "project_confidential", "restricted"]
     },
+    "captureMode": { "enum": ["full", "metadata_only", "paused"] },
     "createdBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
     "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
     "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },

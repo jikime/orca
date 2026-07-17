@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-project-capture-policy.v1.schema.json",
+  "title": "Project capture policy",
+  "description": "A project's default capture mode — the value a new agent session inherits (R5 s5a).",
+  "type": "object",
+  "required": ["projectId", "defaultCaptureMode", "version"],
+  "properties": {
+    "projectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "defaultCaptureMode": { "enum": ["full", "metadata_only", "paused"] },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

@@ -19,6 +19,9 @@ export type AgentProvider = 'claude_code' | 'codex' | 'opencode' | 'other'
 export type AgentSessionStatus = 'active' | 'closed' | 'terminated'
 export type ResourceVisibility = 'internal' | 'project' | 'customer'
 export type ResourceClassification = 'public' | 'internal' | 'project_confidential' | 'restricted'
+// R5 s5a: the ingest capture policy — full stores payloads, metadata_only drops the payload body,
+// paused drops the event but records a gap tombstone.
+export type CaptureMode = 'full' | 'metadata_only' | 'paused'
 
 export type AgentSession = {
   id: string
@@ -31,6 +34,7 @@ export type AgentSession = {
   status: AgentSessionStatus
   visibility: ResourceVisibility
   classification: ResourceClassification
+  captureMode: CaptureMode
   createdBy: string
   version: number
   createdAt: string
@@ -48,6 +52,7 @@ type AgentSessionRow = {
   status: string
   visibility: string
   classification: string
+  capture_mode: string
   created_by: string
   version: string | number
   created_at: Date | string
@@ -66,6 +71,7 @@ export function mapAgentSession(row: AgentSessionRow): AgentSession {
     status: row.status as AgentSessionStatus,
     visibility: row.visibility as ResourceVisibility,
     classification: row.classification as ResourceClassification,
+    captureMode: row.capture_mode as CaptureMode,
     createdBy: row.created_by,
     version: Number(row.version),
     createdAt: new Date(row.created_at).toISOString(),
@@ -139,6 +145,7 @@ export type CreateAgentSessionInput = {
   launchId?: string | null
   visibility?: ResourceVisibility
   classification?: ResourceClassification
+  captureMode?: CaptureMode
 }
 
 /**
@@ -164,6 +171,8 @@ export async function createAgentSession(
         status: 'active',
         visibility: input.visibility ?? 'internal',
         classification: input.classification ?? 'internal',
+        // Inherits the project default at the client seam; defaults to full capture otherwise.
+        capture_mode: input.captureMode ?? 'full',
         created_by: input.actorUserId
       })
       .returningAll()

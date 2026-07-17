@@ -6,6 +6,7 @@ import {
   type AgentEventEnvelope,
   type AgentProvider,
   type AgentSession,
+  type CaptureMode,
   type IngestAgentEventsInput,
   type PieDatabase,
   type ResourceClassification,
@@ -15,6 +16,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { beginIdempotency } from './idempotent-mutation'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
+import { resolveReadScope } from './agent-read-scope'
 import { authorizeOrgPermission } from './route-authorization'
 
 const AGENT_SESSION_SCHEMA_ID = 'https://schemas.pielab.ai/resources/agent-session.v1.schema.json'
@@ -87,6 +89,7 @@ function sessionToWire(session: AgentSession): Record<string, unknown> {
     status: session.status,
     visibility: session.visibility,
     classification: session.classification,
+    captureMode: session.captureMode,
     createdBy: session.createdBy,
     version: session.version,
     createdAt: session.createdAt,
@@ -102,6 +105,7 @@ type CreateBody = {
   workItemId?: string
   visibility?: ResourceVisibility
   classification?: ResourceClassification
+  captureMode?: CaptureMode
 }
 
 type BatchBody = {
@@ -184,7 +188,8 @@ function registerCreateSession(app: FastifyInstance, deps: AgentSessionRoutesDep
       ...(body.launchId ? { launchId: body.launchId } : {}),
       ...(body.workItemId ? { workItemId: body.workItemId } : {}),
       ...(body.visibility ? { visibility: body.visibility } : {}),
-      ...(body.classification ? { classification: body.classification } : {})
+      ...(body.classification ? { classification: body.classification } : {}),
+      ...(body.captureMode ? { captureMode: body.captureMode } : {})
     })
     await gate.complete(session.id)
     return respond(session, true)
@@ -299,9 +304,12 @@ function registerTimeline(app: FastifyInstance, deps: AgentSessionRoutesDeps): v
       if (!authz) {
         return reply
       }
-      const query = request.query as { cursor?: string; limit?: string }
+      const query = request.query as { cursor?: string; limit?: string; scope?: string }
       const limit = query.limit ? Number(query.limit) : undefined
+      // The read never returns content above the caller's authorized scope.
+      const scope = await resolveReadScope(deps.db, principal, organizationId, query.scope)
       const timeline = await listSessionTimeline(deps.db, organizationId, sessionId, {
+        scope,
         ...(query.cursor ? { cursor: query.cursor } : {}),
         ...(limit !== undefined && Number.isFinite(limit) ? { limit } : {})
       })
@@ -312,6 +320,7 @@ function registerTimeline(app: FastifyInstance, deps: AgentSessionRoutesDeps): v
         session: sessionToWire(timeline.session),
         turns: timeline.turns,
         events: timeline.events,
+        captureGaps: timeline.captureGaps,
         nextCursor: timeline.nextCursor
       }
       assertResponse(deps.registry, AGENT_SESSION_TIMELINE_SCHEMA_ID, wire)
@@ -349,9 +358,12 @@ function registerProvenance(app: FastifyInstance, deps: AgentSessionRoutesDeps):
       if (!authz) {
         return reply
       }
-      const query = request.query as { cursor?: string; limit?: string }
+      const query = request.query as { cursor?: string; limit?: string; scope?: string }
       const limit = query.limit ? Number(query.limit) : undefined
+      // Provenance above the caller's authorized scope is absent (filtered by source visibility).
+      const scope = await resolveReadScope(deps.db, principal, organizationId, query.scope)
       const provenance = await listSessionProvenance(deps.db, organizationId, sessionId, {
+        scope,
         ...(query.cursor ? { cursor: query.cursor } : {}),
         ...(limit !== undefined && Number.isFinite(limit) ? { limit } : {})
       })

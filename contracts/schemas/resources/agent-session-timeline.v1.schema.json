@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.pielab.ai/resources/agent-session-timeline.v1.schema.json",
   "title": "Agent session timeline",
-  "description": "A session's projected timeline: the session, its folded turns, and a cursor-paged page of its append-only events (doc 19, R5 s1).",
+  "description": "A session's projected timeline: the session, its folded turns, a cursor-paged page of its append-only events, and any capture-pause gaps — all filtered to the reader's authorized visibility scope (doc 19, R5 s1/s5a).",
   "type": "object",
-  "required": ["session", "turns", "events", "nextCursor"],
+  "required": ["session", "turns", "events", "captureGaps", "nextCursor"],
   "properties": {
     "session": { "$ref": "https://schemas.pielab.ai/resources/agent-session.v1.schema.json" },
     "turns": {
@@ -16,6 +16,10 @@
       "items": {
         "$ref": "https://schemas.pielab.ai/resources/agent-timeline-event.v1.schema.json"
       }
+    },
+    "captureGaps": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/agent-capture-gap.v1.schema.json" }
     },
     "nextCursor": {
       "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 512 }, { "type": "null" }]
