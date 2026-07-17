@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-event-quarantine-list.v1.schema.json",
+  "title": "Agent event quarantine page",
+  "description": "A cursor-paged page of the poison-event quarantine queue (doc 20 OPS-001), newest-first. Metadata only — no raw poison body is ever returned. Optionally status-filtered (quarantined | recovered | discarded).",
+  "type": "object",
+  "required": ["items", "nextCursor"],
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/agent-event-quarantine.v1.schema.json"
+      }
+    },
+    "nextCursor": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 512 }, { "type": "null" }]
+    }
+  }
+}

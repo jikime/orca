@@ -24,7 +24,34 @@ import {
   type ExecutionContextRejectionCode
 } from './execution-context-verification'
 import { consumeBatchSubmissionNonceTx } from './batch-submission-nonce-store'
+import {
+  fingerprintPayload,
+  quarantineEventTx,
+  type QuarantineReasonCode
+} from './agent-event-quarantine-store'
 import { withTenantTransaction } from './tenant-transaction'
+
+// OPS-001: a per-event body over this cap is treated as poison — rejected + quarantined (metadata
+// only) so it can never bloat the append-only log or block its valid batch siblings. The envelope
+// contract already bounds property COUNT (maxProperties); this bounds serialized BYTE size.
+const MAX_EVENT_PAYLOAD_BYTES = 256 * 1024
+
+// The rejection `code` returned per-item, mapped to the durable quarantine reason_code.
+const QUARANTINE_REASON_BY_CODE: Record<string, QuarantineReasonCode> = {
+  ORG_MISMATCH: 'org_mismatch',
+  SESSION_NOT_FOUND: 'session_not_found',
+  SESSION_CLOSED: 'session_closed',
+  PRODUCER_MISMATCH: 'producer_mismatch',
+  PROVENANCE_INVALID: 'provenance_invalid',
+  PAYLOAD_OVERSIZED: 'oversized'
+}
+
+// The body a would-be stored/scanned event carries (payloadObject wins when present, else payload).
+function eventBody(event: AgentEventEnvelope): Record<string, unknown> {
+  return event.data.payloadObject !== undefined
+    ? event.data.payloadObject
+    : (event.data.payload ?? {})
+}
 
 // R5 slice 1: Control-Plane agent-event ingest (doc 19 :203-236, doc 20 CAP-001..008).
 // The ingest is idempotent per (org, eventId), append-only, and binds each event's producer
@@ -137,9 +164,7 @@ function rejectionCode(event: AgentEventEnvelope, session: AgentSession | null):
 // a secret regardless of the client's declared classification. Returns null when the body is
 // stripped (metadata_only) — no content is stored, so there is nothing to floor or leak.
 function scanEventPayload(event: AgentEventEnvelope): SecretScanResult {
-  const body =
-    event.data.payloadObject !== undefined ? event.data.payloadObject : (event.data.payload ?? {})
-  return scanForSecrets(JSON.stringify(body))
+  return scanForSecrets(JSON.stringify(eventBody(event)))
 }
 
 // never-log-the-secret: the audit fact carries only the detected KINDS and a COUNT, never any
@@ -501,6 +526,25 @@ export async function ingestAgentEvents(
     }
 
     const results: AgentEventResult[] = []
+    // progress-around-poison: a per-item rejection records the result AND parks the poison in the
+    // quarantine (best-effort), then the loop CONTINUES so the batch's valid siblings still commit.
+    const rejectPermanently = async (
+      event: AgentEventEnvelope,
+      code: string,
+      reasonCode: QuarantineReasonCode
+    ): Promise<void> => {
+      const { contentHash, payloadSizeBytes } = fingerprintPayload(eventBody(event))
+      await quarantineEventTx(trx, input.organizationId, input.actorId ?? null, {
+        eventId: event.id,
+        agentSessionId: event.data.context.agentSessionId,
+        streamId: event.piestream,
+        sequence: event.piesequence,
+        reasonCode,
+        contentHash,
+        payloadSizeBytes
+      })
+      results.push({ id: event.id, status: 'permanent_rejected', code })
+    }
     const touchedSessions = new Set<string>()
     const finalizedTurns = new Set<string>()
     const projectedProvenance: { id: string; revision: number }[] = []
@@ -512,17 +556,24 @@ export async function ingestAgentEvents(
     for (const event of input.events) {
       // Anti-forgery: a batch cannot smuggle an event for another org (doc 19 :227-228).
       if (event.pieorgid !== input.organizationId) {
-        results.push({ id: event.id, status: 'permanent_rejected', code: 'ORG_MISMATCH' })
+        await rejectPermanently(event, 'ORG_MISMATCH', 'org_mismatch')
         continue
       }
       const session = await loadSession(event.data.context.agentSessionId)
       const code = rejectionCode(event, session)
       if (code !== null || session === null) {
-        results.push({
-          id: event.id,
-          status: 'permanent_rejected',
-          code: code ?? 'SESSION_NOT_FOUND'
-        })
+        const rejectionReason = code ?? 'SESSION_NOT_FOUND'
+        await rejectPermanently(
+          event,
+          rejectionReason,
+          QUARANTINE_REASON_BY_CODE[rejectionReason] ?? 'session_not_found'
+        )
+        continue
+      }
+      // OPS-001: an over-cap body is poison — reject + quarantine (metadata only) before it can be
+      // stored or projected, so the valid siblings still commit around it.
+      if (Buffer.byteLength(JSON.stringify(eventBody(event)), 'utf-8') > MAX_EVENT_PAYLOAD_BYTES) {
+        await rejectPermanently(event, 'PAYLOAD_OVERSIZED', 'oversized')
         continue
       }
       // A provenance-typed event must carry a well-formed provenance payload; a malformed one
@@ -531,11 +582,7 @@ export async function ingestAgentEvents(
       if (isProvenanceType(event.type)) {
         provenance = validatedProvenance(event)
         if (provenance === null) {
-          results.push({
-            id: event.id,
-            status: 'permanent_rejected',
-            code: 'PROVENANCE_INVALID'
-          })
+          await rejectPermanently(event, 'PROVENANCE_INVALID', 'provenance_invalid')
           continue
         }
       }
