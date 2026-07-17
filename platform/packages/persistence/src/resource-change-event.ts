@@ -35,6 +35,13 @@ export type ResourceChangeResourceType =
   // Unassigned-session intake queue (R5 slice 4b). Intake create + assign/reclassify/dismiss
   // invalidations ride the same transport so the queue updates live.
   | 'agent_session_intake'
+  // CRM / contract core (R6 slice 1). Additive to the same outbox → Worker → gateway path, so
+  // account/opportunity/contract/change-order invalidations ride the existing transport with no
+  // new worker/gateway code.
+  | 'crm_account'
+  | 'crm_opportunity'
+  | 'crm_contract'
+  | 'crm_change_order'
 
 export type ResourceChangeData = {
   eventId: string

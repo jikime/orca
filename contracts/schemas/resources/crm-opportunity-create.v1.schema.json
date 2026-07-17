@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/crm-opportunity-create.v1.schema.json",
+  "title": "Create CRM opportunity request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "amount": {
+      "type": ["number", "string"]
+    },
+    "probability": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "ownerUserId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "expectedCloseAt": {
+      "type": "string"
+    }
+  }
+}

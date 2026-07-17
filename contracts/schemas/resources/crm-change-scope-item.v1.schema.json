@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/crm-change-scope-item.v1.schema.json",
+  "title": "CRM change-order scope item (delta)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "serviceType", "description", "quantity", "rate", "sortKey", "changeKind"],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "serviceType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": ["string", "null"]
+    },
+    "quantity": {
+      "type": "string"
+    },
+    "rate": {
+      "type": "string"
+    },
+    "sortKey": {
+      "type": "integer"
+    },
+    "changeKind": {
+      "enum": ["add", "remove", "modify"]
+    }
+  }
+}

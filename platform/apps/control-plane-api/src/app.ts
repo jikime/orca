@@ -27,6 +27,8 @@ import { registerMessageSearchRoutes } from './message-search-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerDeliveryRoutes } from './delivery-routes'
 import { registerWorkItemRoutes } from './work-item-routes'
+import { registerCrmAccountRoutes } from './crm-account-routes'
+import { registerCrmContractRoutes } from './crm-contract-routes'
 import { registerInvitationRoutes } from './invitation-routes'
 import { registerRevocationRoutes } from './revocation-routes'
 import type { KeycloakTokenVerifier } from './keycloak-token-verifier'
@@ -177,6 +179,8 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerInvitationRoutes(app, { db: deps.db })
     registerDeliveryRoutes(app, { db: deps.db, registry: deps.registry })
     registerWorkItemRoutes(app, { db: deps.db, registry: deps.registry })
+    registerCrmAccountRoutes(app, { db: deps.db, registry: deps.registry })
+    registerCrmContractRoutes(app, { db: deps.db, registry: deps.registry })
     registerChannelRoutes(app, {
       db: deps.db,
       registry: deps.registry,
