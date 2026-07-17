@@ -5,6 +5,7 @@ import type {
 import { AGENT_EVENT_PROTOCOL_VERSION } from '../../shared/agent-event-batch-contract'
 import type { SignedExecutionContext } from '../../shared/execution-context-contract'
 import { AgentEventUploadError, type AgentEventUploadClient } from './agent-event-upload-client'
+import { resolveSubmissionNonce, type SubmissionNonceCache } from './agent-batch-submission-nonce'
 import type {
   AgentEventOutboxStore,
   ClaimedOutboxItem,
@@ -70,6 +71,10 @@ export type PumpOutcome =
   // R5 s2b: the current signed ExecutionContext has expired; the batch is held (nacked) until a
   // fresh launch re-signs a valid context. An expired binding is never sent stale (CAP-006).
   | { outcome: 'held_expired_context'; reclaimed: number }
+  // R5 s5: the current signed context's notBefore is in the future (not-yet-valid); the batch is
+  // held rather than sent. Shouldn't happen in practice, but asserted so a premature context is
+  // never sent within its future window.
+  | { outcome: 'held_premature_context'; reclaimed: number }
   | { outcome: 'replayed'; acked: number }
   | { outcome: 'error'; status: number | null; nacked: number }
   | { outcome: 'uploaded'; acked: number; dropped: number; nacked: number }
@@ -102,6 +107,9 @@ export type UploadPump = {
 }
 
 export function createUploadPump(deps: UploadPumpDeps): UploadPump {
+  // Per-batch anti-replay nonces, keyed to batchId so a retry reuses its nonce (retry-reuses-nonce).
+  const submissionNonces: SubmissionNonceCache = new Map()
+
   function nextVisible(items: ClaimedOutboxItem[], now: number): number {
     const attempt = items.reduce((max, item) => Math.max(max, item.attemptCount), 0)
     return now + computeBackoffMs(attempt, deps.backoffBaseMs, deps.backoffCapMs)
@@ -143,6 +151,13 @@ export function createUploadPump(deps: UploadPumpDeps): UploadPump {
     if (deps.executionContext) {
       const signed = deps.executionContext()
       if (signed) {
+        if (now < signed.context.notBefore) {
+          deps.store.nackBatch(
+            batch.map((item) => item.eventId),
+            nextVisible(batch, now)
+          )
+          return { outcome: 'held_premature_context', reclaimed: batch.length }
+        }
         if (now > signed.context.notAfter) {
           deps.store.nackBatch(
             batch.map((item) => item.eventId),
@@ -155,8 +170,14 @@ export function createUploadPump(deps: UploadPumpDeps): UploadPump {
     }
 
     const primaryStream = batch[0].streamId
+    const batchId = deps.newId()
+    // A signed-context batch carries a one-time-use nonce (anti-replay). Identity-only batches
+    // send neither, so the back-compat path is unchanged.
+    const submissionNonce = executionContext
+      ? resolveSubmissionNonce(batchId, submissionNonces, deps.newId)
+      : undefined
     const request: AgentEventBatchRequest = {
-      batchId: deps.newId(),
+      batchId,
       producerId: deps.producerId,
       protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
       events: batch.map((item) => item.envelope),
@@ -166,7 +187,8 @@ export function createUploadPump(deps: UploadPumpDeps): UploadPump {
         streamId: primaryStream,
         lastServerAck: deps.store.getCursor(primaryStream)
       },
-      ...(executionContext ? { executionContext } : {})
+      ...(executionContext ? { executionContext } : {}),
+      ...(submissionNonce ? { submissionNonce } : {})
     }
 
     let response: AgentEventBatchResponse

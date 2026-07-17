@@ -39,6 +39,9 @@
     },
     "executionContext": {
       "$ref": "https://schemas.pielab.ai/events/signed-execution-context.v1.schema.json"
+    },
+    "submissionNonce": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
     }
   }
 }

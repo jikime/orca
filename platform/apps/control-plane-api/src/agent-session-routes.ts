@@ -117,6 +117,8 @@ type BatchBody = {
   clientCheckpoint: { streamId: string; lastServerAck: number }
   // R5 s2b: optional signed ExecutionContext that binds the batch to one signed session.
   executionContext?: SignedExecutionContext
+  // R5 s5: optional per-batch one-time-use nonce (anti-replay), enforced only with a context.
+  submissionNonce?: string
 }
 
 function registerCreateSession(app: FastifyInstance, deps: AgentSessionRoutesDeps): void {
@@ -270,6 +272,7 @@ function registerBatchIngest(app: FastifyInstance, deps: AgentSessionRoutesDeps)
       // R5 s2b: the pie user id owns the installation key a signed context is verified against.
       ...(authz.userId ? { actorUserId: authz.userId } : {}),
       ...(body.executionContext ? { executionContext: body.executionContext } : {}),
+      ...(body.submissionNonce ? { submissionNonce: body.submissionNonce } : {}),
       receivedAt: new Date(),
       clientCheckpoint: body.clientCheckpoint,
       events: body.events

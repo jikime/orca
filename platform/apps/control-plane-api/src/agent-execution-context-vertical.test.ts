@@ -185,10 +185,11 @@ function ingest(
   events: Record<string, unknown>[],
   streamId: string,
   executionContext?: SignedExecutionContext,
-  org = orgId
+  org = orgId,
+  opts: { submissionNonce?: string; batchId?: string } = {}
 ): Promise<Response> {
   const body: Record<string, unknown> = {
-    batchId: randomUUID(),
+    batchId: opts.batchId ?? randomUUID(),
     producerId: randomUUID(),
     protocolVersion: '1.0',
     events,
@@ -196,6 +197,9 @@ function ingest(
   }
   if (executionContext) {
     body.executionContext = executionContext
+  }
+  if (opts.submissionNonce !== undefined) {
+    body.submissionNonce = opts.submissionNonce
   }
   return bearerFetch(token, `/v1/organizations/${org}/agent-events:batch`, {
     method: 'POST',
@@ -234,6 +238,29 @@ async function countRejectAudits(): Promise<number> {
       .selectFrom('audit.audit_events')
       .select((eb) => eb.fn.countAll<string>().as('c'))
       .where('action', '=', 'execution_context.rejected')
+      .executeTakeFirstOrThrow()
+  )
+  return Number(row.c)
+}
+
+async function countRejectAuditsByDigest(digest: string, org = orgId): Promise<number> {
+  const row = await withTenantTransaction(db, org, (trx) =>
+    trx
+      .selectFrom('audit.audit_events')
+      .select((eb) => eb.fn.countAll<string>().as('c'))
+      .where('action', '=', 'execution_context.rejected')
+      .where('after_digest', '=', digest)
+      .executeTakeFirstOrThrow()
+  )
+  return Number(row.c)
+}
+
+async function countSessionEvents(sessionId: string, org = orgId): Promise<number> {
+  const row = await withTenantTransaction(db, org, (trx) =>
+    trx
+      .selectFrom('execution.agent_events')
+      .select((eb) => eb.fn.countAll<string>().as('c'))
+      .where('agent_session_id', '=', sessionId)
       .executeTakeFirstOrThrow()
   )
   return Number(row.c)
@@ -344,64 +371,48 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     expect(binding.binding_workspace_path).toBe('/Users/dev/projects/orca')
   })
 
-  it('(c) EXIT CONDITION: native vs ssh at the SAME workspacePath → two DISTINCT bindings, never merged (doc 14 :834)', async (ctx) => {
+  it('(c) EXIT CONDITION: native vs WSL vs SSH at the SAME workspacePath → three DISTINCT bindings, never merged (doc 14 :834)', async (ctx) => {
     if (!harness) {
       return ctx.skip()
     }
     const kp = makeKeypair()
     expect((await registerKey('owner', kp)).status).toBe(201)
     const sharedPath = '/repos/acme/service'
-    const nativeHost = randomUUID()
-    const sshHost = randomUUID()
-    const sessionNative = await createSession('owner')
-    const sessionSsh = await createSession('owner')
-    const streamN = randomUUID()
-    const streamS = randomUUID()
-    // Same filesystem path, different host TYPE and host ID → two separate signed bindings.
-    const nativeCtx = signContext(kp, {
-      installationId: kp.installationId,
-      agentSessionId: sessionNative.id,
-      hostType: 'native',
-      hostId: nativeHost,
-      workspacePath: sharedPath
-    })
-    const sshCtx = signContext(kp, {
-      installationId: kp.installationId,
-      agentSessionId: sessionSsh.id,
-      hostType: 'ssh',
-      hostId: sshHost,
-      workspacePath: sharedPath
-    })
-    expect(
-      (
-        await ingest(
-          'owner',
-          [envelope({ sessionId: sessionNative.id, streamId: streamN, sequence: 1 })],
-          streamN,
-          nativeCtx
-        )
-      ).status
-    ).toBe(200)
-    expect(
-      (
-        await ingest(
-          'owner',
-          [envelope({ sessionId: sessionSsh.id, streamId: streamS, sequence: 1 })],
-          streamS,
-          sshCtx
-        )
-      ).status
-    ).toBe(200)
-    const nb = await readBinding(sessionNative.id)
-    const sb = await readBinding(sessionSsh.id)
-    // Distinct host bindings recorded; neither session was merged into or overwritten by the other.
-    expect(nb.binding_host_type).toBe('native')
-    expect(nb.binding_host_id).toBe(nativeHost)
-    expect(sb.binding_host_type).toBe('ssh')
-    expect(sb.binding_host_id).toBe(sshHost)
-    expect(nb.binding_workspace_path).toBe(sharedPath)
-    expect(sb.binding_workspace_path).toBe(sharedPath)
-    expect(sessionNative.id).not.toBe(sessionSsh.id)
+    // Same filesystem path across all three host TYPES + distinct host IDs → three separate bindings.
+    const hosts: { type: ExecutionContextHostType; hostId: string; session: { id: string } }[] = [
+      { type: 'native', hostId: randomUUID(), session: await createSession('owner') },
+      { type: 'wsl', hostId: randomUUID(), session: await createSession('owner') },
+      { type: 'ssh', hostId: randomUUID(), session: await createSession('owner') }
+    ]
+    for (const host of hosts) {
+      const streamId = randomUUID()
+      const signed = signContext(kp, {
+        installationId: kp.installationId,
+        agentSessionId: host.session.id,
+        hostType: host.type,
+        hostId: host.hostId,
+        workspacePath: sharedPath
+      })
+      expect(
+        (
+          await ingest(
+            'owner',
+            [envelope({ sessionId: host.session.id, streamId, sequence: 1 })],
+            streamId,
+            signed
+          )
+        ).status
+      ).toBe(200)
+    }
+    // Each session keeps its own host binding; none was merged into or overwritten by another.
+    for (const host of hosts) {
+      const binding = await readBinding(host.session.id)
+      expect(binding.binding_host_type).toBe(host.type)
+      expect(binding.binding_host_id).toBe(host.hostId)
+      expect(binding.binding_workspace_path).toBe(sharedPath)
+    }
+    const sessionIds = new Set(hosts.map((host) => host.session.id))
+    expect(sessionIds.size).toBe(3)
   })
 
   it('(d) an EXPIRED context is rejected 422 CONTEXT_EXPIRED + audited', async (ctx) => {
@@ -565,5 +576,185 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     const binding = await readBinding(session.id)
     expect(binding.binding_trust_domain).toBe('local_observed')
     expect(binding.binding_installation_id).toBeNull()
+  })
+
+  it('(j) a NOT-YET-VALID context (notBefore in the future) is rejected 422 CONTEXT_NOT_YET_VALID + audited', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const before = await countRejectAuditsByDigest('CONTEXT_NOT_YET_VALID')
+    const kp = makeKeypair()
+    expect((await registerKey('owner', kp)).status).toBe(201)
+    const session = await createSession('owner')
+    const streamId = randomUUID()
+    const premature = signContext(kp, {
+      installationId: kp.installationId,
+      agentSessionId: session.id,
+      notBefore: Date.now() + 120_000,
+      notAfter: Date.now() + 300_000
+    })
+    const res = await ingest(
+      'owner',
+      [envelope({ sessionId: session.id, streamId, sequence: 1 })],
+      streamId,
+      premature
+    )
+    expect(res.status).toBe(422)
+    expect((await jsonOf<{ code: string }>(res)).code).toBe('CONTEXT_NOT_YET_VALID')
+    expect(await countRejectAuditsByDigest('CONTEXT_NOT_YET_VALID')).toBeGreaterThan(before)
+    // No binding, no events under a not-yet-valid context.
+    expect((await readBinding(session.id)).binding_trust_domain).toBe('local_observed')
+    expect(await countSessionEvents(session.id)).toBe(0)
+  })
+
+  it('(k) SUBMISSION_REPLAYED: a consumed (installation, nonce) reused under a DIFFERENT batchId is rejected 422 + audited, its events NOT ingested', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const before = await countRejectAuditsByDigest('SUBMISSION_REPLAYED')
+    const kp = makeKeypair()
+    expect((await registerKey('owner', kp)).status).toBe(201)
+    const session = await createSession('owner')
+    const streamId = randomUUID()
+    const signed = signContext(kp, {
+      installationId: kp.installationId,
+      agentSessionId: session.id
+    })
+    const nonce = randomUUID()
+    // First submission consumes the nonce and ingests one event.
+    const first = await ingest(
+      'owner',
+      [envelope({ sessionId: session.id, streamId, sequence: 1 })],
+      streamId,
+      signed,
+      orgId,
+      { submissionNonce: nonce, batchId: randomUUID() }
+    )
+    expect(first.status).toBe(200)
+    expect(await countSessionEvents(session.id)).toBe(1)
+    // A DIFFERENT batch (new batchId + new event) reusing the SAME consumed nonce → replay.
+    const replay = await ingest(
+      'owner',
+      [envelope({ sessionId: session.id, streamId, sequence: 2 })],
+      streamId,
+      signed,
+      orgId,
+      { submissionNonce: nonce, batchId: randomUUID() }
+    )
+    expect(replay.status).toBe(422)
+    expect((await jsonOf<{ code: string }>(replay)).code).toBe('SUBMISSION_REPLAYED')
+    expect(await countRejectAuditsByDigest('SUBMISSION_REPLAYED')).toBeGreaterThan(before)
+    // The replay's event was NOT ingested (still just the first event).
+    expect(await countSessionEvents(session.id)).toBe(1)
+  })
+
+  it('(l) multi-batch reuse: the SAME context across TWO batches with FRESH nonces is accepted (per-launch credential still reusable)', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const kp = makeKeypair()
+    expect((await registerKey('owner', kp)).status).toBe(201)
+    const session = await createSession('owner')
+    const streamId = randomUUID()
+    const signed = signContext(kp, {
+      installationId: kp.installationId,
+      agentSessionId: session.id
+    })
+    const b1 = await ingest(
+      'owner',
+      [envelope({ sessionId: session.id, streamId, sequence: 1 })],
+      streamId,
+      signed,
+      orgId,
+      { submissionNonce: randomUUID(), batchId: randomUUID() }
+    )
+    const b2 = await ingest(
+      'owner',
+      [envelope({ sessionId: session.id, streamId, sequence: 2 })],
+      streamId,
+      signed,
+      orgId,
+      { submissionNonce: randomUUID(), batchId: randomUUID() }
+    )
+    expect(b1.status).toBe(200)
+    expect(b2.status).toBe(200)
+    // Both batches ingested — the signed context is reusable across batches, only the nonce is one-time.
+    expect(await countSessionEvents(session.id)).toBe(2)
+  })
+
+  it('(m) the SAME batchId + SAME nonce (idempotent retry) is NOT treated as a replay', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const kp = makeKeypair()
+    expect((await registerKey('owner', kp)).status).toBe(201)
+    const session = await createSession('owner')
+    const streamId = randomUUID()
+    const signed = signContext(kp, {
+      installationId: kp.installationId,
+      agentSessionId: session.id
+    })
+    const nonce = randomUUID()
+    const batchId = randomUUID()
+    const evt = envelope({ sessionId: session.id, streamId, sequence: 1 })
+    const first = await ingest('owner', [evt], streamId, signed, orgId, {
+      submissionNonce: nonce,
+      batchId
+    })
+    // A byte-identical retry of the SAME batch (same batchId, same nonce, same event) → idempotent.
+    const retry = await ingest('owner', [evt], streamId, signed, orgId, {
+      submissionNonce: nonce,
+      batchId
+    })
+    expect(first.status).toBe(200)
+    expect(retry.status).toBe(200)
+    // The event is stored once (event idempotency), never duplicated by the retry.
+    expect(await countSessionEvents(session.id)).toBe(1)
+  })
+
+  it('(n) cross-tenant nonce isolation: the SAME nonce value in org B does not collide with org A', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const sharedNonce = randomUUID()
+    const kpA = makeKeypair()
+    expect((await registerKey('owner', kpA)).status).toBe(201)
+    const sessionA = await createSession('owner')
+    const streamA = randomUUID()
+    const signedA = signContext(kpA, {
+      installationId: kpA.installationId,
+      agentSessionId: sessionA.id
+    })
+    expect(
+      (
+        await ingest(
+          'owner',
+          [envelope({ sessionId: sessionA.id, streamId: streamA, sequence: 1 })],
+          streamA,
+          signedA,
+          orgId,
+          { submissionNonce: sharedNonce, batchId: randomUUID() }
+        )
+      ).status
+    ).toBe(200)
+    // Org B consumes the SAME nonce value — RLS isolates the table, so it is fresh here, not a replay.
+    const kpB: Keypair = { ...makeKeypair(), installationId: kpA.installationId }
+    expect((await registerKey('otherowner', kpB, otherOrgId)).status).toBe(201)
+    const sessionB = await createSession('otherowner', otherOrgId)
+    const streamB = randomUUID()
+    const signedB = signContext(kpB, {
+      installationId: kpB.installationId,
+      agentSessionId: sessionB.id
+    })
+    const resB = await ingest(
+      'otherowner',
+      [envelope({ sessionId: sessionB.id, streamId: streamB, sequence: 1, pieorgid: otherOrgId })],
+      streamB,
+      signedB,
+      otherOrgId,
+      { submissionNonce: sharedNonce, batchId: randomUUID() }
+    )
+    expect(resB.status).toBe(200)
+    expect(await countSessionEvents(sessionB.id, otherOrgId)).toBe(1)
   })
 })

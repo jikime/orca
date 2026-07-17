@@ -265,6 +265,37 @@ describe('agent-event-upload-pump', () => {
     expect(request.executionContext).toEqual(ctx)
   })
 
+  it('R5 s5: a signed-context batch carries a fresh per-batch submission nonce', async () => {
+    seed(1)
+    upload.mockResolvedValue(response([{ id: 'evt-1', status: 'accepted' }], 1))
+    await pump({ executionContext: () => signedContext(NOW + 10_000) }).pumpOnce()
+    const request = upload.mock.calls[0]?.[1] as AgentEventBatchRequest
+    // Nonce is minted from the injected newId (deterministic), distinct from the batchId.
+    expect(request.submissionNonce).toBeDefined()
+    expect(request.submissionNonce).not.toBe(request.batchId)
+  })
+
+  it('R5 s5: an identity-only batch (no context) carries no submission nonce', async () => {
+    seed(1)
+    upload.mockResolvedValue(response([{ id: 'evt-1', status: 'accepted' }], 1))
+    await pump().pumpOnce()
+    const request = upload.mock.calls[0]?.[1] as AgentEventBatchRequest
+    expect(request.submissionNonce).toBeUndefined()
+  })
+
+  it('R5 s5: refuses to send a NOT-YET-VALID context, holding the batch', async () => {
+    seed(1)
+    // notBefore in the future relative to the injected clock (NOW).
+    const premature: SignedExecutionContext = {
+      ...signedContext(NOW + 100_000),
+      context: { ...signedContext(NOW + 100_000).context, notBefore: NOW + 10_000 }
+    }
+    const result = await pump({ executionContext: () => premature }).pumpOnce()
+    expect(result).toEqual({ outcome: 'held_premature_context', reclaimed: 1 })
+    expect(upload).not.toHaveBeenCalled()
+    expect(store.pendingCount()).toBe(1)
+  })
+
   it('R5 s2b: refuses to send an EXPIRED context, holding the batch for a re-signed launch', async () => {
     seed(1)
     const result = await pump({ executionContext: () => signedContext(NOW - 1) }).pumpOnce()

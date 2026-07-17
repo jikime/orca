@@ -23,6 +23,7 @@ import {
   verifyExecutionContextTx,
   type ExecutionContextRejectionCode
 } from './execution-context-verification'
+import { consumeBatchSubmissionNonceTx } from './batch-submission-nonce-store'
 import { withTenantTransaction } from './tenant-transaction'
 
 // R5 slice 1: Control-Plane agent-event ingest (doc 19 :203-236, doc 20 CAP-001..008).
@@ -80,6 +81,8 @@ export type IngestAgentEventsInput = {
   actorUserId?: string
   // R5 s2b: the optional signed ExecutionContext that binds this batch to one signed session.
   executionContext?: SignedExecutionContext
+  // R5 s5: the optional per-batch one-time-use nonce (anti-replay); enforced only with a context.
+  submissionNonce?: string
   // R5 s2b: server receive time (injected for determinism); defaults to now().
   receivedAt?: Date
   clientCheckpoint: { streamId: string; lastServerAck: number }
@@ -398,6 +401,31 @@ async function verifyAndBindContext(
       verified.code
     )
     return verified.code
+  }
+  // one-time-use: the context is authentic and in-window, so record the BATCH nonce (anti-replay).
+  // A consumed (installation, nonce) re-presented under a DIFFERENT batchId is a replay; the SAME
+  // batchId is a legit retry that proceeds (event idempotency dedups its events). The nonce rides
+  // the batch, not the signed context, so the canonical signed form is unchanged.
+  if (input.submissionNonce) {
+    const nonceOutcome = await consumeBatchSubmissionNonceTx(trx, {
+      organizationId: input.organizationId,
+      installationId: verified.binding.installationId,
+      submissionNonce: input.submissionNonce,
+      batchId: input.batchId,
+      notAfter: verified.binding.notAfter,
+      nowMs: receivedAt.getTime()
+    })
+    if (nonceOutcome === 'replayed') {
+      await auditExecutionContext(
+        trx,
+        input.organizationId,
+        actorId,
+        boundSessionId,
+        'execution_context.rejected',
+        'SUBMISSION_REPLAYED'
+      )
+      return 'SUBMISSION_REPLAYED'
+    }
   }
   // A present context names one session; bind it now (a missing session is fine — the per-event
   // loop rejects its events, and a re-bind to a different host identity is BINDING_HOST_MISMATCH).
