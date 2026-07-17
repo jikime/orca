@@ -117,7 +117,14 @@ export function composeTracking(args: ComposeTrackingArgs): AgentTrackingHandle 
   const quota = {
     limits: { maxRows: OUTBOX_MAX_ROWS, maxBytes: OUTBOX_MAX_BYTES },
     onAudit: (record: { reason: string }) =>
-      log('[pie-agent-tracking] enqueue audit', { reason: record.reason })
+      log('[pie-agent-tracking] enqueue audit', { reason: record.reason }),
+    // SYN-002: surface degradation stage changes (no payload content) so ops can see the outbox
+    // shed non-observed load before it fills the disk.
+    onStageTransition: (transition: { from: string; to: string }) =>
+      log('[pie-agent-tracking] outbox quota stage', {
+        from: transition.from,
+        to: transition.to
+      })
   }
 
   let pumping = false

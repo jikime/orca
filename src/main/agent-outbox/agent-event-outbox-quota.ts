@@ -1,11 +1,18 @@
 import type { AgentEventAssertion } from './agent-event-outbox-store'
+import {
+  computeQuotaStage,
+  DEFAULT_QUOTA_THRESHOLDS,
+  type QuotaStage,
+  type QuotaThresholds
+} from './agent-event-outbox-quota-stages'
 
-// Outbox quota policy (R5 s2). Bounds the durable outbox by total bytes and/or row count so a
-// long offline window cannot grow it without limit. The policy is pure and deterministic; the
-// store executes the decision. The invariant: an `observed` event (real evidence) is NEVER
-// silently lost — if it must be admitted over quota, an equal-or-lower-value older row is
-// dropped WITH an audit record. A non-observed (declared/inferred) new event is rejected at the
-// door when over quota rather than evicting evidence to fit it.
+// Outbox quota policy (R5 s2, hardened for SYN-002). Bounds the durable outbox by total bytes
+// and/or row count so a long offline window cannot fill the disk. The policy is pure and
+// deterministic (no clock); the store executes the decision. Core invariant: an `observed` event is
+// real evidence and is NEVER silently dropped. Eviction may reclaim space ONLY from lower-value
+// (declared/verified) rows — an `observed` row is never evicted to admit another event. If the cap
+// can only be met by dropping an `observed` row, we do NOT: the store rejects the new enqueue and
+// records the pressure (audit + a durable marker), so nothing observed is lost unrecorded.
 
 export type QuotaLimits = {
   maxRows: number
@@ -22,28 +29,60 @@ export type QuotaIncoming = {
   assertion: AgentEventAssertion
 }
 
-export type QuotaDecision =
-  | { kind: 'admit' }
-  | { kind: 'reject'; reason: 'over_quota_low_priority' }
-  | { kind: 'admit_evicting'; reason: 'over_quota_observed' }
-
-function wouldExceed(state: QuotaState, incoming: QuotaIncoming, limits: QuotaLimits): boolean {
-  return state.rowCount + 1 > limits.maxRows || state.byteSize + incoming.byteSize > limits.maxBytes
+export type QuotaConfig = {
+  limits: QuotaLimits
+  thresholds?: QuotaThresholds
 }
 
-export function evaluateEnqueue(
+// Value ordering: `observed` is the protected tier; everything else is lower value and may be
+// degraded (payload stripped) or rejected under pressure to keep room for evidence.
+function isObserved(assertion: AgentEventAssertion): boolean {
+  return assertion === 'observed'
+}
+
+export type QuotaAction =
+  | { kind: 'admit'; stage: QuotaStage }
+  | { kind: 'admit_metadata_only'; stage: QuotaStage; reason: 'degrade_non_observed' }
+  | { kind: 'admit_evicting'; stage: QuotaStage; reason: 'over_quota_observed' }
+  | { kind: 'reject'; stage: QuotaStage; reason: 'over_quota_low_priority' | 'paused_non_observed' }
+
+function fitsUnderCap(state: QuotaState, incomingBytes: number, limits: QuotaLimits): boolean {
+  return state.rowCount + 1 <= limits.maxRows && state.byteSize + incomingBytes <= limits.maxBytes
+}
+
+/**
+ * Pure staged-degradation decision for one incoming event. Returns the current stage plus the
+ * admission action. Observed events are protected (admitted, evicting only lower-value rows if
+ * over cap — never dropping evidence). Non-observed events degrade to metadata-only at the degrade
+ * stage and are rejected-with-record once paused, so the queue keeps headroom for evidence.
+ */
+export function decideQuotaAction(
   state: QuotaState,
   incoming: QuotaIncoming,
-  limits: QuotaLimits
-): QuotaDecision {
-  if (!wouldExceed(state, incoming, limits)) {
-    return { kind: 'admit' }
+  config: QuotaConfig
+): QuotaAction {
+  const thresholds = config.thresholds ?? DEFAULT_QUOTA_THRESHOLDS
+  const stage = computeQuotaStage(state, config.limits, thresholds)
+  const fits = fitsUnderCap(state, incoming.byteSize, config.limits)
+
+  if (isObserved(incoming.assertion)) {
+    // Evidence: admit when it fits; otherwise reclaim space from lower-value rows only. The store
+    // rejects-with-record if no lower-value row can free enough — it never evicts an observed row.
+    return fits
+      ? { kind: 'admit', stage }
+      : { kind: 'admit_evicting', stage, reason: 'over_quota_observed' }
   }
-  // Over quota. Observed events are evidence and must survive: admit and evict the oldest to
-  // make room (the eviction is audited by the store). Lower-priority events are rejected so we
-  // never discard evidence to keep a declared/inferred event.
-  if (incoming.assertion === 'observed') {
-    return { kind: 'admit_evicting', reason: 'over_quota_observed' }
+
+  // Non-observed (declared/verified): protect evidence headroom under pressure.
+  if (stage === 'paused') {
+    return { kind: 'reject', stage, reason: 'paused_non_observed' }
   }
-  return { kind: 'reject', reason: 'over_quota_low_priority' }
+  if (stage === 'degraded') {
+    // Strip the payload body (keep envelope + contentHash) so the queue accepts more before full.
+    return { kind: 'admit_metadata_only', stage, reason: 'degrade_non_observed' }
+  }
+  if (!fits) {
+    return { kind: 'reject', stage, reason: 'over_quota_low_priority' }
+  }
+  return { kind: 'admit', stage }
 }
