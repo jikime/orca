@@ -153,12 +153,18 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
     }
   }
 
-  function dropSocketAndReconnect(reason: string): void {
+  // Null the ref before closing so the onClose handler cannot re-enter reconnect
+  // logic against a socket we are deliberately tearing down.
+  function detachSocket(): void {
     if (socket) {
       const closing = socket
       socket = null
       closing.close()
     }
+  }
+
+  function dropSocketAndReconnect(reason: string): void {
+    detachSocket()
     connectionId = null
     scheduleReconnect(reason)
   }
@@ -258,14 +264,16 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
         setStatus({ state: 'revoked', reason: message.reason })
         options.onSessionRevoked?.(message.reason)
         clearTimers()
-        socket?.close()
-        socket = null
+        detachSocket()
         break
       case 'connection.closing':
         if (message.reconnect) {
           dropSocketAndReconnect('server-closing')
         } else {
-          stop()
+          // Why: bare `stop()` is not in lexical scope (stop is only a method on
+          // the returned object) — call the local closer to avoid a ReferenceError
+          // that would crash Main on a non-reconnect close frame.
+          stopConnection()
         }
         break
       case 'presence.changed':
@@ -314,6 +322,16 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
     )
   }
 
+  // Local closer shared by the public stop() and the non-reconnect
+  // connection.closing frame, so both stop paths run identical teardown.
+  function stopConnection(): void {
+    stopped = true
+    clearTimers()
+    detachSocket()
+    connectionId = null
+    setStatus({ state: 'stopped' })
+  }
+
   return {
     start: () => {
       if (options.isDisabled?.()) {
@@ -326,17 +344,7 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
       attempt = 0
       connect()
     },
-    stop: () => {
-      stopped = true
-      clearTimers()
-      if (socket) {
-        const closing = socket
-        socket = null
-        closing.close()
-      }
-      connectionId = null
-      setStatus({ state: 'stopped' })
-    },
+    stop: stopConnection,
     getStatus: () => status
   }
 }

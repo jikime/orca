@@ -197,6 +197,26 @@ describe('createRealtimeConnection', () => {
     await waitUntil(() => server!.connectionCount() >= 2)
   })
 
+  it('stops without reconnecting on connection.closing with reconnect=false', async () => {
+    // Regression: this frame used to call a bare `stop()` that was not in scope,
+    // throwing a ReferenceError that crashed Main. It must reach 'stopped'.
+    server = await startMockServer((_socket, send) => {
+      send(welcome())
+      send({
+        type: 'connection.closing',
+        schemaVersion: 1,
+        code: 'server_shutdown',
+        reason: 'restart',
+        reconnect: false
+      })
+    })
+    connect()
+    await waitUntil(() => connection!.getStatus().state === 'stopped')
+    await delay(80)
+    // No reconnect after a non-reconnect close.
+    expect(server!.connectionCount()).toBe(1)
+  })
+
   it('never dispatches an invalid message and reconnects instead', async () => {
     server = await startMockServer((_socket, send) => {
       send(welcome())
