@@ -512,7 +512,10 @@ const api = {
   pie: {
     session: createPieSessionPreloadApi(ipcRenderer),
     runtime: createPieRuntimePreloadApi(ipcRenderer),
-    chat: createPieChatPreloadApi(ipcRenderer)
+    chat: createPieChatPreloadApi(ipcRenderer),
+    auth: {
+      beginLogin: (): Promise<void> => ipcRenderer.invoke('pie:auth:begin-login')
+    }
   },
 
   orcaProfiles: {
