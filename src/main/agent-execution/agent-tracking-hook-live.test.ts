@@ -132,6 +132,7 @@ function makeDeps(overrides: Partial<StartAgentTrackingDeps> = {}): {
     getUserDataPath: () => '/tmp/orca-agent-tracking-hooklive-test',
     scanTranscripts: vi.fn(async () => [] as NormalizedTranscriptRecord[]),
     subscribeAgentHookEvents: source.subscribe,
+    getLocalOsUser: () => 'dev',
     clock: () => 1_000,
     newId: () => `id-${idSeq++}`,
     scheduleInterval: vi.fn((_fn: () => void, _ms: number) => ({ clear: vi.fn() })),
@@ -190,6 +191,7 @@ describe('agent-tracking live hook producer', () => {
     expect(request.executionContext?.context.launchId).toBe('launch-1')
     expect(request.executionContext?.context.agentSessionId).toBe('sess-1')
     expect(request.executionContext?.context.workspacePath).toBe('wt-1')
+    expect(request.executionContext?.context.osUser).toBe('dev') // native → local os user (IDN-008)
   })
 
   it('stays identity-only when there is no live launch to bind', async () => {

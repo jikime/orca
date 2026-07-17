@@ -100,6 +100,8 @@ type ContextOverrides = {
   hostType?: ExecutionContextHostType
   hostId?: string
   workspacePath?: string
+  osUser?: string
+  provider?: string
   notBefore?: number
   notAfter?: number
 }
@@ -117,9 +119,10 @@ function signContext(
     hostType: o.hostType ?? 'native',
     hostId: o.hostId ?? randomUUID(),
     workspacePath: o.workspacePath ?? '/Users/dev/projects/orca',
+    osUser: o.osUser ?? 'dev',
     launchId: randomUUID(),
     agentSessionId: o.agentSessionId,
-    provider: 'claude_code',
+    provider: o.provider ?? 'claude_code',
     notBefore: o.notBefore ?? now - 60_000,
     notAfter: o.notAfter ?? now + 300_000
   }
@@ -214,6 +217,8 @@ type SessionBinding = {
   binding_host_type: string | null
   binding_host_id: string | null
   binding_workspace_path: string | null
+  binding_os_user: string | null
+  binding_provider: string | null
 }
 
 async function readBinding(sessionId: string): Promise<SessionBinding> {
@@ -225,7 +230,9 @@ async function readBinding(sessionId: string): Promise<SessionBinding> {
         'binding_installation_id',
         'binding_host_type',
         'binding_host_id',
-        'binding_workspace_path'
+        'binding_workspace_path',
+        'binding_os_user',
+        'binding_provider'
       ])
       .where('id', '=', sessionId)
       .executeTakeFirstOrThrow()
@@ -369,6 +376,9 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     expect(binding.binding_host_type).toBe('native')
     expect(binding.binding_installation_id).toBe(kp.installationId)
     expect(binding.binding_workspace_path).toBe('/Users/dev/projects/orca')
+    // IDN-008 + BND-002: the binding row persists the OS user and the provider.
+    expect(binding.binding_os_user).toBe('dev')
+    expect(binding.binding_provider).toBe('claude_code')
   })
 
   it('(c) EXIT CONDITION: native vs WSL vs SSH at the SAME workspacePath → three DISTINCT bindings, never merged (doc 14 :834)', async (ctx) => {
@@ -756,5 +766,124 @@ describe('signed execution context + session binding vertical (R5 s2b)', () => {
     )
     expect(resB.status).toBe(200)
     expect(await countSessionEvents(sessionB.id, otherOrgId)).toBe(1)
+  })
+
+  it('(o) IDN-008: two OS users on the SAME host+path → two DISTINCT bindings; re-bind one to a different osUser → BINDING_HOST_MISMATCH', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const kp = makeKeypair()
+    expect((await registerKey('owner', kp)).status).toBe(201)
+    const sharedHostId = randomUUID()
+    const sharedPath = '/srv/build/repo'
+    // Same installation + host TYPE + host ID + path, differing ONLY in osUser → two sessions bind
+    // distinctly (the shared-host gap: without osUser these would produce an identical binding).
+    const users: { osUser: string; session: { id: string } }[] = [
+      { osUser: 'alice', session: await createSession('owner') },
+      { osUser: 'bob', session: await createSession('owner') }
+    ]
+    for (const u of users) {
+      const streamId = randomUUID()
+      const signed = signContext(kp, {
+        installationId: kp.installationId,
+        agentSessionId: u.session.id,
+        hostType: 'native',
+        hostId: sharedHostId,
+        workspacePath: sharedPath,
+        osUser: u.osUser
+      })
+      expect(
+        (
+          await ingest(
+            'owner',
+            [envelope({ sessionId: u.session.id, streamId, sequence: 1 })],
+            streamId,
+            signed
+          )
+        ).status
+      ).toBe(200)
+    }
+    for (const u of users) {
+      const binding = await readBinding(u.session.id)
+      expect(binding.binding_os_user).toBe(u.osUser)
+      expect(binding.binding_host_id).toBe(sharedHostId)
+      expect(binding.binding_workspace_path).toBe(sharedPath)
+    }
+    // Re-bind alice's session to a DIFFERENT osUser at the same host+path → refused.
+    const s2 = randomUUID()
+    const conflicting = signContext(kp, {
+      installationId: kp.installationId,
+      agentSessionId: users[0].session.id,
+      hostType: 'native',
+      hostId: sharedHostId,
+      workspacePath: sharedPath,
+      osUser: 'mallory'
+    })
+    const res = await ingest(
+      'owner',
+      [envelope({ sessionId: users[0].session.id, streamId: s2, sequence: 2 })],
+      s2,
+      conflicting
+    )
+    expect(res.status).toBe(422)
+    expect((await jsonOf<{ code: string }>(res)).code).toBe('BINDING_HOST_MISMATCH')
+  })
+
+  it('(p) BND-002: same session-string under DIFFERENT providers → distinct bindings; re-bind to a different provider → BINDING_HOST_MISMATCH', async (ctx) => {
+    if (!harness) {
+      return ctx.skip()
+    }
+    const kp = makeKeypair()
+    expect((await registerKey('owner', kp)).status).toBe(201)
+    const sharedHostId = randomUUID()
+    const sharedPath = '/repos/acme/api'
+    // Two launches with the SAME provider-session-string but DIFFERENT providers must not collide.
+    const providers: { provider: string; session: { id: string } }[] = [
+      { provider: 'claude_code', session: await createSession('owner') },
+      { provider: 'codex', session: await createSession('owner') }
+    ]
+    for (const p of providers) {
+      const streamId = randomUUID()
+      const signed = signContext(kp, {
+        installationId: kp.installationId,
+        agentSessionId: p.session.id,
+        hostType: 'native',
+        hostId: sharedHostId,
+        workspacePath: sharedPath,
+        provider: p.provider
+      })
+      expect(
+        (
+          await ingest(
+            'owner',
+            [envelope({ sessionId: p.session.id, streamId, sequence: 1 })],
+            streamId,
+            signed
+          )
+        ).status
+      ).toBe(200)
+    }
+    for (const p of providers) {
+      const binding = await readBinding(p.session.id)
+      expect(binding.binding_provider).toBe(p.provider)
+    }
+    // Re-bind the first session to a DIFFERENT provider → refused.
+    const s2 = randomUUID()
+    const conflicting = signContext(kp, {
+      installationId: kp.installationId,
+      agentSessionId: providers[0].session.id,
+      hostType: 'native',
+      hostId: sharedHostId,
+      workspacePath: sharedPath,
+      provider: 'gemini'
+    })
+    const res = await ingest(
+      'owner',
+      [envelope({ sessionId: providers[0].session.id, streamId: s2, sequence: 2 })],
+      s2,
+      conflicting
+    )
+    expect(res.status).toBe(422)
+    expect((await jsonOf<{ code: string }>(res)).code).toBe('BINDING_HOST_MISMATCH')
   })
 })

@@ -15,6 +15,8 @@ export type ExecutionContext = {
   hostType: ExecutionContextHostType
   hostId: string
   workspacePath: string
+  // OS account the agent runs as; osUser-disambiguates-shared-host (IDN-008). Remote for SSH.
+  osUser: string
   launchId: string
   agentSessionId: string
   provider: string
@@ -39,6 +41,7 @@ export function canonicalizeExecutionContext(context: ExecutionContext): string 
     `"hostType":${JSON.stringify(context.hostType)}`,
     `"hostId":${JSON.stringify(context.hostId)}`,
     `"workspacePath":${JSON.stringify(context.workspacePath)}`,
+    `"osUser":${JSON.stringify(context.osUser)}`,
     `"launchId":${JSON.stringify(context.launchId)}`,
     `"agentSessionId":${JSON.stringify(context.agentSessionId)}`,
     `"provider":${JSON.stringify(context.provider)}`,
@@ -90,6 +93,7 @@ export function parseSignedExecutionContext(value: unknown): SignedExecutionCont
     !HOST_TYPES.includes(context.hostType as ExecutionContextHostType) ||
     !isNonEmptyString(context.hostId) ||
     !isNonEmptyString(context.workspacePath) ||
+    !isNonEmptyString(context.osUser) ||
     !isNonEmptyString(context.launchId) ||
     !isNonEmptyString(context.agentSessionId) ||
     !isNonEmptyString(context.provider) ||
@@ -105,6 +109,7 @@ export function parseSignedExecutionContext(value: unknown): SignedExecutionCont
       hostType: context.hostType as ExecutionContextHostType,
       hostId: context.hostId,
       workspacePath: context.workspacePath,
+      osUser: context.osUser,
       launchId: context.launchId,
       agentSessionId: context.agentSessionId,
       provider: context.provider,

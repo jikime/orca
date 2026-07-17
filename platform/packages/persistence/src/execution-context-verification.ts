@@ -32,6 +32,10 @@ export type VerifiedBinding = {
   hostType: ExecutionContextHostType
   hostId: string
   workspacePath: string
+  // osUser-disambiguates-shared-host (IDN-008) + provider-in-binding (BND-002): both are part of the
+  // binding identity tuple, so two contexts differing only in osUser (or provider) bind distinctly.
+  osUser: string
+  provider: string
   notAfter: Date
   publicKeyId: string
 }
@@ -106,6 +110,8 @@ export async function verifyExecutionContextTx(
       hostType: context.hostType,
       hostId: context.hostId,
       workspacePath: context.workspacePath,
+      osUser: context.osUser,
+      provider: context.provider,
       notAfter: new Date(context.notAfter),
       publicKeyId: key.public_key_id
     }
@@ -113,10 +119,13 @@ export async function verifyExecutionContextTx(
 }
 
 /**
- * Records the verified SessionBinding on the session. If the session already carries a binding to a
- * DIFFERENT host identity (installation/host_type/host_id/workspace) it is a conflict — the caller
- * maps it to BINDING_HOST_MISMATCH (one session must not be silently re-bound to another host).
- * Re-applying the SAME binding is idempotent. Returns {conflict:true} without mutating on conflict.
+ * Records the verified SessionBinding on the session. The binding IDENTITY is the tuple
+ * (installation, host_type, host_id, os_user, workspace_path, provider): if the session already
+ * carries a binding to a DIFFERENT tuple it is a conflict — the caller maps it to
+ * BINDING_HOST_MISMATCH (one session must not be silently re-bound to another host/user/provider).
+ * osUser distinguishes two OS users on one shared host at the same path (IDN-008); provider
+ * distinguishes same-session-string launches across providers (BND-002). Re-applying the SAME tuple
+ * is idempotent. Returns {conflict:true} without mutating on conflict.
  */
 export async function applySessionBindingTx(
   trx: Transaction<Database>,
@@ -130,7 +139,9 @@ export async function applySessionBindingTx(
       'binding_installation_id',
       'binding_host_type',
       'binding_host_id',
-      'binding_workspace_path'
+      'binding_workspace_path',
+      'binding_os_user',
+      'binding_provider'
     ])
     .where('id', '=', sessionId)
     .executeTakeFirst()
@@ -142,13 +153,17 @@ export async function applySessionBindingTx(
     current.binding_installation_id !== null ||
     current.binding_host_type !== null ||
     current.binding_host_id !== null ||
-    current.binding_workspace_path !== null
+    current.binding_workspace_path !== null ||
+    current.binding_os_user !== null ||
+    current.binding_provider !== null
   if (
     alreadyBound &&
     (current.binding_installation_id !== binding.installationId ||
       current.binding_host_type !== binding.hostType ||
       current.binding_host_id !== binding.hostId ||
-      current.binding_workspace_path !== binding.workspacePath)
+      current.binding_workspace_path !== binding.workspacePath ||
+      current.binding_os_user !== binding.osUser ||
+      current.binding_provider !== binding.provider)
   ) {
     return { conflict: true }
   }
@@ -160,6 +175,8 @@ export async function applySessionBindingTx(
       binding_host_type: binding.hostType,
       binding_host_id: binding.hostId,
       binding_workspace_path: binding.workspacePath,
+      binding_os_user: binding.osUser,
+      binding_provider: binding.provider,
       binding_not_after: binding.notAfter
     })
     .where('id', '=', sessionId)

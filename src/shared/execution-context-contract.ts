@@ -29,6 +29,9 @@ export const ExecutionContextSchema = z
     hostId: z.string().min(1),
     // Normalized per-host at the client seam BEFORE it enters the context (no `/` assumption).
     workspacePath: z.string().min(1),
+    // The OS account the agent runs as. osUser-disambiguates-shared-host: two OS users on the SAME
+    // SSH/build host at the SAME path are DISTINCT bindings (IDN-008). Remote for an SSH launch.
+    osUser: z.string().min(1),
     launchId: z.string().min(1),
     agentSessionId: z.string().min(1),
     provider: z.string().min(1),
@@ -65,6 +68,7 @@ export function canonicalizeExecutionContext(context: ExecutionContext): string 
     `"hostType":${JSON.stringify(context.hostType)}`,
     `"hostId":${JSON.stringify(context.hostId)}`,
     `"workspacePath":${JSON.stringify(context.workspacePath)}`,
+    `"osUser":${JSON.stringify(context.osUser)}`,
     `"launchId":${JSON.stringify(context.launchId)}`,
     `"agentSessionId":${JSON.stringify(context.agentSessionId)}`,
     `"provider":${JSON.stringify(context.provider)}`,

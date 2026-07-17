@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { userInfo } from 'node:os'
 import { AgentEventOutboxStore } from '../agent-outbox/agent-event-outbox-store'
 import { probeSqlite } from '../agent-outbox/agent-event-outbox-sqlite-guard'
 import {
@@ -134,7 +135,10 @@ function startHookProducer(
   const registry = createActiveLaunchRegistry({
     clock,
     ttlMs: config.contextTtlMs,
-    resolveWorkspacePath: deps.resolveLaunchWorkspacePath
+    resolveWorkspacePath: deps.resolveLaunchWorkspacePath,
+    // Native launches bind to THIS host's OS user; an SSH launch resolves the remote user (IDN-008).
+    localOsUser: (deps.getLocalOsUser ?? (() => userInfo().username))(),
+    resolveOsUser: deps.resolveLaunchOsUser
   })
   tap.start(subscribe)
   registry.start(subscribe)

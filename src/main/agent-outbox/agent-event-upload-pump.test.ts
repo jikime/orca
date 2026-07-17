@@ -293,6 +293,7 @@ describe('agent-event-upload-pump', () => {
       hostType: 'native',
       hostId: 'host-1',
       workspacePath: '/w',
+      osUser: 'dev',
       launchId: 'launch-1',
       agentSessionId: 'session-1',
       provider: 'claude_code',

@@ -26,6 +26,8 @@ export type ActiveLaunch = {
   hostType: ExecutionContextHostType
   hostId: string
   workspacePath: string
+  // OS account the agent runs as; local for native, the REMOTE user for an SSH launch (IDN-008).
+  osUser: string
   launchId: string
   agentSessionId: string
   provider: string
@@ -59,6 +61,11 @@ export type StartAgentTrackingDeps = {
   subscribeAgentHookEvents?: AgentHookEventSubscribe
   // Optional real-path resolver for the launch registry (default uses the hook's worktreeId).
   resolveLaunchWorkspacePath?: (input: LaunchResolveInput) => string | null
+  // The local OS user (default os.userInfo().username); injected for deterministic tests.
+  getLocalOsUser?: () => string
+  // Optional remote-user resolver for SSH launches (default: remote launch stays unbindable so it is
+  // never signed as the local desktop user — IDN-008).
+  resolveLaunchOsUser?: (input: LaunchResolveInput) => string | null
   // Deterministic seams.
   clock?: () => number
   newId?: () => string

@@ -640,6 +640,10 @@ export interface AgentSessionsTable {
   binding_host_type: string | null
   binding_host_id: string | null
   binding_workspace_path: string | null
+  // R5 audit: osUser-disambiguates-shared-host (IDN-008) + provider-in-binding (BND-002). Part of the
+  // binding identity tuple compared for BINDING_HOST_MISMATCH; null on pre-audit / identity-only rows.
+  binding_os_user: string | null
+  binding_provider: string | null
   binding_not_after: NullableTimestampColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn

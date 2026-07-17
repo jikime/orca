@@ -29,6 +29,7 @@ const base = {
   hostType: 'native' as const,
   hostId: 'host-1',
   workspacePath: '/Users/dev/projects/orca',
+  osUser: 'dev',
   launchId: 'launch-1',
   agentSessionId: 'session-1',
   provider: 'claude_code',
