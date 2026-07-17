@@ -80,7 +80,10 @@ export function mapAgentSession(row: AgentSessionRow): AgentSession {
 export async function emitAgentExecutionChange(
   trx: Transaction<Database>,
   organizationId: string,
-  resourceType: Extract<ResourceChangeResourceType, 'agent_session' | 'agent_event' | 'agent_turn'>,
+  resourceType: Extract<
+    ResourceChangeResourceType,
+    'agent_session' | 'agent_event' | 'agent_turn' | 'agent_provenance'
+  >,
   resourceId: string,
   version: number,
   changeKind: ResourceChangeKind

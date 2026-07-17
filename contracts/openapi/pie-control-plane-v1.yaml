@@ -1426,6 +1426,44 @@ paths:
                 $ref: ../schemas/resources/agent-session-timeline.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/agent-sessions/{sessionId}/provenance:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [AgentIngest]
+      operationId: getAgentSessionProvenance
+      description: >-
+        The session's provenance evidence — commits, PRs/MRs, test/build results,
+        artifacts, file changes — newest-first, cursor-paged (doc 19 :265-271, R5 s4a).
+        Declared claims are flagged verifiedEvidence=false, never surfaced as verified
+        results (CAP-005). agent_session.read.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: The session provenance page.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/agent-session-provenance.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/artifacts/upload-intents:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'

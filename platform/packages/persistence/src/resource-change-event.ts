@@ -29,6 +29,9 @@ export type ResourceChangeResourceType =
   // path — event-batch ingest and turn finalization ride the existing transport unchanged.
   | 'agent_event'
   | 'agent_turn'
+  // Provenance projection (R5 slice 4a). Commit/PR-MR/test/build/artifact/file-change
+  // evidence invalidations ride the same transport unchanged.
+  | 'agent_provenance'
 
 export type ResourceChangeData = {
   eventId: string

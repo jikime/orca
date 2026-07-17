@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/agent-session-provenance.v1.schema.json",
+  "title": "Agent session provenance",
+  "description": "A session's provenance evidence — commits, PRs/MRs, test/build results, artifacts, file changes — newest-first and cursor-paged (doc 19 :265-271, R5 s4a). Declared claims are included but flagged verifiedEvidence=false so a caller can separate them from verified/observed evidence.",
+  "type": "object",
+  "required": ["session", "items", "nextCursor"],
+  "additionalProperties": false,
+  "properties": {
+    "session": { "$ref": "https://schemas.pielab.ai/resources/agent-session.v1.schema.json" },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/agent-provenance.v1.schema.json" }
+    },
+    "nextCursor": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 512 }, { "type": "null" }]
+    }
+  }
+}

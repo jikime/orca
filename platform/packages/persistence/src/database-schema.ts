@@ -688,6 +688,43 @@ export interface AgentTurnsTable {
   updated_at: TimestampColumn
 }
 
+// The queryable provenance projection (doc 19 :265-271, R5 s4a). One row is derived from
+// exactly one append-only agent_events row (source_event_id). trust_domain keeps `declared`
+// claims separate from `local_observed`/`server_verified` evidence; pie_app gets INSERT +
+// SELECT only (immutable evidence — a correction is a new revision row).
+export interface AgentProvenanceTable {
+  organization_id: string
+  id: Generated<string>
+  source_event_id: string
+  agent_session_id: string
+  agent_run_id: string | null
+  kind: string
+  trust_domain: string
+  provider: string | null
+  repository: string | null
+  source_revision: string | null
+  commit_sha: string | null
+  change_request_ref: string | null
+  change_request_url: string | null
+  change_request_state: string | null
+  source_branch: string | null
+  target_branch: string | null
+  command: string | null
+  exec_environment: string | null
+  exit_code: number | null
+  result_parser_version: string | null
+  file_path: string | null
+  change_type: string | null
+  artifact_id: string | null
+  content_hash: string | null
+  work_item_id: string | null
+  revision: Generated<number>
+  corrects_provenance_id: string | null
+  occurred_at: TimestampColumn
+  received_at: TimestampColumn
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -744,4 +781,5 @@ export interface Database {
   'execution.agent_sessions': AgentSessionsTable
   'execution.agent_events': AgentEventsTable
   'execution.agent_turns': AgentTurnsTable
+  'execution.agent_provenance': AgentProvenanceTable
 }

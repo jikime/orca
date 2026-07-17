@@ -1,6 +1,7 @@
 import {
   createAgentSession,
   ingestAgentEvents,
+  listSessionProvenance,
   listSessionTimeline,
   type AgentEventEnvelope,
   type AgentProvider,
@@ -21,6 +22,8 @@ const AGENT_SESSION_CREATE_SCHEMA_ID =
   'https://schemas.pielab.ai/resources/agent-session-create.v1.schema.json'
 const AGENT_SESSION_TIMELINE_SCHEMA_ID =
   'https://schemas.pielab.ai/resources/agent-session-timeline.v1.schema.json'
+const AGENT_SESSION_PROVENANCE_SCHEMA_ID =
+  'https://schemas.pielab.ai/resources/agent-session-provenance.v1.schema.json'
 const AGENT_EVENT_BATCH_REQUEST_SCHEMA_ID =
   'https://schemas.pielab.ai/events/agent-event-batch-request.v1.schema.json'
 const AGENT_EVENT_BATCH_RESPONSE_SCHEMA_ID =
@@ -254,6 +257,8 @@ function registerBatchIngest(app: FastifyInstance, deps: AgentSessionRoutesDeps)
       organizationId,
       batchId: body.batchId,
       producerId: body.producerId,
+      // The authenticated principal is the audit actor for any projected provenance.
+      actorId: principal.subject,
       clientCheckpoint: body.clientCheckpoint,
       events: body.events
     }
@@ -315,11 +320,61 @@ function registerTimeline(app: FastifyInstance, deps: AgentSessionRoutesDeps): v
   )
 }
 
+function registerProvenance(app: FastifyInstance, deps: AgentSessionRoutesDeps): void {
+  // The session's provenance evidence (commits, PRs/MRs, test/build, artifacts, file changes)
+  // with its trust domain, cursor-paged. agent_session.read gate — declared claims are returned
+  // flagged verifiedEvidence=false so a caller never mistakes a claim for a verified result.
+  app.get(
+    '/v1/organizations/:organizationId/agent-sessions/:sessionId/provenance',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) {
+        return reply
+      }
+      const { organizationId, sessionId } = request.params as {
+        organizationId: string
+        sessionId: string
+      }
+      if (!UUID_PATTERN.test(organizationId) || !UUID_PATTERN.test(sessionId)) {
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      }
+      const authz = await authorizeOrgPermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        'agent_session.read'
+      )
+      if (!authz) {
+        return reply
+      }
+      const query = request.query as { cursor?: string; limit?: string }
+      const limit = query.limit ? Number(query.limit) : undefined
+      const provenance = await listSessionProvenance(deps.db, organizationId, sessionId, {
+        ...(query.cursor ? { cursor: query.cursor } : {}),
+        ...(limit !== undefined && Number.isFinite(limit) ? { limit } : {})
+      })
+      if (!provenance) {
+        return problem(reply, request, 404, 'NOT_FOUND', 'agent session not found')
+      }
+      const wire = {
+        session: sessionToWire(provenance.session),
+        items: provenance.items,
+        nextCursor: provenance.nextCursor
+      }
+      assertResponse(deps.registry, AGENT_SESSION_PROVENANCE_SCHEMA_ID, wire)
+      return wire
+    }
+  )
+}
+
 export function registerAgentSessionRoutes(
   app: FastifyInstance,
   deps: AgentSessionRoutesDeps
 ): void {
   registerCreateSession(app, deps)
   registerTimeline(app, deps)
+  registerProvenance(app, deps)
   registerBatchIngest(app, deps)
 }
