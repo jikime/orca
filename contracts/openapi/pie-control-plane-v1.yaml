@@ -1705,6 +1705,110 @@ paths:
           description: Consent revoked; session forced to a safe state.
         default:
           $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}/capabilities:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [RemoteSessions]
+      operationId: listRemoteSessionCapabilities
+      description: >-
+        The session's capabilities with a status derived from timestamps
+        (live/consumed/revoked/expired), for audit/UI (doc 34 A2). The nonce is
+        never exposed. Resource-gated remote.control.
+      responses:
+        '200':
+          description: Capabilities issued against this session.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/capability-summary.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [RemoteSessions]
+      operationId: issueRemoteSessionCapability
+      description: >-
+        Issues a scoped short-lived single-use capability bound to one
+        participant (doc 34 A2, §보안 제약 #3/#4). A control capability requires
+        step-up. Resource-gated remote.control; the store enforces host/admin
+        authority. A terminal session is 409, forbidden 403, missing step-up
+        422, unknown/left participant 404.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/capability-issue.v1.schema.json
+      responses:
+        '201':
+          description: Capability issued (nonce returned to the issuer only).
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/capability-token.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/remote-sessions/{sessionId}/capabilities:redeem:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [RemoteSessions]
+      operationId: redeemRemoteSessionCapability
+      description: >-
+        Redeems a capability by (session, nonce) — the single-use check a
+        host/Relay performs (doc 34 A2). Resource-gated remote.control. Unknown
+        nonce 404, already consumed 409, revoked 409, expired 410, audience
+        mismatch 409.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/capability-redeem.v1.schema.json
+      responses:
+        '200':
+          description: Capability redeemed; the granted action is returned.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/capability-grant.v1.schema.json
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     PieOidc:

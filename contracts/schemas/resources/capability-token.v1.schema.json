@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/capability-token.v1.schema.json",
+  "title": "Issued capability token",
+  "description": "The freshly issued capability returned to the issuer (doc 34 A2). nonce is the single-use secret the redeemer presents — returned only here, only to the caller who minted it. Never a whole-session token.",
+  "type": "object",
+  "required": [
+    "id",
+    "sessionId",
+    "participantId",
+    "capability",
+    "audience",
+    "nonce",
+    "expiresAt",
+    "requiresStepUp"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sessionId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "participantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "capability": {
+      "enum": ["view", "terminal_control", "desktop_control", "file_transfer"]
+    },
+    "audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "nonce": { "type": "string", "minLength": 1 },
+    "expiresAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "requiresStepUp": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

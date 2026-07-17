@@ -570,6 +570,42 @@
       "schemaId": "https://schemas.pielab.ai/resources/remote-session-participant-add.v1.schema.json",
       "document": "valid/remote-session-participant-add.json",
       "expectedValid": true
+    },
+    {
+      "name": "capability issue request",
+      "schemaId": "https://schemas.pielab.ai/resources/capability-issue.v1.schema.json",
+      "document": "valid/capability-issue.json",
+      "expectedValid": true
+    },
+    {
+      "name": "issued capability token response",
+      "schemaId": "https://schemas.pielab.ai/resources/capability-token.v1.schema.json",
+      "document": "valid/capability-token.json",
+      "expectedValid": true
+    },
+    {
+      "name": "capability redeem request",
+      "schemaId": "https://schemas.pielab.ai/resources/capability-redeem.v1.schema.json",
+      "document": "valid/capability-redeem.json",
+      "expectedValid": true
+    },
+    {
+      "name": "redeemed capability grant response",
+      "schemaId": "https://schemas.pielab.ai/resources/capability-grant.v1.schema.json",
+      "document": "valid/capability-grant.json",
+      "expectedValid": true
+    },
+    {
+      "name": "capability summary listing item",
+      "schemaId": "https://schemas.pielab.ai/resources/capability-summary.v1.schema.json",
+      "document": "valid/capability-summary.json",
+      "expectedValid": true
+    },
+    {
+      "name": "capability issue rejects unknown field",
+      "schemaId": "https://schemas.pielab.ai/resources/capability-issue.v1.schema.json",
+      "document": "invalid/capability-issue-unknown-field.json",
+      "expectedValid": false
     }
   ]
 }

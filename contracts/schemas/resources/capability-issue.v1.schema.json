@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/capability-issue.v1.schema.json",
+  "title": "Issue capability token request",
+  "description": "Mints a scoped short-lived single-use capability bound to one participant (doc 34 A2). A control capability (terminal/desktop/file) must set requiresStepUp=true. ttlSeconds is clamped to a short ceiling server-side.",
+  "type": "object",
+  "required": ["participantId", "capability", "audience"],
+  "properties": {
+    "participantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "capability": {
+      "enum": ["view", "terminal_control", "desktop_control", "file_transfer"]
+    },
+    "audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "ttlSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+    "requiresStepUp": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

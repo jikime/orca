@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/capability-summary.v1.schema.json",
+  "title": "Capability token summary",
+  "description": "A capability as seen in the audit/UI listing (doc 34 A2), with a status derived from timestamps. The nonce (the secret) is NEVER exposed here — only tracing metadata.",
+  "type": "object",
+  "required": [
+    "id",
+    "participantId",
+    "capability",
+    "audience",
+    "status",
+    "requiresStepUp",
+    "issuedBy",
+    "expiresAt",
+    "createdAt",
+    "consumedAt",
+    "revokedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "participantId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "capability": {
+      "enum": ["view", "terminal_control", "desktop_control", "file_transfer"]
+    },
+    "audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "status": { "enum": ["live", "consumed", "revoked", "expired"] },
+    "requiresStepUp": { "type": "boolean" },
+    "issuedBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "expiresAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "consumedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "revokedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
