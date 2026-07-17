@@ -61,7 +61,7 @@ export function ThreadPanel({
   )
 
   return (
-    <div className="flex h-full w-80 shrink-0 flex-col border-l border-border bg-background">
+    <div className="flex h-full w-full flex-col border-l border-border bg-background">
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
         <h3 className="text-sm font-medium text-foreground">Thread</h3>
         <button

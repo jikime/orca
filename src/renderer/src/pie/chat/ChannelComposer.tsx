@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent } from 'react'
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type {
@@ -31,6 +31,7 @@ export function ChannelComposer({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [mentionUserIds, setMentionUserIds] = useState<string[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const mentionQuery = useMemo(() => {
     const match = TRAILING_MENTION.exec(value)
@@ -54,6 +55,15 @@ export function ChannelComposer({
       current.includes(member.userId) ? current : [...current, member.userId]
     )
     setActiveIndex(0)
+  }
+
+  // Appends a trailing '@' so the existing TRAILING_MENTION-driven autocomplete
+  // opens, instead of a decorative button that doesn't do anything real.
+  const triggerMention = (): void => {
+    setValue((current) =>
+      current.length === 0 || current.endsWith(' ') ? `${current}@` : `${current} @`
+    )
+    textareaRef.current?.focus()
   }
 
   const submit = (): void => {
@@ -115,26 +125,37 @@ export function ChannelComposer({
           onSelect={insertMention}
         />
       )}
-      <div className="flex items-end gap-2">
-        <AttachmentComposer
-          channelId={channelId}
-          api={api}
-          attachments={attachments}
-          onChange={setAttachments}
-        />
-        <textarea
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={onKeyDown}
-          rows={1}
-          placeholder="Write a message…"
-          aria-label="Message"
-          className={cn(
-            'flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground',
-            'placeholder:text-muted-foreground outline-none transition-[color,box-shadow]',
-            'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
-          )}
-        />
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={onKeyDown}
+        rows={1}
+        placeholder="Write a message…"
+        aria-label="Message"
+        className={cn(
+          'w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground',
+          'placeholder:text-muted-foreground outline-none transition-[color,box-shadow]',
+          'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+        )}
+      />
+      <div className="mt-2 flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <AttachmentComposer
+            channelId={channelId}
+            api={api}
+            attachments={attachments}
+            onChange={setAttachments}
+          />
+          <button
+            type="button"
+            onClick={triggerMention}
+            aria-label="Mention someone"
+            className="flex size-8 items-center justify-center rounded-md border border-input text-sm text-muted-foreground hover:bg-accent"
+          >
+            @
+          </button>
+        </div>
         <Button type="button" size="sm" onClick={submit} disabled={!canSend}>
           {sending ? 'Sending…' : 'Send'}
         </Button>

@@ -5,6 +5,8 @@ import type { TimelineMessage } from './use-pie-chat'
 import { ReactionBar } from './ReactionBar'
 import { MessageBody } from './MessageBody'
 import { AttachmentList } from './AttachmentList'
+import { MessageAvatar } from './MessageAvatar'
+import { ThreadFacepile } from './ThreadFacepile'
 
 type MessageTimelineProps = {
   messages: TimelineMessage[]
@@ -18,10 +20,6 @@ type MessageTimelineProps = {
 
 function authorLabel(authorId: string, currentUserId: string): string {
   return authorId === currentUserId ? 'You' : authorId.slice(0, 8)
-}
-
-function initials(label: string): string {
-  return label === 'You' ? 'Y' : label.slice(0, 2).toUpperCase()
 }
 
 function formatTime(iso: string): string {
@@ -74,16 +72,7 @@ export function MessageTimeline({
           const actionable = !message.deleted && !message.pending
           return (
             <li key={message.optimisticId ?? message.id} className="group flex gap-3">
-              <div className="w-8 shrink-0">
-                {!grouped && (
-                  <div
-                    aria-hidden
-                    className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground"
-                  >
-                    {initials(label)}
-                  </div>
-                )}
-              </div>
+              <div className="w-8 shrink-0">{!grouped && <MessageAvatar label={label} />}</div>
               <div className="min-w-0 flex-1">
                 {!grouped && (
                   <div className="flex items-baseline gap-2">
@@ -122,15 +111,10 @@ export function MessageTimeline({
                         onToggle={(emoji) => onToggleReaction(message.id, emoji)}
                       />
                     )}
-                    {message.replyCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenThread(message)}
-                        className="mt-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
-                      </button>
-                    )}
+                    <ThreadFacepile
+                      replyCount={message.replyCount}
+                      onOpen={() => onOpenThread(message)}
+                    />
                   </>
                 )}
                 {message.failed && <p className="text-xs text-destructive">Failed to send</p>}

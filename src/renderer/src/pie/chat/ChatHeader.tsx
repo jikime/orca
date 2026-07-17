@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type {
   PieChannel,
+  PieChatMember,
   PieChatRendererApi,
   PieMessage
 } from '../../../../shared/pie-chat-contract'
@@ -9,6 +10,7 @@ import { MessageSearch } from './MessageSearch'
 
 type ChatHeaderProps = {
   channel: PieChannel | undefined
+  members: PieChatMember[]
   api: PieChatRendererApi
   onSearchSelect: (message: PieMessage) => void
 }
@@ -19,7 +21,23 @@ function isMuted(channel: PieChannel): boolean {
   return (channel as { muted?: boolean }).muted === true
 }
 
-export function ChatHeader({ channel, api, onSearchSelect }: ChatHeaderProps): React.JSX.Element {
+// listMembers() returns the org-wide roster (no per-channel membership
+// endpoint exists), so for a DM the count doesn't describe the conversation —
+// show "Direct message" instead of a misleading member count there.
+function metaLine(channel: PieChannel, memberCount: number): string {
+  if (channel.kind === 'dm') {
+    return 'Direct message'
+  }
+  const noun = memberCount === 1 ? 'member' : 'members'
+  return `${memberCount} ${noun} · ${channel.visibility} channel`
+}
+
+export function ChatHeader({
+  channel,
+  members,
+  api,
+  onSearchSelect
+}: ChatHeaderProps): React.JSX.Element {
   const [muted, setMuted] = useState(false)
 
   useEffect(() => {
@@ -40,24 +58,31 @@ export function ChatHeader({ channel, api, onSearchSelect }: ChatHeaderProps): R
   }
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
-      <h2 className="truncate text-sm font-medium text-foreground">
-        {channel ? `${channel.kind === 'dm' ? '@' : '#'} ${channel.name}` : 'Chat'}
-        {muted && <span className="ml-2 text-xs text-muted-foreground">muted</span>}
-      </h2>
+    <header className="flex h-14 shrink-0 flex-col justify-center gap-0.5 border-b border-border px-4">
+      <div className="flex items-center justify-between">
+        <h2 className="truncate text-sm font-medium text-foreground">
+          {channel ? `${channel.kind === 'dm' ? '@' : '#'} ${channel.name}` : 'Chat'}
+          {muted && <span className="ml-2 text-xs text-muted-foreground">muted</span>}
+        </h2>
+        {channel && (
+          <div className="flex items-center gap-1">
+            <MessageSearch api={api} onSelect={onSearchSelect} />
+            <PinsPanel channelId={channel.id} api={api} onJumpToMessage={() => undefined} />
+            <button
+              type="button"
+              onClick={() => void toggleMute()}
+              aria-pressed={muted}
+              className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              {muted ? '🔔 Unmute' : '🔕 Mute'}
+            </button>
+          </div>
+        )}
+      </div>
       {channel && (
-        <div className="flex items-center gap-1">
-          <MessageSearch api={api} onSelect={onSearchSelect} />
-          <PinsPanel channelId={channel.id} api={api} onJumpToMessage={() => undefined} />
-          <button
-            type="button"
-            onClick={() => void toggleMute()}
-            aria-pressed={muted}
-            className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            {muted ? '🔔 Unmute' : '🔕 Mute'}
-          </button>
-        </div>
+        <p className="truncate text-xs text-muted-foreground">
+          {metaLine(channel, members.length)}
+        </p>
       )}
     </header>
   )

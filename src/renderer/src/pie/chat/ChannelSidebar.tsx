@@ -62,7 +62,7 @@ export function ChannelSidebar({
   const dms = channels.filter((channel) => channel.kind === 'dm')
 
   return (
-    <div className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-sidebar">
+    <div className="flex h-full min-w-0 flex-col border-r border-border bg-sidebar">
       <div className="flex items-center justify-between px-4 py-3">
         <span className="text-sm font-medium text-sidebar-foreground">Messages</span>
         <DmComposer

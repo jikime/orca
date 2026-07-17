@@ -7,14 +7,24 @@ import { ChannelComposer } from './ChannelComposer'
 import { MessageTimeline } from './MessageTimeline'
 import { ThreadPanel } from './ThreadPanel'
 import { ChatHeader } from './ChatHeader'
+import { PinnedBanner } from './PinnedBanner'
+import { ContextSidebar } from './ContextSidebar'
 import { usePieChat } from './use-pie-chat'
 import type { TimelineMessage } from './use-pie-chat'
 
 type ChatWorkspaceProps = {
   currentUserId: string
+  currentUserDisplayName: string
 }
 
-function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element {
+// 3-column layout: left nav | center stream | right context. Fixed side
+// widths (~232px / ~264px), center stream fills the remaining space.
+const GRID_COLUMNS = 'grid-cols-[232px_minmax(0,1fr)_264px]'
+
+function ChatWorkspace({
+  currentUserId,
+  currentUserDisplayName
+}: ChatWorkspaceProps): React.JSX.Element {
   const chat = usePieChat(currentUserId)
   const [threadRoot, setThreadRoot] = useState<PieMessage | null>(null)
   const activeChannel = chat.channels.find((channel) => channel.id === chat.selectedChannelId)
@@ -59,7 +69,7 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
   )
 
   return (
-    <div className="flex h-full w-full bg-background text-foreground">
+    <div className={`grid h-full w-full ${GRID_COLUMNS} bg-background text-foreground`}>
       <ChannelSidebar
         channels={chat.channels}
         members={chat.members}
@@ -70,43 +80,37 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
         onSelect={chat.selectChannel}
         onChannelCreated={jumpToChannel}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ChatHeader channel={activeChannel} api={chat.api} onSearchSelect={onSearchSelect} />
+      <div className="flex min-w-0 min-h-0 flex-col">
+        <ChatHeader
+          channel={activeChannel}
+          members={chat.members}
+          api={chat.api}
+          onSearchSelect={onSearchSelect}
+        />
         {chat.error && (
           <div className="border-b border-border bg-muted px-4 py-2 text-xs text-destructive">
             {chat.error}
           </div>
         )}
         {chat.selectedChannelId ? (
-          <div className="flex min-h-0 flex-1">
-            <div className="flex min-w-0 flex-1 flex-col">
-              <MessageTimeline
-                messages={chat.messages}
-                currentUserId={currentUserId}
-                loading={chat.loadingMessages}
-                channelId={chat.selectedChannelId}
-                onToggleReaction={chat.toggleReaction}
-                onOpenThread={setThreadRoot}
-                onTogglePin={togglePin}
-              />
-              <ChannelComposer
-                channelId={chat.selectedChannelId}
-                members={chat.members}
-                sending={chat.sending}
-                api={chat.api}
-                onSend={chat.sendMessage}
-              />
-            </div>
-            {threadRoot && (
-              <ThreadPanel
-                channelId={chat.selectedChannelId}
-                root={threadRoot}
-                currentUserId={currentUserId}
-                api={chat.api}
-                onClose={() => setThreadRoot(null)}
-                onReplied={chat.refresh}
-              />
-            )}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <PinnedBanner channelId={chat.selectedChannelId} api={chat.api} />
+            <MessageTimeline
+              messages={chat.messages}
+              currentUserId={currentUserId}
+              loading={chat.loadingMessages}
+              channelId={chat.selectedChannelId}
+              onToggleReaction={chat.toggleReaction}
+              onOpenThread={setThreadRoot}
+              onTogglePin={togglePin}
+            />
+            <ChannelComposer
+              channelId={chat.selectedChannelId}
+              members={chat.members}
+              sending={chat.sending}
+              api={chat.api}
+              onSend={chat.sendMessage}
+            />
           </div>
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -114,6 +118,23 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
           </div>
         )}
       </div>
+      {threadRoot && chat.selectedChannelId ? (
+        <ThreadPanel
+          channelId={chat.selectedChannelId}
+          root={threadRoot}
+          currentUserId={currentUserId}
+          api={chat.api}
+          onClose={() => setThreadRoot(null)}
+          onReplied={chat.refresh}
+        />
+      ) : (
+        <ContextSidebar
+          members={chat.members}
+          messages={chat.messages}
+          currentUserId={currentUserId}
+          currentUserDisplayName={currentUserDisplayName}
+        />
+      )}
     </div>
   )
 }
@@ -193,5 +214,7 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
     )
   }
 
-  return <ChatWorkspace currentUserId={session.userId} />
+  return (
+    <ChatWorkspace currentUserId={session.userId} currentUserDisplayName={session.displayName} />
+  )
 }
