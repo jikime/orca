@@ -420,12 +420,29 @@ export interface MessagesTable {
   visibility: Generated<string>
   version: DefaultedBigIntColumn
   thread_root_message_id: string | null
+  // Soft-delete tombstone (doc 33 §2): deleted_at present == redacted; deleted_by /
+  // deletion_reason are the retained audit metadata. All nullable (live message = null).
+  deleted_at: NullableTimestampColumn
+  deleted_by: string | null
+  deletion_reason: string | null
   created_at: TimestampColumn
   updated_at: TimestampColumn
   // STORED generated tsvector (slice 7 search). Never selected/inserted via the query
   // builder — matched only through a raw `search_tsv @@ ...` predicate — so it is typed
   // never-selectable/never-writable to keep it out of insert and selectAll shapes.
   search_tsv: ColumnType<never, never, never>
+}
+
+// Immutable body snapshot per committed revision (doc 33 §1). revision == the
+// messages.version the body was live under; delete redacts body but keeps the row.
+export interface MessageRevisionsTable {
+  organization_id: string
+  id: Generated<string>
+  message_id: string
+  revision: BigIntColumn
+  body: string
+  edited_by: string
+  created_at: TimestampColumn
 }
 
 export interface MessageReactionsTable {
@@ -519,6 +536,7 @@ export interface Database {
   'collaboration.channels': ChannelsTable
   'collaboration.channel_members': ChannelMembersTable
   'collaboration.messages': MessagesTable
+  'collaboration.message_revisions': MessageRevisionsTable
   'collaboration.message_reactions': MessageReactionsTable
   'collaboration.read_cursors': ReadCursorsTable
   'collaboration.message_mentions': MessageMentionsTable
