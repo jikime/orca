@@ -1291,6 +1291,10 @@ function getAgentLaunchPlatformForRepo(
 // Why: long enough for a phone to reconnect and retry a create whose response
 // was lost, short enough that an intentional later re-resume forks fresh.
 const MOBILE_TERMINAL_CREATE_RESULT_TTL_MS = 60_000
+// Why: same idempotency window for worktree.create — a phone whose create was
+// interrupted by a connection migration retries with the same clientMutationId
+// and reuses the just-created worktree instead of spawning a duplicate.
+const WORKTREE_CREATE_RESULT_TTL_MS = 60_000
 const FOREGROUND_AGENT_WRAPPER_RETRY_INTERVAL_MS = 150
 const FOREGROUND_AGENT_WRAPPER_RETRY_TIMEOUT_MS = 6_500
 const BRACKETED_PASTE_BEGIN = '\x1b[200~'
@@ -2199,6 +2203,10 @@ export class OrcaRuntimeService {
     string,
     Promise<RuntimeMobileSessionCreateTerminalResult>
   >()
+  // Why: idempotency map for worktree.create — a create interrupted by a mobile
+  // connection migration is retried with the same clientMutationId and returns
+  // the in-flight (or just-finished) operation instead of a duplicate worktree.
+  private worktreeCreateByMutationId = new Map<string, Promise<unknown>>()
   // Why: a mobile create waits for the renderer to publish the new tab's surface
   // via graph-sync, but a throttled/hidden renderer can park that past the surface
   // timeout and the create would then destroy the live PTY (#7587). This lets the
@@ -18802,6 +18810,38 @@ export class OrcaRuntimeService {
       telemetry: startup.startup.telemetry,
       title: opts.title
     })
+  }
+
+  // Why: dedupes a worktree.create whose response was lost when a mobile
+  // connection migration (relay/direct hand-off on shoddy cellular) rejected the
+  // in-flight request. A retry with the same clientMutationId returns the
+  // in-flight or just-finished create instead of a duplicate worktree; failures
+  // drop immediately so a genuine retry starts fresh, and successes linger
+  // briefly so a retry whose response was lost in the cutover still reconciles.
+  dedupeWorktreeCreate<T>(
+    repoSelector: string,
+    clientMutationId: string | undefined,
+    run: () => Promise<T>
+  ): Promise<T> {
+    if (!clientMutationId) {
+      return run()
+    }
+    const key = `${repoSelector}\0${clientMutationId}`
+    const inflight = this.worktreeCreateByMutationId.get(key)
+    if (inflight) {
+      return inflight as Promise<T>
+    }
+    const created = run()
+    this.worktreeCreateByMutationId.set(key, created)
+    const drop = (): void => {
+      if (this.worktreeCreateByMutationId.get(key) === created) {
+        this.worktreeCreateByMutationId.delete(key)
+      }
+    }
+    void created.then(() => {
+      setTimeout(drop, WORKTREE_CREATE_RESULT_TTL_MS).unref?.()
+    }, drop)
+    return created
   }
 
   async createMobileSessionTerminal(
