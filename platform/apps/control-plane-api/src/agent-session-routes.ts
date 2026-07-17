@@ -10,7 +10,8 @@ import {
   type IngestAgentEventsInput,
   type PieDatabase,
   type ResourceClassification,
-  type ResourceVisibility
+  type ResourceVisibility,
+  type SignedExecutionContext
 } from '@pie/persistence'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
@@ -114,6 +115,8 @@ type BatchBody = {
   protocolVersion: '1.0'
   events: AgentEventEnvelope[]
   clientCheckpoint: { streamId: string; lastServerAck: number }
+  // R5 s2b: optional signed ExecutionContext that binds the batch to one signed session.
+  executionContext?: SignedExecutionContext
 }
 
 function registerCreateSession(app: FastifyInstance, deps: AgentSessionRoutesDeps): void {
@@ -264,12 +267,28 @@ function registerBatchIngest(app: FastifyInstance, deps: AgentSessionRoutesDeps)
       producerId: body.producerId,
       // The authenticated principal is the audit actor for any projected provenance.
       actorId: principal.subject,
+      // R5 s2b: the pie user id owns the installation key a signed context is verified against.
+      ...(authz.userId ? { actorUserId: authz.userId } : {}),
+      ...(body.executionContext ? { executionContext: body.executionContext } : {}),
+      receivedAt: new Date(),
       clientCheckpoint: body.clientCheckpoint,
       events: body.events
     }
     // Ingest is idempotent per (org, eventId), so re-running on an Idempotency-Key replay is safe
     // (every event returns `duplicate`); the batch key only guards key-reuse / concurrent replays.
     const result = await ingestAgentEvents(deps.db, input)
+    if (result.contextRejection) {
+      // The signed context was refused: no events ingested. Release the idempotency key (not
+      // complete) so a corrected retry with the same key can re-run rather than replay the refusal.
+      await gate.release()
+      return problem(
+        reply,
+        request,
+        422,
+        result.contextRejection.code,
+        'signed execution context rejected'
+      )
+    }
     await gate.complete(body.batchId)
     assertResponse(deps.registry, AGENT_EVENT_BATCH_RESPONSE_SCHEMA_ID, result)
     void reply.code(200)

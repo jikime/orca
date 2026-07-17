@@ -16,6 +16,12 @@ import {
   type ProvenancePayload
 } from './agent-provenance-projection'
 import { normalizeVisibility } from './agent-visibility-scope'
+import type { SignedExecutionContext } from './execution-context-canonical'
+import {
+  applySessionBindingTx,
+  verifyExecutionContextTx,
+  type ExecutionContextRejectionCode
+} from './execution-context-verification'
 import { withTenantTransaction } from './tenant-transaction'
 
 // R5 slice 1: Control-Plane agent-event ingest (doc 19 :203-236, doc 20 CAP-001..008).
@@ -69,6 +75,12 @@ export type IngestAgentEventsInput = {
   producerId: string
   // The authenticated principal recorded as the audit actor for projected provenance.
   actorId?: string | null
+  // R5 s2b: the Pie user id that owns the installation key, used to verify a signed context.
+  actorUserId?: string
+  // R5 s2b: the optional signed ExecutionContext that binds this batch to one signed session.
+  executionContext?: SignedExecutionContext
+  // R5 s2b: server receive time (injected for determinism); defaults to now().
+  receivedAt?: Date
   clientCheckpoint: { streamId: string; lastServerAck: number }
   events: AgentEventEnvelope[]
 }
@@ -90,6 +102,9 @@ export type IngestAgentEventsResult = {
   batchId: string
   results: AgentEventResult[]
   streamAcks: AgentStreamAck[]
+  // R5 s2b: present only when a signed ExecutionContext was rejected — the whole batch is refused
+  // (no events ingested) and the route maps this to a 422 problem.
+  contextRejection?: { code: ExecutionContextRejectionCode }
 }
 
 // A content hash carried in the event payload is what confirms a turn's finalization.
@@ -293,6 +308,90 @@ async function projectAndAuditProvenance(
   return projected
 }
 
+// Records one signed-context audit fact (rejected or verified) on the bound session's timeline.
+async function auditExecutionContext(
+  trx: Transaction<Database>,
+  organizationId: string,
+  actorId: string | null,
+  agentSessionId: string,
+  action: 'execution_context.rejected' | 'execution_context.verified',
+  digest: string
+): Promise<void> {
+  await trx
+    .insertInto('audit.audit_events')
+    .values({
+      organization_id: organizationId,
+      actor_id: actorId,
+      action,
+      target_type: 'agent_session',
+      target_id: agentSessionId,
+      after_digest: digest
+    })
+    .execute()
+}
+
+/**
+ * R5 s2b: verifies the signed ExecutionContext and records the SessionBinding BEFORE the per-event
+ * loop. The context names exactly one agentSessionId, so the binding is applied to that one session
+ * (if it exists). Returns a rejection code (batch refused) or null (proceed). Every outcome writes
+ * an audit fact; a rejection commits only that audit row, no events.
+ */
+async function verifyAndBindContext(
+  trx: Transaction<Database>,
+  input: IngestAgentEventsInput,
+  signed: SignedExecutionContext,
+  receivedAt: Date
+): Promise<ExecutionContextRejectionCode | null> {
+  const actorId = input.actorUserId ?? input.actorId ?? null
+  const agentSessionIds = [...new Set(input.events.map((e) => e.data.context.agentSessionId))]
+  const verified = await verifyExecutionContextTx(trx, {
+    actorUserId: input.actorUserId ?? '',
+    receivedAtMs: receivedAt.getTime(),
+    agentSessionIds,
+    signed
+  })
+  const boundSessionId = signed.context.agentSessionId
+  if (!verified.ok) {
+    await auditExecutionContext(
+      trx,
+      input.organizationId,
+      actorId,
+      boundSessionId,
+      'execution_context.rejected',
+      verified.code
+    )
+    return verified.code
+  }
+  // A present context names one session; bind it now (a missing session is fine — the per-event
+  // loop rejects its events, and a re-bind to a different host identity is BINDING_HOST_MISMATCH).
+  const applied = await applySessionBindingTx(
+    trx,
+    input.organizationId,
+    boundSessionId,
+    verified.binding
+  )
+  if (applied.conflict) {
+    await auditExecutionContext(
+      trx,
+      input.organizationId,
+      actorId,
+      boundSessionId,
+      'execution_context.rejected',
+      'BINDING_HOST_MISMATCH'
+    )
+    return 'BINDING_HOST_MISMATCH'
+  }
+  await auditExecutionContext(
+    trx,
+    input.organizationId,
+    actorId,
+    boundSessionId,
+    'execution_context.verified',
+    `installation_signed:${verified.binding.publicKeyId}`
+  )
+  return null
+}
+
 /**
  * Ingests a validated batch in ONE tenant tx. Each event is idempotent by (org, eventId): a
  * replay is a `duplicate` no-op that creates neither a second event nor a second turn. Events
@@ -307,6 +406,27 @@ export async function ingestAgentEvents(
   input: IngestAgentEventsInput
 ): Promise<IngestAgentEventsResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
+    // R5 s2b: a signed ExecutionContext is verified + bound BEFORE any event is ingested. A
+    // rejection refuses the whole batch (only the audit row commits); a batch without a context
+    // ingests exactly as R5 s1 (local_observed).
+    if (input.executionContext) {
+      const rejection = await verifyAndBindContext(
+        trx,
+        input,
+        input.executionContext,
+        input.receivedAt ?? new Date()
+      )
+      if (rejection !== null) {
+        // The tx commits only the audit row; no events ingested.
+        return {
+          batchId: input.batchId,
+          results: [],
+          streamAcks: [],
+          contextRejection: { code: rejection }
+        }
+      }
+    }
+
     const sessions = new Map<string, AgentSession | null>()
     const loadSession = async (sessionId: string): Promise<AgentSession | null> => {
       if (!sessions.has(sessionId)) {

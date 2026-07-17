@@ -3,6 +3,7 @@ import type {
   AgentEventBatchResponse
 } from '../../shared/agent-event-batch-contract'
 import { AGENT_EVENT_PROTOCOL_VERSION } from '../../shared/agent-event-batch-contract'
+import type { SignedExecutionContext } from '../../shared/execution-context-contract'
 import { AgentEventUploadError, type AgentEventUploadClient } from './agent-event-upload-client'
 import type {
   AgentEventOutboxStore,
@@ -66,6 +67,9 @@ export type PumpOutcome =
   | { outcome: 'held_unauthorized' }
   | { outcome: 'purged'; purged: number }
   | { outcome: 'held_unauthorized_reclaimed'; reclaimed: number }
+  // R5 s2b: the current signed ExecutionContext has expired; the batch is held (nacked) until a
+  // fresh launch re-signs a valid context. An expired binding is never sent stale (CAP-006).
+  | { outcome: 'held_expired_context'; reclaimed: number }
   | { outcome: 'replayed'; acked: number }
   | { outcome: 'error'; status: number | null; nacked: number }
   | { outcome: 'uploaded'; acked: number; dropped: number; nacked: number }
@@ -77,6 +81,10 @@ export type UploadPumpDeps = {
   producerId: string
   // CAP-006: current-auth + capture-policy gate, re-evaluated before every upload.
   isUploadAuthorized: () => boolean
+  // R5 s2b (optional): the current signed ExecutionContext/SessionBinding to attach to each batch.
+  // Returns null when no signing key is available → identity-only ingest (back-compat). Injected so
+  // the pump stays deterministic. An expired context is refused, never sent stale.
+  executionContext?: () => SignedExecutionContext | null
   clock: () => number
   // Fresh id per call (batchId, Idempotency-Key). Injected so tests stay deterministic.
   newId: () => string
@@ -127,6 +135,25 @@ export function createUploadPump(deps: UploadPumpDeps): UploadPump {
       return { outcome: 'held_unauthorized_reclaimed', reclaimed: batch.length }
     }
 
+    // R5 s2b: attach the current signed ExecutionContext + SessionBinding validity-window so the
+    // producer↔session bind is cryptographically verifiable. A null context means no signing key
+    // (back-compat identity bind); an EXPIRED context is refused here and the batch is held until a
+    // fresh launch re-signs it — an expired binding must never be sent stale (CAP-006).
+    let executionContext: SignedExecutionContext | undefined
+    if (deps.executionContext) {
+      const signed = deps.executionContext()
+      if (signed) {
+        if (now > signed.context.notAfter) {
+          deps.store.nackBatch(
+            batch.map((item) => item.eventId),
+            nextVisible(batch, now)
+          )
+          return { outcome: 'held_expired_context', reclaimed: batch.length }
+        }
+        executionContext = signed
+      }
+    }
+
     const primaryStream = batch[0].streamId
     const request: AgentEventBatchRequest = {
       batchId: deps.newId(),
@@ -134,13 +161,12 @@ export function createUploadPump(deps: UploadPumpDeps): UploadPump {
       protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
       events: batch.map((item) => item.envelope),
       // clientCheckpoint carries the stored gap-aware cursor for the batch's primary stream so
-      // the server also re-acks it. TODO(pie-r5-s2b): attach a signed ExecutionContext +
-      // SessionBinding validity-window here so the producer↔session bind is cryptographically
-      // verifiable; today it is the identity-based bearer that the s1 ingest already accepts.
+      // the server also re-acks it.
       clientCheckpoint: {
         streamId: primaryStream,
         lastServerAck: deps.store.getCursor(primaryStream)
-      }
+      },
+      ...(executionContext ? { executionContext } : {})
     }
 
     let response: AgentEventBatchResponse

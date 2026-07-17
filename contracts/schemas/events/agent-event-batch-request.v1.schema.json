@@ -36,6 +36,9 @@
           "minimum": 0
         }
       }
+    },
+    "executionContext": {
+      "$ref": "https://schemas.pielab.ai/events/signed-execution-context.v1.schema.json"
     }
   }
 }

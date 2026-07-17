@@ -632,8 +632,34 @@ export interface AgentSessionsTable {
   capture_mode: Generated<string>
   created_by: string
   version: DefaultedBigIntColumn
+  // R5 s2b: the SIGNED SessionBinding. binding_trust_domain defaults to 'local_observed' (identity-
+  // only ingest); a verified signed ExecutionContext promotes it to 'installation_signed' and stamps
+  // the host identity (native/wsl/ssh) + workspace + expiry. All binding_* are null until then.
+  binding_trust_domain: Generated<string>
+  binding_installation_id: string | null
+  binding_host_type: string | null
+  binding_host_id: string | null
+  binding_workspace_path: string | null
+  binding_not_after: NullableTimestampColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
+}
+
+// R5 s2b: the per-installation Ed25519 PUBLIC key registry (doc 24 anti-forgery). One row per
+// (org, user, installation); a re-register rotates the row in place (rotation_count bumps).
+// public_key is the SPKI PEM; public_key_id is base64url(sha256(SPKI DER)) — the rotation-
+// detectable fingerprint. pie_app gets INSERT + SELECT + UPDATE (upsert rotation).
+export interface InstallationPublicKeysTable {
+  organization_id: string
+  id: Generated<string>
+  user_id: string
+  installation_id: string
+  public_key: string
+  public_key_id: string
+  algorithm: Generated<string>
+  registered_at: TimestampColumn
+  updated_at: TimestampColumn
+  rotation_count: Generated<number>
 }
 
 // The append-only envelope log (doc 19 :203). event_id is the per-org idempotency key.
@@ -830,4 +856,5 @@ export interface Database {
   'execution.agent_provenance': AgentProvenanceTable
   'execution.agent_session_intake': AgentSessionIntakeTable
   'execution.agent_capture_gaps': AgentCaptureGapsTable
+  'execution.installation_public_keys': InstallationPublicKeysTable
 }

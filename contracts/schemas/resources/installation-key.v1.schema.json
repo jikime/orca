@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/installation-key.v1.schema.json",
+  "title": "Registered installation key",
+  "description": "R5 s2b: the acknowledged registration of a producer's installation public key. rotated is true when this call replaced an existing key for the same installation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "installationId", "publicKeyId", "rotated"],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "installationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "publicKeyId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rotated": {
+      "type": "boolean"
+    }
+  }
+}

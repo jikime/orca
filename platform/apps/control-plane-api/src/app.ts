@@ -8,6 +8,7 @@ import type { WebSocket } from 'ws'
 import { registerAgentCaptureRoutes } from './agent-capture-routes'
 import { registerAgentSessionIntakeRoutes } from './agent-session-intake-routes'
 import { registerAgentSessionRoutes } from './agent-session-routes'
+import { registerInstallationKeyRoutes } from './installation-key-routes'
 import { registerArtifactRoutes } from './artifact-routes'
 import { registerAttachmentRoutes } from './attachment-routes'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
@@ -187,6 +188,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerRemoteSessionDriverRoutes(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionPresenceRoutes(app, { db: deps.db })
     registerAgentSessionRoutes(app, { db: deps.db, registry: deps.registry })
+    registerInstallationKeyRoutes(app, { db: deps.db, registry: deps.registry })
     registerAgentCaptureRoutes(app, { db: deps.db, registry: deps.registry })
     registerAgentSessionIntakeRoutes(app, { db: deps.db, registry: deps.registry })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
