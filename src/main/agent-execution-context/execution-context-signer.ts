@@ -41,6 +41,8 @@ export type BuildSignedExecutionContextParams = {
   hostType: ExecutionContextHostType
   hostId: string
   workspacePath: string
+  // OS account the agent runs as; local for native, the REMOTE user for an SSH launch (IDN-008).
+  osUser: string
   launchId: string
   agentSessionId: string
   provider: string
@@ -63,6 +65,7 @@ export function buildSignedExecutionContext(
       params.workspacePath,
       params.platform
     ),
+    osUser: params.osUser,
     launchId: params.launchId,
     agentSessionId: params.agentSessionId,
     provider: params.provider,

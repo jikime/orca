@@ -28,6 +28,12 @@ export type ActiveLaunchRegistryDeps = {
   // it to a real per-host path; the default uses the worktreeId as the stable per-host workspace
   // identity (null → launch stays unbindable and getActiveLaunch yields null).
   resolveWorkspacePath?: (input: LaunchResolveInput) => string | null
+  // The local OS account this process runs as (os.userInfo().username), injected for determinism.
+  localOsUser: string
+  // osUser-disambiguates-shared-host (IDN-008): a native launch runs as localOsUser; an SSH launch
+  // runs as the REMOTE user, resolved from the launch origin here (null → unbindable, never the
+  // local user, so a remote launch is never mis-attributed to whoever runs the desktop).
+  resolveOsUser?: (input: LaunchResolveInput) => string | null
 }
 
 export type ActiveLaunchRegistry = {
@@ -45,6 +51,7 @@ function toActiveLaunch(tracked: TrackedLaunch): ActiveLaunch {
     hostType: tracked.hostType,
     hostId: tracked.hostId,
     workspacePath: tracked.workspacePath,
+    osUser: tracked.osUser,
     launchId: tracked.launchId,
     agentSessionId: tracked.agentSessionId,
     provider: tracked.provider
@@ -54,6 +61,10 @@ function toActiveLaunch(tracked: TrackedLaunch): ActiveLaunch {
 export function createActiveLaunchRegistry(deps: ActiveLaunchRegistryDeps): ActiveLaunchRegistry {
   const ttlMs = deps.ttlMs ?? DEFAULT_TTL_MS
   const resolveWorkspacePath = deps.resolveWorkspacePath ?? ((input) => input.worktreeId ?? null)
+  // Native runs as the local user; a remote/SSH origin has no default (must be injected) so it is
+  // never silently attributed to the desktop user.
+  const resolveOsUser =
+    deps.resolveOsUser ?? ((input) => (input.hostType === 'native' ? deps.localOsUser : null))
   const launches = new Map<string, TrackedLaunch>()
   // Most-recent-first ordering for the runtime's zero-arg current-launch lookup.
   let recencyOrder: string[] = []
@@ -86,21 +97,29 @@ export function createActiveLaunchRegistry(deps: ActiveLaunchRegistryDeps): Acti
     const hostId = payload.connectionId
       ? toSshExecutionHostId(payload.connectionId)
       : LOCAL_EXECUTION_HOST_ID
-    const workspacePath = resolveWorkspacePath({
+    const resolveInput: LaunchResolveInput = {
       agentSessionId: sessionId,
       provider,
       hostType,
       hostId,
       worktreeId: payload.worktreeId?.trim() || undefined,
       launchId
-    })
+    }
+    const workspacePath = resolveWorkspacePath(resolveInput)
     if (!workspacePath) {
+      return
+    }
+    // No osUser (unknown remote user) → unbindable, so a remote launch is never signed as the
+    // local user (IDN-008): the launch simply falls back to identity-only ingest.
+    const osUser = resolveOsUser(resolveInput)
+    if (!osUser) {
       return
     }
     launches.set(sessionId, {
       hostType,
       hostId,
       workspacePath,
+      osUser,
       launchId,
       agentSessionId: sessionId,
       provider,

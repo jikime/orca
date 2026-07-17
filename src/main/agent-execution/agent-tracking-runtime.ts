@@ -87,6 +87,7 @@ export function composeTracking(args: ComposeTrackingArgs): AgentTrackingHandle 
       hostType: launch.hostType,
       hostId: launch.hostId,
       workspacePath: launch.workspacePath,
+      osUser: launch.osUser,
       launchId: launch.launchId,
       agentSessionId: launch.agentSessionId,
       provider: launch.provider,
