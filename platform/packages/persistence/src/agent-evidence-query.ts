@@ -8,6 +8,7 @@ import {
   type SensitivityClassification,
   type VisibilityScope
 } from './agent-visibility-scope'
+import { scanForSecrets } from './agent-content-secret-scan'
 import type { Database } from './database-schema'
 import { withTenantTransaction } from './tenant-transaction'
 
@@ -143,12 +144,28 @@ export async function searchSessionEvidence(
     const nextCursor =
       hasMore && last ? encodeCursor(new Date(last.received_at).toISOString(), last.id) : null
 
+    // SEC-003 redact-on-read (defense-in-depth): a content redactor applied to every visible preview
+    // IN ADDITION to the label rule, so a secret in a `public`/mislabeled/legacy body never surfaces.
+    const redactContent = scanForSecrets('').redact
+    // never-in-search: on a `q` search, drop any row whose CONTENT scans as secret-bearing so a
+    // mislabeled secret can never be surfaced (or even confirmed) via a search hit or count — the
+    // label-based `classification not in redactedClassifications` clause covers floored rows; this
+    // also covers a pre-floor legacy row whose stored label is still `public`.
+    const visibleRows = term
+      ? pageRows.filter((row) => !scanForSecrets(JSON.stringify(row.payload ?? {})).hasSecret)
+      : pageRows
+
     return {
       session,
       scope,
-      items: pageRows.map((row) => {
+      items: visibleRows.map((row) => {
         const classification = normalizeClassification(row.classification)
-        const { preview, redacted } = payloadPreview(row.payload, classification, scope)
+        const { preview, redacted } = payloadPreview(
+          row.payload,
+          classification,
+          scope,
+          redactContent
+        )
         return {
           eventId: row.event_id,
           type: row.type,

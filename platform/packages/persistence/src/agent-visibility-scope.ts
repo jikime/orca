@@ -82,23 +82,31 @@ export function requiresRedaction(
 }
 
 /**
- * The redacted-on-read preview for a stored payload. Deterministic: a redacted record yields the
- * placeholder with NO derived snippet, so restricted/above-scope content never leaks through a
+ * The redacted-on-read preview for a stored payload. Deterministic: a label-redacted record yields
+ * the placeholder with NO derived snippet, so restricted/above-scope content never leaks through a
  * preview or a search snippet. A visible record yields a bounded, single-line text preview.
+ *
+ * SEC-003 redact-on-read (defense-in-depth): `redactContent` — the content secret scanner's
+ * `redact` — is applied to a visible preview IN ADDITION to the label rule, so even a `public`
+ * event whose body contains a secret (a mislabeled or pre-floor legacy row) never surfaces the
+ * secret in a preview. If content redaction changed the text, the item is reported `redacted`.
  */
 export function payloadPreview(
   payload: unknown,
   classification: SensitivityClassification,
   scope: VisibilityScope,
+  redactContent?: (text: string) => string,
   maxLength = 280
 ): { preview: string; redacted: boolean } {
   if (requiresRedaction(classification, scope)) {
     return { preview: REDACTED_PLACEHOLDER, redacted: true }
   }
-  const text = payload === null || payload === undefined ? '' : JSON.stringify(payload)
-  const collapsed = text.replace(/\s+/g, ' ').trim()
+  const raw = payload === null || payload === undefined ? '' : JSON.stringify(payload)
+  // Redact secret content BEFORE collapse/truncate so a secret split by truncation cannot survive.
+  const scrubbed = redactContent ? redactContent(raw) : raw
+  const collapsed = scrubbed.replace(/\s+/g, ' ').trim()
   return {
     preview: collapsed.length > maxLength ? `${collapsed.slice(0, maxLength)}…` : collapsed,
-    redacted: false
+    redacted: scrubbed !== raw
   }
 }
