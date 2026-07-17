@@ -8,12 +8,13 @@ import {
   type AuthorizedContext,
   type PieMcpAuthority
 } from './pie-mcp-session-authority'
-import { findCredentialField } from './pie-mcp-tool-io-schemas'
+import { findCredentialField, findOrgScopeViolation } from './pie-mcp-tool-io-schemas'
 import type { PieMcpToolDescriptor } from './pie-mcp-tool-registry'
 
 export type ToolErrorCode =
   | 'unauthorized'
   | 'permission_denied'
+  | 'org_scope_violation'
   | 'invalid_input'
   | 'credential_in_input'
   | 'missing_idempotency_key'
@@ -76,6 +77,28 @@ export async function dispatchToolCall(
     )
   }
 
+  // Org/permissions come from the LOCAL session authority, never from tool args.
+  // Resolved before the confinement + schema checks so the session org is the only
+  // tenant a call can act on. Signed-out/reauth is unauthorized, not a partial call.
+  const resolution = resolveAuthority(authority)
+  if (!resolution.ok) {
+    return fail('unauthorized', resolution.reason)
+  }
+  const context = resolution.context
+
+  // Tenant/audience confinement (MCP-003): a tool arg that names an org/tenant other
+  // than the session org is a confused-deputy attempt — reject before schema and
+  // delegation so a call can never act cross-tenant. Scanned on raw args so a smuggled
+  // org id is caught even on a tool whose schema doesn't declare the field; the
+  // downstream path is always built from context.organizationId (the session org).
+  const orgScopeKey = findOrgScopeViolation(rawArgs, context.organizationId)
+  if (orgScopeKey) {
+    return fail(
+      'org_scope_violation',
+      `tool input field '${orgScopeKey}' targets an organization other than the signed-in session`
+    )
+  }
+
   // Write invariants: a write must be replay-safe (idempotency key) and OCC-guarded
   // (expected version). Checked on raw args before schema validation so the failure
   // code is precise (the mcp-comment-missing-idempotency fixture rejects here).
@@ -94,17 +117,13 @@ export async function dispatchToolCall(
   }
   const input = parsed.data as Record<string, unknown>
 
-  const resolution = resolveAuthority(authority)
-  if (!resolution.ok) {
-    return fail('unauthorized', resolution.reason)
-  }
-  const absent = missingPermissions(resolution.context.permissions, tool.requiredPermissions)
+  const absent = missingPermissions(context.permissions, tool.requiredPermissions)
   if (absent.length > 0) {
     return fail('permission_denied', `missing permission(s): ${absent.join(', ')}`)
   }
 
   try {
-    const output = await callControlPlane(tool, input, resolution.context, client)
+    const output = await callControlPlane(tool, input, context, client)
     return { ok: true, output }
   } catch (error) {
     if (error instanceof PieMcpControlPlaneError && /not yet available/.test(error.message)) {
