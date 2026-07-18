@@ -1,8 +1,8 @@
 import type { PieDomainConfig } from './pie-domain-types'
 import { translate } from '@/i18n/i18n'
 
-// Governance surfaces: recorded decisions and periodic status reports.
-export function buildPieDeliveryGovernanceDomains(): readonly PieDomainConfig[] {
+// Work Portal — governance surfaces: recorded decisions and periodic status reports.
+export function buildPiePortalGovernanceDomains(): readonly PieDomainConfig[] {
   return [
     {
       key: 'decisions',

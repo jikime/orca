@@ -1,9 +1,59 @@
 import type { PieDomainConfig } from './pie-domain-types'
 import { translate } from '@/i18n/i18n'
 
-// Knowledge & operations surfaces: articles, runbooks, and tracked assets.
-export function buildPieOpsKnowledgeDomains(): readonly PieDomainConfig[] {
+// Support module: service tickets, knowledge base, runbooks, and tracked assets.
+export function buildPieSupportDomains(): readonly PieDomainConfig[] {
   return [
+    {
+      key: 'tickets',
+      label: translate('auto.pie.support.domains.tickets', 'Tickets'),
+      scope: 'org',
+      listPath: '/service/tickets',
+      itemPath: (id) => `/service/tickets/${id}`,
+      etagPrefix: 'service-ticket',
+      columns: [
+        { key: 'subject', label: translate('auto.pie.support.domains.subject', 'Subject') },
+        {
+          key: 'status',
+          label: translate('auto.pie.support.domains.status', 'Status'),
+          pill: true
+        },
+        {
+          key: 'priority',
+          label: translate('auto.pie.support.domains.priority', 'Priority'),
+          pill: true
+        }
+      ],
+      createPath: '/service/tickets',
+      createFields: [
+        {
+          key: 'accountId',
+          label: translate('auto.pie.support.domains.accountid', 'Account id'),
+          required: true
+        },
+        {
+          key: 'subject',
+          label: translate('auto.pie.support.domains.subject', 'Subject'),
+          required: true
+        },
+        {
+          key: 'body',
+          label: translate('auto.pie.support.domains.body', 'Description'),
+          type: 'textarea'
+        },
+        {
+          key: 'priority',
+          label: translate('auto.pie.support.domains.priority', 'Priority'),
+          type: 'select',
+          options: ['low', 'normal', 'high', 'urgent']
+        }
+      ],
+      detailFields: [
+        { key: 'subject', label: translate('auto.pie.support.domains.subject', 'Subject') },
+        { key: 'status', label: translate('auto.pie.support.domains.status', 'Status') },
+        { key: 'priority', label: translate('auto.pie.support.domains.priority', 'Priority') }
+      ]
+    },
     {
       key: 'knowledge',
       label: translate('auto.pie.workspace.pie.ops.domains.aff96ed4ff', 'Knowledge Base'),

@@ -13087,7 +13087,12 @@
           "b97282a892": "Operaciones",
           "1e7b750215": "Junta",
           "962a528982": "Charlar",
-          "e4f8d6f1d4": "Entrega"
+          "e4f8d6f1d4": "Entrega",
+          "moduleCommunication": "Comunicación",
+          "moduleWorkPortal": "Portal de Trabajo",
+          "moduleCustomer": "Cliente",
+          "moduleSupport": "Apoyo",
+          "moduleAdmin": "Administración"
         },
         "WorkItemBoard": {
           "130caa9064": "Todos los proyectos",
@@ -13360,6 +13365,33 @@
         },
         "TypingIndicator": {
           "someone": "Alguien"
+        }
+      },
+      "customer": {
+        "domains": {
+          "accounts": "Cuentas",
+          "name": "Nombre",
+          "status": "Estado",
+          "externalref": "árbitro externo",
+          "accountid": "ID de cuenta",
+          "contracts": "Contratos",
+          "title": "Título",
+          "value": "Valor",
+          "start": "Inicio efectivo",
+          "end": "Fin efectivo",
+          "submit": "Entregar",
+          "approve": "Aprobar",
+          "reject": "Rechazar"
+        }
+      },
+      "support": {
+        "domains": {
+          "tickets": "Entradas",
+          "subject": "Sujeto",
+          "status": "Estado",
+          "priority": "Prioridad",
+          "accountid": "ID de cuenta",
+          "body": "Descripción"
         }
       }
     }

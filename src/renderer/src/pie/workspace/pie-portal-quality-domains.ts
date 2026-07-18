@@ -1,8 +1,8 @@
 import type { PieDomainConfig } from './pie-domain-types'
 import { translate } from '@/i18n/i18n'
 
-// Quality surfaces: defects and risks raised against a project.
-export function buildPieDeliveryQualityDomains(): readonly PieDomainConfig[] {
+// Work Portal — quality surfaces: defects and risks raised against a project.
+export function buildPiePortalQualityDomains(): readonly PieDomainConfig[] {
   return [
     {
       key: 'defects',

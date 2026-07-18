@@ -13087,7 +13087,12 @@
           "b97282a892": "运营",
           "e4f8d6f1d4": "送货",
           "1e7b750215": "木板",
-          "962a528982": "聊天"
+          "962a528982": "聊天",
+          "moduleCommunication": "沟通",
+          "moduleWorkPortal": "工作门户",
+          "moduleCustomer": "顾客",
+          "moduleSupport": "支持",
+          "moduleAdmin": "行政"
         },
         "WorkItemBoard": {
           "130caa9064": "所有项目",
@@ -13360,6 +13365,33 @@
         },
         "TypingIndicator": {
           "someone": "有人"
+        }
+      },
+      "customer": {
+        "domains": {
+          "accounts": "账户",
+          "name": "姓名",
+          "status": "状态",
+          "externalref": "外部参考",
+          "accountid": "账户编号",
+          "contracts": "合约",
+          "title": "标题",
+          "value": "价值",
+          "start": "有效启动",
+          "end": "有效结束",
+          "submit": "提交",
+          "approve": "批准",
+          "reject": "拒绝"
+        }
+      },
+      "support": {
+        "domains": {
+          "tickets": "门票",
+          "subject": "主题",
+          "status": "状态",
+          "priority": "优先事项",
+          "accountid": "账户编号",
+          "body": "描述"
         }
       }
     }

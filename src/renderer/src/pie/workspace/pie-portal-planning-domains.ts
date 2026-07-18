@@ -1,8 +1,8 @@
 import type { PieDomainConfig } from './pie-domain-types'
 import { translate } from '@/i18n/i18n'
 
-// Planning surfaces: the project itself plus its change requests and deliverables.
-export function buildPieDeliveryPlanningDomains(): readonly PieDomainConfig[] {
+// Work Portal — planning surfaces: the project plus its change requests and deliverables.
+export function buildPiePortalPlanningDomains(): readonly PieDomainConfig[] {
   return [
     {
       key: 'projects',

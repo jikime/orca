@@ -13087,7 +13087,12 @@
           "b97282a892": "Operations",
           "e4f8d6f1d4": "Delivery",
           "1e7b750215": "Board",
-          "962a528982": "Chat"
+          "962a528982": "Chat",
+          "moduleCommunication": "Communication",
+          "moduleWorkPortal": "Work Portal",
+          "moduleCustomer": "Customer",
+          "moduleSupport": "Support",
+          "moduleAdmin": "Admin"
         },
         "WorkItemBoard": {
           "7ebeac7b75": "+ New issue",
@@ -13360,6 +13365,33 @@
         },
         "TypingIndicator": {
           "someone": "Someone"
+        }
+      },
+      "customer": {
+        "domains": {
+          "accounts": "Accounts",
+          "name": "Name",
+          "status": "Status",
+          "externalref": "External ref",
+          "accountid": "Account id",
+          "contracts": "Contracts",
+          "title": "Title",
+          "value": "Value",
+          "start": "Effective start",
+          "end": "Effective end",
+          "submit": "Submit",
+          "approve": "Approve",
+          "reject": "Reject"
+        }
+      },
+      "support": {
+        "domains": {
+          "tickets": "Tickets",
+          "subject": "Subject",
+          "status": "Status",
+          "priority": "Priority",
+          "accountid": "Account id",
+          "body": "Description"
         }
       }
     }

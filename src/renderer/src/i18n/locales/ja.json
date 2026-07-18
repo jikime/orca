@@ -13087,7 +13087,12 @@
           "b97282a892": "運営",
           "e4f8d6f1d4": "配達",
           "1e7b750215": "ボード",
-          "962a528982": "チャット"
+          "962a528982": "チャット",
+          "moduleCommunication": "コミュニケーション",
+          "moduleWorkPortal": "ワークポータル",
+          "moduleCustomer": "お客様",
+          "moduleSupport": "サポート",
+          "moduleAdmin": "管理者"
         },
         "WorkItemBoard": {
           "f8420a103a": "プロジェクト",
@@ -13360,6 +13365,33 @@
         },
         "TypingIndicator": {
           "someone": "誰か"
+        }
+      },
+      "customer": {
+        "domains": {
+          "accounts": "アカウント",
+          "name": "名前",
+          "status": "状態",
+          "externalref": "外部参照",
+          "accountid": "アカウントID",
+          "contracts": "契約",
+          "title": "タイトル",
+          "value": "価値",
+          "start": "効果的なスタート",
+          "end": "有効端",
+          "submit": "提出する",
+          "approve": "承認する",
+          "reject": "拒否する"
+        }
+      },
+      "support": {
+        "domains": {
+          "tickets": "チケット",
+          "subject": "主題",
+          "status": "状態",
+          "priority": "優先度",
+          "accountid": "アカウントID",
+          "body": "説明"
         }
       }
     }

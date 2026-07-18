@@ -13087,7 +13087,12 @@
           "b97282a892": "운영",
           "962a528982": "채팅",
           "e4f8d6f1d4": "딜리버리",
-          "1e7b750215": "보드"
+          "1e7b750215": "보드",
+          "moduleCommunication": "대화",
+          "moduleWorkPortal": "업무 포털",
+          "moduleCustomer": "고객 관리",
+          "moduleSupport": "지원",
+          "moduleAdmin": "관리"
         },
         "WorkItemBoard": {
           "7ebeac7b75": "+ 새로운 문제",
@@ -13360,6 +13365,33 @@
         },
         "TypingIndicator": {
           "someone": "누군가"
+        }
+      },
+      "customer": {
+        "domains": {
+          "accounts": "고객사",
+          "name": "이름",
+          "status": "상태",
+          "externalref": "외부 참조",
+          "accountid": "고객사 ID",
+          "contracts": "계약",
+          "title": "제목",
+          "value": "금액",
+          "start": "시작일",
+          "end": "종료일",
+          "submit": "제출",
+          "approve": "승인",
+          "reject": "거부"
+        }
+      },
+      "support": {
+        "domains": {
+          "tickets": "티켓",
+          "subject": "제목",
+          "status": "상태",
+          "priority": "우선순위",
+          "accountid": "고객사 ID",
+          "body": "설명"
         }
       }
     }

@@ -1,5 +1,11 @@
-import { buildPieDeliveryDomains } from './pie-delivery-domains'
-import { buildPieOpsDomains } from './pie-ops-domains'
+import { buildPiePortalPlanningDomains } from './pie-portal-planning-domains'
+import { buildPiePortalQualityDomains } from './pie-portal-quality-domains'
+import { buildPiePortalGovernanceDomains } from './pie-portal-governance-domains'
+import { buildPieCustomerDomains } from './pie-customer-domains'
+import { buildPieSupportDomains } from './pie-support-domains'
+import { buildPieCommunicationDomains } from './pie-communication-domains'
+import { buildPieAdminDomains } from './pie-admin-domains'
+import type { PieDomainConfig } from './pie-domain-types'
 
 export type {
   PieActionSpec,
@@ -9,9 +15,18 @@ export type {
   PieFieldType
 } from './pie-domain-types'
 
-// Every Pie desktop domain surface, in nav order: project-scoped delivery first,
-// then org-scoped operations. One generic screen renders any entry. Built lazily
-// so localized labels resolve at render time.
-export function buildPieDomains() {
-  return [...buildPieDeliveryDomains(), ...buildPieOpsDomains()]
+// Work Portal groups the project-execution surfaces (delivery, quality, governance).
+export function buildPiePortalDomains(): readonly PieDomainConfig[] {
+  return [
+    ...buildPiePortalPlanningDomains(),
+    ...buildPiePortalQualityDomains(),
+    ...buildPiePortalGovernanceDomains()
+  ]
+}
+
+export {
+  buildPieCustomerDomains,
+  buildPieSupportDomains,
+  buildPieCommunicationDomains,
+  buildPieAdminDomains
 }
