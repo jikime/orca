@@ -25,6 +25,7 @@ import {
   assertBody,
   assertChannelId,
   resolveAuth,
+  resolveChatFetch,
   type PieChatHandlerDeps
 } from './pie-chat-ipc-shared'
 import { registerPieChatActionHandlers } from './pie-chat-actions'
@@ -51,7 +52,7 @@ export function emitPieChatMessagesChanged(organizationId: string): void {
 }
 
 export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
-  const fetchImpl = deps.fetchImpl ?? fetch
+  const fetchImpl = resolveChatFetch(deps)
 
   ipcMain.removeHandler(PIE_CHAT_LIST_CHANNELS_CHANNEL)
   ipcMain.handle(PIE_CHAT_LIST_CHANNELS_CHANNEL, (event) => {

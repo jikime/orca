@@ -38,7 +38,11 @@ import { registerPieSessionHandlers } from './pie-session'
 import { registerPieRuntimeHandlers } from './pie-runtime'
 import { registerPieChatHandlers } from './pie-chat'
 import { registerPieAuthLoginHandlers } from './pie-auth-login'
-import { getPieAuthAccessToken, getPieAuthApiBaseUrl } from '../pie-auth/pie-auth-service-registry'
+import {
+  forcePieAuthRefresh,
+  getPieAuthAccessToken,
+  getPieAuthApiBaseUrl
+} from '../pie-auth/pie-auth-service-registry'
 import { setTrustedPieRendererWebContentsId } from './pie-renderer-trust'
 import { registerSettingsHandlers } from './settings'
 import { registerDiagnosticsHandlers } from './diagnostics'
@@ -140,7 +144,8 @@ export function registerCoreHandlers(
   registerPieChatHandlers({
     getApiBaseUrl: getPieAuthApiBaseUrl,
     getAccessToken: getPieAuthAccessToken,
-    getOrganizationId: () => desktopSessionBroker.getContext().organizationId
+    getOrganizationId: () => desktopSessionBroker.getContext().organizationId,
+    forceRefresh: forcePieAuthRefresh
   })
   registerCliHandlers()
   registerPreflightHandlers()

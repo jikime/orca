@@ -1,9 +1,30 @@
+import { makeAuthedFetch } from '../pie-chat/chat-auth-retry'
+
 export type PieChatHandlerDeps = {
   // Resolved in Main so the token and org/user ids never reach the renderer.
   getApiBaseUrl: () => string | null
   getAccessToken: () => string | null
   getOrganizationId: () => string | null
+  // Reactively rotate the token on a 401 (see makeAuthedFetch). Optional so tests
+  // that inject fetchImpl directly don't need it.
+  forceRefresh?: () => Promise<boolean>
   fetchImpl?: typeof fetch
+}
+
+// The base fetch every chat client uses, wrapped so a 401 auto-refreshes + retries
+// once (unless a test injected its own fetchImpl). Centralizes the wiring so no
+// client call site changes.
+export function resolveChatFetch(deps: PieChatHandlerDeps): typeof fetch {
+  if (deps.fetchImpl) {
+    return deps.fetchImpl
+  }
+  if (!deps.forceRefresh) {
+    return fetch
+  }
+  return makeAuthedFetch(fetch, {
+    forceRefresh: deps.forceRefresh,
+    getAccessToken: deps.getAccessToken
+  })
 }
 
 export type ResolvedAuth = { apiBaseUrl: string; accessToken: string; organizationId: string }

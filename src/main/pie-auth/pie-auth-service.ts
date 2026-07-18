@@ -24,7 +24,8 @@ import {
 } from './pkce-authorization-request'
 import { acceptInvite as acceptInviteRequest, resolveSessionState } from './platform-session-client'
 import { verifyIdToken } from './id-token-verifier'
-import { exchangeAuthorizationCode, refreshAccessToken } from './token-exchange'
+import { exchangeAuthorizationCode } from './token-exchange'
+import { createRefreshRunner } from './refresh-token-rotation'
 
 const DEFAULT_CALLBACK_TIMEOUT_MS = 5 * 60 * 1000
 const DEFAULT_REFRESH_SKEW_SECONDS = 60
@@ -69,6 +70,10 @@ export type PieAuthService = {
   // The control-plane API base URL (includes /v1) for the active login, or null.
   // Main-only — lets other subsystems (e.g. chat) reach the REST surface.
   getApiBaseUrl: () => string | null
+  // Reactively rotate the access token via the refresh token (e.g. after a 401
+  // when the proactive timer missed). Single-flight, so concurrent callers share
+  // one rotation. Resolves true when a fresh token is available, false otherwise.
+  forceRefresh: () => Promise<boolean>
 }
 
 type ActiveSession = {
@@ -128,32 +133,21 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
     }
   }
 
-  async function runRefresh(): Promise<void> {
-    if (!active) {
-      return
-    }
-    const scope = active.scope
-    const read = deps.store.read(scope)
-    if (read.status !== 'found') {
-      return declareReauthRequired()
-    }
-    try {
-      const tokens = await refreshAccessToken({
-        tokenEndpoint: active.tokenEndpoint,
-        clientId: active.clientId,
-        refreshToken: read.secret.refreshToken,
-        fetchImpl
-      })
-      deps.lifecycle.handleTokenRotation({
-        scope,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken
-      })
-      scheduleNextRefresh(tokens.expiresInSeconds)
-    } catch {
-      // Rotation failure → the session needs interactive re-auth (schema state).
-      declareReauthRequired()
-    }
+  // Single-flight rotation shared by the proactive timer and reactive forceRefresh.
+  const performRefresh = createRefreshRunner({
+    store: deps.store,
+    lifecycle: deps.lifecycle,
+    fetchImpl,
+    getContext: () =>
+      active
+        ? { scope: active.scope, tokenEndpoint: active.tokenEndpoint, clientId: active.clientId }
+        : null,
+    onRotated: (expiresInSeconds) => scheduleNextRefresh(expiresInSeconds),
+    onReauthRequired: () => declareReauthRequired()
+  })
+
+  function runRefresh(): Promise<void> {
+    return performRefresh().then(() => undefined)
   }
 
   function declareReauthRequired(): void {
@@ -330,6 +324,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
     stop,
     getStatus: () => status,
     getAccessToken: () => (active ? deps.lifecycle.getAccessToken(active.scope) : null),
-    getApiBaseUrl: () => active?.apiBaseUrl ?? null
+    getApiBaseUrl: () => active?.apiBaseUrl ?? null,
+    forceRefresh: () => performRefresh()
   }
 }

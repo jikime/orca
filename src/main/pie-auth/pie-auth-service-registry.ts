@@ -20,6 +20,12 @@ export function getPieAuthAccessToken(): string | null {
   return currentService?.getAccessToken() ?? null
 }
 
+/** Reactively rotate the access token (e.g. chat client on a 401). Single-flight
+ *  in the service; returns false when no service is active. Main-only. */
+export function forcePieAuthRefresh(): Promise<boolean> {
+  return currentService?.forceRefresh() ?? Promise.resolve(false)
+}
+
 /** The active login's control-plane API base URL (includes /v1) for other Main
  *  subsystems (chat), or null when signed out. Main-only — never reaches the renderer. */
 export function getPieAuthApiBaseUrl(): string | null {

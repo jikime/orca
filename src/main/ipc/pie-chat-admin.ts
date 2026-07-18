@@ -22,13 +22,14 @@ import {
   assertChannelId,
   assertNonEmptyString,
   resolveAuth,
+  resolveChatFetch,
   type PieChatHandlerDeps
 } from './pie-chat-ipc-shared'
 
 // Channel/DM creation, mute toggle, and the member roster. Split from pie-chat.ts
 // to keep each file inside the size budget.
 export function registerPieChatAdminHandlers(deps: PieChatHandlerDeps): void {
-  const fetchImpl = deps.fetchImpl ?? fetch
+  const fetchImpl = resolveChatFetch(deps)
 
   ipcMain.removeHandler(PIE_CHAT_CREATE_CHANNEL_CHANNEL)
   ipcMain.handle(PIE_CHAT_CREATE_CHANNEL_CHANNEL, (event, input: unknown) => {

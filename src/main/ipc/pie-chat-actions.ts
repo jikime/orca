@@ -19,13 +19,14 @@ import {
   assertChannelId,
   assertNonEmptyString,
   resolveAuth,
+  resolveChatFetch,
   type PieChatHandlerDeps
 } from './pie-chat-ipc-shared'
 
 // Reaction + pin IPC handlers. Split from pie-chat.ts to keep each file inside
 // the size budget; wiring and trust-gating stay identical to the core handlers.
 export function registerPieChatActionHandlers(deps: PieChatHandlerDeps): void {
-  const fetchImpl = deps.fetchImpl ?? fetch
+  const fetchImpl = resolveChatFetch(deps)
 
   ipcMain.removeHandler(PIE_CHAT_ADD_REACTION_CHANNEL)
   ipcMain.handle(PIE_CHAT_ADD_REACTION_CHANNEL, (event, input: unknown) => {

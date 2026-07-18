@@ -16,6 +16,7 @@ import {
   assertChannelId,
   assertNonEmptyString,
   resolveAuth,
+  resolveChatFetch,
   type PieChatHandlerDeps
 } from './pie-chat-ipc-shared'
 
@@ -24,7 +25,7 @@ import {
 // this handler PUTs to object storage in Main (renderer never touches the token,
 // and the PUT avoids renderer CSP restrictions on the storage host).
 export function registerPieChatSearchAttachmentHandlers(deps: PieChatHandlerDeps): void {
-  const fetchImpl = deps.fetchImpl ?? fetch
+  const fetchImpl = resolveChatFetch(deps)
 
   ipcMain.removeHandler(PIE_CHAT_SEARCH_MESSAGES_CHANNEL)
   ipcMain.handle(PIE_CHAT_SEARCH_MESSAGES_CHANNEL, (event, input: unknown) => {
