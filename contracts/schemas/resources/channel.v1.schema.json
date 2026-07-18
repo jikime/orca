@@ -32,6 +32,11 @@
       "items": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
       "description": "For DMs/group DMs: the participant user ids so a client can label the conversation by the other member(s). Absent/empty for regular channels."
     },
+    "unreadCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unread messages for the requesting user (after their read cursor, excluding their own). Present only on the per-member channel list."
+    },
     "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
     "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
     "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }

@@ -154,6 +154,43 @@ describe('chat DM vertical', () => {
     )
   })
 
+  it('the channel list reports unread for the caller, cleared by marking read', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const dm = await jsonOf<{ id: string }>(await createDm('a', userBId))
+    // a posts two messages; b has read none of them yet.
+    let lastMessageId = ''
+    for (const body of ['hi', 'there']) {
+      const res = await bearerFetch('a', `/v1/organizations/${orgId}/channels/${dm.id}/messages`, {
+        method: 'POST',
+        headers: { 'idempotency-key': randomUUID() },
+        body: JSON.stringify({ body })
+      })
+      expect(res.status).toBe(201)
+      lastMessageId = (await jsonOf<{ id: string }>(res)).id
+    }
+    const dmForB = async (): Promise<{ id: string; unreadCount?: number } | undefined> =>
+      (
+        await jsonOf<{ items: Array<{ id: string; unreadCount?: number }> }>(
+          await bearerFetch('b', `/v1/organizations/${orgId}/channels?kind=dm`)
+        )
+      ).items.find((item) => item.id === dm.id)
+    // Two of a's messages are unread for b; a's own list shows 0 (never unread to self).
+    expect((await dmForB())?.unreadCount).toBe(2)
+    const dmForA = (
+      await jsonOf<{ items: Array<{ id: string; unreadCount?: number }> }>(
+        await bearerFetch('a', `/v1/organizations/${orgId}/channels?kind=dm`)
+      )
+    ).items.find((item) => item.id === dm.id)
+    expect(dmForA?.unreadCount).toBe(0)
+    // b reads the DM → the unread badge clears.
+    await bearerFetch('b', `/v1/organizations/${orgId}/channels/${dm.id}/read`, {
+      method: 'POST',
+      headers: { 'idempotency-key': randomUUID() },
+      body: JSON.stringify({ lastReadMessageId: lastMessageId })
+    })
+    expect((await dmForB())?.unreadCount).toBe(0)
+  })
+
   it('both participants can message; a third user cannot read or see the DM', async (ctx) => {
     if (!harness) return ctx.skip()
     const dm = await jsonOf<{ id: string }>(await createDm('a', userBId))

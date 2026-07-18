@@ -24,6 +24,9 @@ export type ChannelResource = {
   // For DMs/group DMs: the participant user ids, so a client labels the row by the
   // other member(s) instead of the generic stored name. Absent for regular channels.
   memberUserIds?: string[]
+  // Unread messages for the requesting user (messages after their read cursor,
+  // excluding their own). Set only by the per-member channel list.
+  unreadCount?: number
 }
 
 function mapChannel(row: {
@@ -272,6 +275,47 @@ export async function listChannels(
         if (channel.kind === 'dm') {
           channel.memberUserIds = byChannel.get(channel.id) ?? []
         }
+      }
+    }
+    const channelIds = channels.map((channel) => channel.id)
+    if (channelIds.length > 0) {
+      // Unread = messages after the user's read cursor (last_read_at), excluding
+      // their own. A missing cursor row means the whole channel is unread.
+      const unreadRows = await trx
+        .selectFrom('collaboration.messages')
+        .leftJoin('collaboration.read_cursors', (join) =>
+          join
+            .onRef(
+              'collaboration.read_cursors.organization_id',
+              '=',
+              'collaboration.messages.organization_id'
+            )
+            .onRef(
+              'collaboration.read_cursors.channel_id',
+              '=',
+              'collaboration.messages.channel_id'
+            )
+            .on('collaboration.read_cursors.user_id', '=', userId)
+        )
+        .select('collaboration.messages.channel_id as channelId')
+        .select((eb) => eb.fn.countAll<string>().as('unread'))
+        .where('collaboration.messages.channel_id', 'in', channelIds)
+        .where('collaboration.messages.author_user_id', '<>', userId)
+        .where((eb) =>
+          eb.or([
+            eb('collaboration.read_cursors.last_read_at', 'is', null),
+            eb(
+              'collaboration.messages.created_at',
+              '>',
+              eb.ref('collaboration.read_cursors.last_read_at')
+            )
+          ])
+        )
+        .groupBy('collaboration.messages.channel_id')
+        .execute()
+      const unreadByChannel = new Map(unreadRows.map((row) => [row.channelId, Number(row.unread)]))
+      for (const channel of channels) {
+        channel.unreadCount = unreadByChannel.get(channel.id) ?? 0
       }
     }
     return channels

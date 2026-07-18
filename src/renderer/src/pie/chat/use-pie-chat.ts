@@ -83,6 +83,11 @@ export function usePieChat(
         }
         setMessages(response.items)
         setError(null)
+        // Viewing a channel marks it read (its unread badge clears on next list).
+        const last = response.items.at(-1)
+        if (last) {
+          void api.markRead(channelId, last.id).catch(() => {})
+        }
       } catch (caught) {
         if (selectedRef.current === channelId) {
           setError(errorMessage(caught))
@@ -152,6 +157,8 @@ export function usePieChat(
     const tick = (): void => {
       refresh()
       void loadNotifications()
+      // Refresh the channel list so unread badges reflect messages in other channels.
+      void loadChannels()
     }
     const unsubscribe = api.onMessagesChanged(tick)
     window.addEventListener('focus', tick)
@@ -161,7 +168,7 @@ export function usePieChat(
       window.removeEventListener('focus', tick)
       window.clearInterval(interval)
     }
-  }, [api, refresh, loadNotifications])
+  }, [api, refresh, loadNotifications, loadChannels])
 
   const selectChannel = useCallback((channelId: string) => {
     setSelectedChannelId(channelId)
@@ -293,10 +300,18 @@ export function usePieChat(
     currentUserId
   )
 
+  // The channel you are viewing never shows an unread badge, even before the next
+  // list refresh confirms the read cursor moved.
+  const displayChannels = channels.map((channel) =>
+    channel.id === selectedChannelId && (channel.unreadCount ?? 0) > 0
+      ? { ...channel, unreadCount: 0 }
+      : channel
+  )
+
   return {
     api,
     currentUserId,
-    channels,
+    channels: displayChannels,
     members,
     selectedChannelId,
     messages,

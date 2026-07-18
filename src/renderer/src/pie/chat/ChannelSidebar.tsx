@@ -27,6 +27,7 @@ type ChannelRowProps = {
 
 function ChannelRow({ channel, active, onSelect }: ChannelRowProps): React.JSX.Element {
   const muted = (channel as { muted?: boolean }).muted === true
+  const unread = channel.unreadCount ?? 0
   return (
     <button
       type="button"
@@ -39,11 +40,28 @@ function ChannelRow({ channel, active, onSelect }: ChannelRowProps): React.JSX.E
       )}
     >
       <span className="text-muted-foreground">{channel.kind === 'dm' ? '@' : '#'}</span>
-      <span className={cn('truncate', muted && 'text-muted-foreground')}>{channel.name}</span>
-      {muted && (
-        <span className="ml-auto text-xs text-muted-foreground" title="Muted">
-          🔕
+      <span
+        className={cn(
+          'truncate',
+          muted && 'text-muted-foreground',
+          unread > 0 && !active && 'font-semibold text-sidebar-foreground'
+        )}
+      >
+        {channel.name}
+      </span>
+      {unread > 0 ? (
+        <span
+          className="ml-auto min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-medium text-primary-foreground"
+          aria-label={`${unread} unread`}
+        >
+          {unread > 99 ? '99+' : unread}
         </span>
+      ) : (
+        muted && (
+          <span className="ml-auto text-xs text-muted-foreground" title="Muted">
+            🔕
+          </span>
+        )
       )}
     </button>
   )

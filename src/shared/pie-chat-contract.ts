@@ -61,7 +61,9 @@ export const PieChannelSchema = z
     visibility: ChannelVisibilitySchema,
     version: z.number().int(),
     createdAt: z.string(),
-    updatedAt: z.string()
+    updatedAt: z.string(),
+    // Unread messages for the requesting user; present only on the channel list.
+    unreadCount: z.number().int().optional()
   })
   .passthrough()
 
