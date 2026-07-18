@@ -37,6 +37,7 @@ import { registerSessionHandlers } from './session'
 import { registerPieSessionHandlers } from './pie-session'
 import { registerPieRuntimeHandlers } from './pie-runtime'
 import { registerPieChatHandlers } from './pie-chat'
+import { registerPieControlPlaneHandlers } from './pie-control-plane'
 import { registerPieAuthLoginHandlers } from './pie-auth-login'
 import {
   forcePieAuthRefresh,
@@ -142,6 +143,14 @@ export function registerCoreHandlers(
   // Token + apiBaseUrl are resolved in Main from the auth lifecycle; org id comes
   // from the session broker. None of these ever cross into the renderer.
   registerPieChatHandlers({
+    getApiBaseUrl: getPieAuthApiBaseUrl,
+    getAccessToken: getPieAuthAccessToken,
+    getOrganizationId: () => desktopSessionBroker.getContext().organizationId,
+    forceRefresh: forcePieAuthRefresh
+  })
+  // Generic org-scoped control-plane bridge for the Pie desktop surfaces (change
+  // requests, knowledge, finance, …) — token stays in Main, refreshes on 401.
+  registerPieControlPlaneHandlers({
     getApiBaseUrl: getPieAuthApiBaseUrl,
     getAccessToken: getPieAuthAccessToken,
     getOrganizationId: () => desktopSessionBroker.getContext().organizationId,

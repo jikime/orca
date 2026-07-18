@@ -227,6 +227,7 @@ import type { PreloadApi } from './api-types'
 import { createPieSessionPreloadApi } from './pie-session-api'
 import { createPieRuntimePreloadApi } from './pie-runtime-api'
 import { createPieChatPreloadApi } from './pie-chat-api'
+import { createPieControlPlanePreloadApi } from './pie-control-plane-api'
 
 type NativeFileDropCallback = (data: NativeFileDropPayload) => void
 
@@ -513,6 +514,7 @@ const api = {
     session: createPieSessionPreloadApi(ipcRenderer),
     runtime: createPieRuntimePreloadApi(ipcRenderer),
     chat: createPieChatPreloadApi(ipcRenderer),
+    control: createPieControlPlanePreloadApi(ipcRenderer),
     auth: {
       beginLogin: (): Promise<void> => ipcRenderer.invoke('pie:auth:begin-login')
     }

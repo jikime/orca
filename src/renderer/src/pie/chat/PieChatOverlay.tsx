@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
-import { ChatScreen } from './ChatScreen'
+import { PieWorkspace } from '../workspace/PieWorkspace'
 
 // Least-invasive mount for the Pie chat surface. It is self-contained: a single
 // <PieChatOverlay /> in App renders nothing until toggled, so normal Orca use is
@@ -46,21 +46,21 @@ export function PieChatOverlay(): React.JSX.Element | null {
     <div
       className="fixed inset-0 z-50 flex flex-col bg-background"
       role="dialog"
-      aria-label="Pie chat"
+      aria-label="Pie workspace"
     >
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="text-xs font-medium text-muted-foreground">Pie chat</span>
+        <span className="text-xs font-medium text-muted-foreground">Pie workspace</span>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          aria-label="Close Pie chat"
+          aria-label="Close Pie workspace"
           className="rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           Close (Esc)
         </button>
       </div>
       <div className="min-h-0 flex-1">
-        <ChatScreen />
+        <PieWorkspace />
       </div>
     </div>
   )
