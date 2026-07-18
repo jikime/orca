@@ -101,6 +101,9 @@ function connect(overrides: Partial<Parameters<typeof createRealtimeConnection>[
     organizationId: '11111111-1111-4111-8111-111111111111',
     reconnect: { baseMs: 10, maxMs: 40, jitterRatio: 0 },
     defaultHeartbeatTimeoutMs: 120,
+    // A token is required to connect (an unauthenticated connect is deferred);
+    // tests exercising the no-token path override this with () => null.
+    getAccessToken: () => 'test-token',
     onChange: (message) => changes.push(message),
     onStatus: (status) => statuses.push(status),
     ...overrides

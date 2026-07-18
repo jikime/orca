@@ -25,19 +25,22 @@ describe('realtime connection WS auth (R3)', () => {
     expect(capturedToken).toBe('ws-access-token')
   })
 
-  it('passes null when signed out', () => {
-    let capturedToken: string | null | undefined = 'unset'
+  it('defers connecting while signed out — never opens an unauthenticated socket', () => {
+    let socketOpened = false
     connection = createRealtimeConnection({
       url: 'ws://127.0.0.1:9/realtime',
       instanceId: 'pie-desktop-test',
       organizationId: '11111111-1111-4111-8111-111111111111',
       getAccessToken: () => null,
-      socketFactory: (_url, _handlers, authToken) => {
-        capturedToken = authToken
+      reconnect: { baseMs: 10, maxMs: 10, jitterRatio: 0 },
+      socketFactory: () => {
+        socketOpened = true
         return { send: () => {}, close: () => {} }
       }
     })
     connection.start()
-    expect(capturedToken).toBeNull()
+    // An unauthenticated connect draws a NON-reconnect close from the gateway that
+    // would stop realtime permanently; with no token we wait instead of connecting.
+    expect(socketOpened).toBe(false)
   })
 })

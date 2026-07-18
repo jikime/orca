@@ -1,11 +1,11 @@
 import { WebSocket } from 'ws'
 import {
-  PIE_REALTIME_PROTOCOL_VERSION,
   PieRealtimeServerMessageSchema,
   type PieRealtimeEphemeral,
   type PieRealtimeResourceChanged
 } from '../../shared/pie-realtime-contract'
 import { cursorSequence } from './realtime-cursor-sequence'
+import { buildClientHello } from './realtime-hello'
 
 export type RealtimeSocketHandlers = {
   onOpen: () => void
@@ -284,20 +284,20 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
     if (stopped || revoked) {
       return
     }
+    const token = options.getAccessToken?.() ?? null
     setStatus({ state: 'connecting', attempt })
+    if (!token) {
+      // No access token yet (realtime starts at window-open, before sign-in). An
+      // unauthenticated connect draws a NON-reconnect close that would stop us for
+      // good; poll on a short delay until a token exists, then connect.
+      scheduleReconnect('awaiting-token', 1000)
+      return
+    }
     socket = socketFactory(
       options.url,
       {
         onOpen: () => {
-          send({
-            type: 'client.hello',
-            schemaVersion: 1,
-            protocolVersion: PIE_REALTIME_PROTOCOL_VERSION,
-            instanceId: options.instanceId,
-            organizationId: options.organizationId,
-            lastCursor: lastAppliedCursor,
-            ...(options.capabilities ? { capabilities: options.capabilities } : {})
-          })
+          send(buildClientHello(options, lastAppliedCursor))
           armHeartbeatWatchdog()
         },
         onMessage: handleMessage,
@@ -313,7 +313,7 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
           log(`[pie-realtime] socket error: ${String(error)}`)
         }
       },
-      options.getAccessToken?.() ?? null
+      token
     )
   }
 
