@@ -135,6 +135,25 @@ describe('chat DM vertical', () => {
     expect((await jsonOf<{ id: string }>(second)).id).toBe(created.id)
   })
 
+  it('a DM carries both participants as memberUserIds, on create and in the list', async (ctx) => {
+    if (!harness) return ctx.skip()
+    // The client labels a DM by the OTHER member; the generic stored name ('Direct
+    // Message') can't do that, so the roster must ride the channel resource.
+    const userAId = (await jsonOf<{ userId: string }>(await bearerFetch('a', `/v1/session`))).userId
+    const created = await jsonOf<{ id: string; memberUserIds: string[] }>(
+      await createDm('a', userBId)
+    )
+    expect([...created.memberUserIds].sort()).toEqual([userAId, userBId].sort())
+    // And it must survive the channel list — the sidebar's source, not just create.
+    const listed = await jsonOf<{ items: Array<{ id: string; memberUserIds?: string[] }> }>(
+      await bearerFetch('a', `/v1/organizations/${orgId}/channels?kind=dm`)
+    )
+    const row = listed.items.find((item) => item.id === created.id)
+    expect(row?.memberUserIds ? [...row.memberUserIds].sort() : undefined).toEqual(
+      [userAId, userBId].sort()
+    )
+  })
+
   it('both participants can message; a third user cannot read or see the DM', async (ctx) => {
     if (!harness) return ctx.skip()
     const dm = await jsonOf<{ id: string }>(await createDm('a', userBId))

@@ -59,6 +59,26 @@ describe('DirectMessageList', () => {
     expect(container?.textContent).toContain('BI')
   })
 
+  it('labels by memberUserIds — the field the control-plane channel resource now carries', () => {
+    // The backend attaches the DM roster as memberUserIds (channel-store); a DM whose
+    // stored name is the generic 'Direct Message' must still resolve to the other member.
+    render(
+      <DirectMessageList
+        dms={[
+          dm(DM_A, { name: 'Direct Message', memberUserIds: [USER, OTHER] } as Partial<PieChannel>)
+        ]}
+        members={[member(OTHER, 'Bianca')]}
+        currentUserId={USER}
+        selectedChannelId={null}
+        onSelect={vi.fn()}
+      />
+    )
+
+    expect(container?.textContent).toContain('Bianca')
+    // The generic stored name must NOT leak through once the roster resolves.
+    expect(container?.textContent).not.toContain('Direct Message')
+  })
+
   it('selects the DM channel when its row is clicked', () => {
     const onSelect = vi.fn()
     render(

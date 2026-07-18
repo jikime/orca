@@ -21,6 +21,9 @@ export type ChannelResource = {
   version: number
   createdAt: string
   updatedAt: string
+  // For DMs/group DMs: the participant user ids, so a client labels the row by the
+  // other member(s) instead of the generic stored name. Absent for regular channels.
+  memberUserIds?: string[]
 }
 
 function mapChannel(row: {
@@ -247,7 +250,31 @@ export async function listChannels(
       query = query.where('collaboration.channels.kind', '=', filter.kind)
     }
     const rows = await query.orderBy('collaboration.channels.created_at').execute()
-    return rows.map((row) => mapChannel({ ...row, version: row.version as string | number }))
+    const channels = rows.map((row) =>
+      mapChannel({ ...row, version: row.version as string | number })
+    )
+    // A DM's stored name is a generic placeholder ('Direct Message'); attach the
+    // roster so the client can label the row by the other participant(s).
+    const dmIds = channels.filter((channel) => channel.kind === 'dm').map((channel) => channel.id)
+    if (dmIds.length > 0) {
+      const memberRows = await trx
+        .selectFrom('collaboration.channel_members')
+        .select(['channel_id', 'user_id'])
+        .where('channel_id', 'in', dmIds)
+        .execute()
+      const byChannel = new Map<string, string[]>()
+      for (const member of memberRows) {
+        const list = byChannel.get(member.channel_id) ?? []
+        list.push(member.user_id)
+        byChannel.set(member.channel_id, list)
+      }
+      for (const channel of channels) {
+        if (channel.kind === 'dm') {
+          channel.memberUserIds = byChannel.get(channel.id) ?? []
+        }
+      }
+    }
+    return channels
   })
 }
 
@@ -301,6 +328,8 @@ export async function createDm(
   input: { organizationId: string; actorUserId: string; otherUserId: string }
 ): Promise<CreateDmResult | { error: 'invalid_target' }> {
   const dmKey = computeDmKey([input.actorUserId, input.otherUserId])
+  // Known without a query: a 1:1 DM's roster is exactly these two.
+  const memberUserIds = [...new Set([input.actorUserId, input.otherUserId])]
   return withTenantTransaction(db, input.organizationId, async (trx) => {
     // The other participant must be a real member of this org — no cross-org DMs.
     const target = await trx
@@ -320,7 +349,7 @@ export async function createDm(
       .where('dm_key', '=', dmKey)
       .executeTakeFirst()
     if (existing) {
-      return { channel: mapChannel(existing), created: false }
+      return { channel: { ...mapChannel(existing), memberUserIds }, created: false }
     }
     const inserted = await trx
       .insertInto('collaboration.channels')
@@ -344,7 +373,7 @@ export async function createDm(
         .where('kind', '=', 'dm')
         .where('dm_key', '=', dmKey)
         .executeTakeFirstOrThrow()
-      return { channel: mapChannel(winner), created: false }
+      return { channel: { ...mapChannel(winner), memberUserIds }, created: false }
     }
     for (const userId of new Set([input.actorUserId, input.otherUserId])) {
       await trx
@@ -369,7 +398,7 @@ export async function createDm(
       })
       .execute()
     await emitCollaborationChange(trx, input.organizationId, 'channel', inserted.id, 1, 'created')
-    return { channel: mapChannel(inserted), created: true }
+    return { channel: { ...mapChannel(inserted), memberUserIds }, created: true }
   })
 }
 
@@ -427,7 +456,7 @@ export async function createGroupDm(
       .where('dm_key', '=', dmKey)
       .executeTakeFirst()
     if (existing) {
-      return { channel: mapChannel(existing), created: false }
+      return { channel: { ...mapChannel(existing), memberUserIds: distinct }, created: false }
     }
     const inserted = await trx
       .insertInto('collaboration.channels')
@@ -451,7 +480,7 @@ export async function createGroupDm(
         .where('kind', '=', 'dm')
         .where('dm_key', '=', dmKey)
         .executeTakeFirstOrThrow()
-      return { channel: mapChannel(winner), created: false }
+      return { channel: { ...mapChannel(winner), memberUserIds: distinct }, created: false }
     }
     for (const userId of distinct) {
       await trx
@@ -476,6 +505,6 @@ export async function createGroupDm(
       })
       .execute()
     await emitCollaborationChange(trx, input.organizationId, 'channel', inserted.id, 1, 'created')
-    return { channel: mapChannel(inserted), created: true }
+    return { channel: { ...mapChannel(inserted), memberUserIds: distinct }, created: true }
   })
 }
