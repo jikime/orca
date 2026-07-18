@@ -32,6 +32,7 @@ describe('ContextSidebar', () => {
     render(
       <ContextSidebar
         members={[member(ALICE, 'alice')]}
+        onlineUserIds={new Set([ALICE])}
         channels={[channel({ name: 'general' })]}
         notifications={[notification()]}
         unreadNotificationCount={1}
@@ -40,7 +41,7 @@ describe('ContextSidebar', () => {
       />
     )
 
-    expect(container?.textContent).toContain('Members · 1')
+    expect(container?.textContent).toContain('Members · 1/1 online')
     expect(container?.textContent).toContain('alice')
     expect(container?.textContent).toContain('Mentioned you in #general')
   })
@@ -49,6 +50,7 @@ describe('ContextSidebar', () => {
     render(
       <ContextSidebar
         members={[]}
+        onlineUserIds={new Set()}
         channels={[]}
         notifications={[]}
         unreadNotificationCount={0}

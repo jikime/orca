@@ -27,6 +27,9 @@ export const PIE_CHAT_LIST_NOTIFICATIONS_CHANNEL = 'pie:chat:list-notifications'
 export const PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL = 'pie:chat:mark-notification-read'
 export const PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL = 'pie:chat:mark-all-notifications-read'
 export const PIE_CHAT_MESSAGES_CHANGED_CHANNEL = 'pie:chat:messages-changed'
+export const PIE_CHAT_SEND_TYPING_CHANNEL = 'pie:chat:send-typing'
+export const PIE_CHAT_TYPING_CHANGED_CHANNEL = 'pie:chat:typing-changed'
+export const PIE_CHAT_PRESENCE_CHANGED_CHANNEL = 'pie:chat:presence-changed'
 
 // Type-only re-exports (erased at runtime, so importing this module never pulls
 // the zod contract into the preload bundle).
@@ -37,7 +40,9 @@ export type {
   PieChatListMessagesOptions,
   PieChatMember,
   PieChatMessagesChanged,
+  PieChatPresenceChanged,
   PieChatRendererApi,
+  PieChatTypingChanged,
   PieMessage,
   PieMessageListResponse,
   PieMessageSearchResponse,

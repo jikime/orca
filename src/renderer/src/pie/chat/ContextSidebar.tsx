@@ -8,6 +8,7 @@ import { NotificationInbox } from './NotificationInbox'
 
 type ContextSidebarProps = {
   members: PieChatMember[]
+  onlineUserIds: ReadonlySet<string>
   channels: PieChannel[]
   notifications: PieNotification[]
   unreadNotificationCount: number
@@ -19,6 +20,7 @@ type ContextSidebarProps = {
 // per-user notification feed (see NotificationInbox) below.
 export function ContextSidebar({
   members,
+  onlineUserIds,
   channels,
   notifications,
   unreadNotificationCount,
@@ -27,7 +29,7 @@ export function ContextSidebar({
 }: ContextSidebarProps): React.JSX.Element {
   return (
     <div className="flex h-full w-full flex-col border-l border-border bg-background">
-      <MemberRoster members={members} />
+      <MemberRoster members={members} onlineUserIds={onlineUserIds} />
       <NotificationInbox
         notifications={notifications}
         channels={channels}

@@ -9,6 +9,7 @@ import { ThreadPanel } from './ThreadPanel'
 import { ChatHeader } from './ChatHeader'
 import { PinnedBanner } from './PinnedBanner'
 import { ContextSidebar } from './ContextSidebar'
+import { TypingIndicator } from './TypingIndicator'
 import { usePieChat } from './use-pie-chat'
 import type { TimelineMessage } from './use-pie-chat'
 
@@ -112,12 +113,17 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
               onOpenThread={setThreadRoot}
               onTogglePin={togglePin}
             />
+            <TypingIndicator
+              typingUserIds={chat.typingUserIdsByChannel.get(chat.selectedChannelId) ?? []}
+              members={chat.members}
+            />
             <ChannelComposer
               channelId={chat.selectedChannelId}
               members={chat.members}
               sending={chat.sending}
               api={chat.api}
               onSend={chat.sendMessage}
+              notifyTyping={chat.notifyTyping}
             />
           </div>
         ) : (
@@ -138,6 +144,7 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
       ) : (
         <ContextSidebar
           members={chat.members}
+          onlineUserIds={chat.onlineUserIds}
           channels={chat.channels}
           notifications={chat.notifications}
           unreadNotificationCount={chat.unreadNotificationCount}

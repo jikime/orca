@@ -28,7 +28,11 @@ import { closeAllWatchers } from './ipc/filesystem-watcher'
 import { disposeWorktreeBaseDirectoryWatchers } from './ipc/worktree-base-directory-watcher'
 import { registerCoreHandlers } from './ipc/register-core-handlers'
 import { startPieRealtimeIfEnabled, stopPieRealtime } from './pie-realtime/realtime-service'
-import { emitPieChatMessagesChanged } from './ipc/pie-chat'
+import {
+  emitPieChatMessagesChanged,
+  emitPieChatPresenceChanged,
+  emitPieChatTypingChanged
+} from './ipc/pie-chat'
 import { PIE_CHAT_REALTIME_RESOURCE_TYPES } from '../shared/pie-chat-contract'
 import {
   acceptPieInvite,
@@ -1156,6 +1160,24 @@ function openMainWindow(): BrowserWindow {
       onChange: (change) => {
         if (PIE_CHAT_REALTIME_RESOURCE_TYPES.has(change.resourceType)) {
           emitPieChatMessagesChanged(change.organizationId)
+        }
+      },
+      // Route ephemeral presence/typing frames to the trusted chat renderer.
+      onEphemeral: (message) => {
+        if (message.type === 'typing.changed') {
+          emitPieChatTypingChanged({
+            organizationId: message.organizationId,
+            channelId: message.channelId,
+            userId: message.userId,
+            at: message.at
+          })
+        } else {
+          emitPieChatPresenceChanged({
+            organizationId: message.organizationId,
+            userId: message.userId,
+            state: message.state,
+            at: message.at
+          })
         }
       }
     })

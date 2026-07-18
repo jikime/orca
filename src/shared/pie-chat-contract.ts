@@ -22,9 +22,12 @@ export {
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_MUTE_CHANNEL_CHANNEL,
   PIE_CHAT_PIN_MESSAGE_CHANNEL,
+  PIE_CHAT_PRESENCE_CHANGED_CHANNEL,
   PIE_CHAT_REMOVE_REACTION_CHANNEL,
   PIE_CHAT_SEARCH_MESSAGES_CHANNEL,
   PIE_CHAT_SEND_MESSAGE_CHANNEL,
+  PIE_CHAT_SEND_TYPING_CHANNEL,
+  PIE_CHAT_TYPING_CHANGED_CHANNEL,
   PIE_CHAT_UNMUTE_CHANNEL_CHANNEL,
   PIE_CHAT_UNPIN_MESSAGE_CHANNEL
 } from './pie-chat-ipc-channels'
@@ -123,6 +126,29 @@ export const PieChatMessagesChangedSchema = z
   .object({
     type: z.literal('chat.messages-changed'),
     organizationId: opaqueIdSchema
+  })
+  .passthrough()
+
+// Ephemeral collaboration pushes forwarded from the realtime connection to the
+// trusted renderer. Non-durable: the payload IS the state (typing self-clears on
+// a TTL, presence on the next presence event); they carry no cursor/version.
+export const PieChatTypingChangedSchema = z
+  .object({
+    type: z.literal('chat.typing-changed'),
+    organizationId: opaqueIdSchema,
+    channelId: opaqueIdSchema,
+    userId: opaqueIdSchema,
+    at: z.string()
+  })
+  .passthrough()
+
+export const PieChatPresenceChangedSchema = z
+  .object({
+    type: z.literal('chat.presence-changed'),
+    organizationId: opaqueIdSchema,
+    userId: opaqueIdSchema,
+    state: z.enum(['online', 'offline']),
+    at: z.string()
   })
   .passthrough()
 
@@ -233,6 +259,8 @@ export type PieMessageAttachment = z.infer<typeof PieMessageAttachmentSchema>
 export type PieChannelListResponse = z.infer<typeof PieChannelListResponseSchema>
 export type PieMessageListResponse = z.infer<typeof PieMessageListResponseSchema>
 export type PieChatMessagesChanged = z.infer<typeof PieChatMessagesChangedSchema>
+export type PieChatTypingChanged = z.infer<typeof PieChatTypingChangedSchema>
+export type PieChatPresenceChanged = z.infer<typeof PieChatPresenceChangedSchema>
 export type PieChatListMessagesOptions = z.infer<typeof PieChatListMessagesOptionsSchema>
 export type PieSendMessageOptions = z.infer<typeof PieSendMessageOptionsSchema>
 export type PiePinnedMessage = z.infer<typeof PiePinnedMessageSchema>
@@ -292,4 +320,10 @@ export type PieChatRendererApi = {
   markNotificationRead: (notificationId: string) => Promise<PieNotification>
   markAllNotificationsRead: () => Promise<number>
   onMessagesChanged: (callback: (event: PieChatMessagesChanged) => void) => () => void
+  // Fire-and-forget typing ping; the backend rate-coalesces per user/channel.
+  sendTyping: (channelId: string) => Promise<void>
+  // Live ephemeral collaboration signals (no cursor/version); the payload IS the
+  // state, so the renderer applies each directly and self-heals on a TTL.
+  onTypingChanged: (callback: (event: PieChatTypingChanged) => void) => () => void
+  onPresenceChanged: (callback: (event: PieChatPresenceChanged) => void) => () => void
 }

@@ -27,12 +27,20 @@ describe('MemberRoster', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     act(() => {
-      root?.render(<MemberRoster members={[member(ALICE, 'alice'), member(BOB, 'bob')]} />)
+      root?.render(
+        <MemberRoster
+          members={[member(ALICE, 'alice'), member(BOB, 'bob')]}
+          onlineUserIds={new Set([ALICE])}
+        />
+      )
     })
 
-    expect(container?.textContent).toContain('Members · 2')
+    // Header shows online / total, and only the online member reads "online".
+    expect(container?.textContent).toContain('Members · 1/2 online')
     expect(container?.textContent).toContain('alice')
     expect(container?.textContent).toContain('bob')
+    expect(container?.textContent).toContain('online')
+    expect(container?.textContent).toContain('offline')
   })
 
   it('renders an empty state with no members', () => {
@@ -40,10 +48,10 @@ describe('MemberRoster', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     act(() => {
-      root?.render(<MemberRoster members={[]} />)
+      root?.render(<MemberRoster members={[]} onlineUserIds={new Set()} />)
     })
 
-    expect(container?.textContent).toContain('Members · 0')
+    expect(container?.textContent).toContain('Members · 0/0 online')
     expect(container?.textContent).toContain('No members found')
   })
 })

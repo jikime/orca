@@ -168,3 +168,20 @@ export async function markRead(
     throw new PieChatError(`mark read failed with ${response.status}`, response.status)
   }
 }
+
+export async function sendTyping(
+  apiBaseUrl: string,
+  accessToken: string,
+  organizationId: string,
+  channelId: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<void> {
+  // Ephemeral fire-and-forget; the server coalesces per user/channel and 204s.
+  const response = await fetchImpl(
+    `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/typing`,
+    { method: 'POST', headers: jsonHeaders(accessToken) }
+  )
+  if (!response.ok) {
+    throw new PieChatError(`typing signal failed with ${response.status}`, response.status)
+  }
+}

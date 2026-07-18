@@ -40,6 +40,9 @@ type RichChatComposerEditorProps = {
   showFormatting: boolean
   // Reports whether the editor has no sendable content, so the parent gates Send.
   onEmptyChange: (empty: boolean) => void
+  // Fired on every content change, so the parent can emit an ephemeral typing ping
+  // (the parent/backend throttle it; here it just signals "the user is typing").
+  onType?: () => void
   // Fired on Enter (no Shift, no open mention popup) — the parent runs its send.
   onEnterSubmit: () => void
   // Lifecycle passthrough for autofocus/tests; the editor stays self-owned.
@@ -63,6 +66,7 @@ export const RichChatComposerEditor = forwardRef<
     placeholder,
     showFormatting,
     onEmptyChange,
+    onType,
     onEnterSubmit,
     onCreate
   },
@@ -76,8 +80,10 @@ export const RichChatComposerEditor = forwardRef<
   // fresh, avoiding stale closures.
   const mentionRef = useRef<MentionState | null>(null)
   const onEnterSubmitRef = useRef(onEnterSubmit)
+  const onTypeRef = useRef(onType)
   const membersRef = useRef(members)
   onEnterSubmitRef.current = onEnterSubmit
+  onTypeRef.current = onType
   membersRef.current = members
   mentionRef.current = mention
 
@@ -189,7 +195,12 @@ export const RichChatComposerEditor = forwardRef<
       onCreate?.(created)
     },
     onUpdate: ({ editor: updated }) => {
-      onEmptyChange(updated.getText().trim().length === 0)
+      const empty = updated.getText().trim().length === 0
+      onEmptyChange(empty)
+      // Only signal typing on real content (not a clear/backspace-to-empty).
+      if (!empty) {
+        onTypeRef.current?.()
+      }
       syncMention(updated)
     },
     onSelectionUpdate: ({ editor: updated }) => {

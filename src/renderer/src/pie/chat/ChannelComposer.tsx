@@ -16,6 +16,8 @@ type ChannelComposerProps = {
   sending: boolean
   api: PieChatRendererApi
   onSend: (body: string, opts?: PieSendMessageOptions) => void | Promise<void>
+  // Emits an ephemeral typing ping for this channel (throttled upstream).
+  notifyTyping?: (channelId: string) => void
 }
 
 // Object URLs are only released here (not in AttachmentComposer), since ownership
@@ -34,7 +36,8 @@ export function ChannelComposer({
   members,
   sending,
   api,
-  onSend
+  onSend,
+  notifyTyping
 }: ChannelComposerProps): React.JSX.Element {
   const [empty, setEmpty] = useState(true)
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
@@ -91,6 +94,7 @@ export function ChannelComposer({
           placeholder="Write a message…"
           showFormatting={showFormatting}
           onEmptyChange={setEmpty}
+          onType={notifyTyping ? () => notifyTyping(channelId) : undefined}
           onEnterSubmit={submit}
         />
         <ComposerToolbar

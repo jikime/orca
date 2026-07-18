@@ -9,6 +9,7 @@ import type {
 } from '../../../../shared/pie-chat-contract'
 import { createOptimisticMessage } from './optimistic-message'
 import { isReactedByMe, toggleReactionLocally } from './apply-optimistic-reaction'
+import { useChatPresenceTyping } from './use-chat-presence-typing'
 
 // A message in the timeline: a server message, optionally an optimistic local
 // echo that has not yet been confirmed (pending) or has failed to send.
@@ -27,6 +28,10 @@ export type PieChatController = {
   messages: TimelineMessage[]
   notifications: PieNotification[]
   unreadNotificationCount: number
+  // Org-wide online users + who is typing per channel (ephemeral realtime state).
+  onlineUserIds: ReadonlySet<string>
+  typingUserIdsByChannel: ReadonlyMap<string, string[]>
+  notifyTyping: (channelId: string) => void
   loadingChannels: boolean
   loadingMessages: boolean
   sending: boolean
@@ -283,6 +288,11 @@ export function usePieChat(
 
   const unreadNotificationCount = notifications.filter((item) => !item.read).length
 
+  const { onlineUserIds, typingUserIdsByChannel, notifyTyping } = useChatPresenceTyping(
+    api,
+    currentUserId
+  )
+
   return {
     api,
     currentUserId,
@@ -292,6 +302,9 @@ export function usePieChat(
     messages,
     notifications,
     unreadNotificationCount,
+    onlineUserIds,
+    typingUserIdsByChannel,
+    notifyTyping,
     loadingChannels,
     loadingMessages,
     sending,

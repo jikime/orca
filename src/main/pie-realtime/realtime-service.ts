@@ -7,7 +7,10 @@ import {
   type RealtimeConnection,
   type RealtimeConnectionOptions
 } from './realtime-connection'
-import type { PieRealtimeResourceChanged } from '../../shared/pie-realtime-contract'
+import type {
+  PieRealtimeEphemeral,
+  PieRealtimeResourceChanged
+} from '../../shared/pie-realtime-contract'
 
 let currentConnection: RealtimeConnection | null = null
 let currentStatus: RealtimeClientStatus = { state: 'disabled' }
@@ -22,6 +25,8 @@ export type StartPieRealtimeOptions = {
   env?: NodeJS.ProcessEnv
   isDisabled?: () => boolean
   onChange?: (message: PieRealtimeResourceChanged) => void
+  // Additive: ephemeral presence/typing frames routed to the chat renderer.
+  onEphemeral?: (message: PieRealtimeEphemeral) => void
   // Supplies the current access token (from the auth lifecycle via the composition
   // root). Both the WS upgrade and the REST resync fetch use it. Defaults to null
   // (unauthenticated) so dev-gated realtime without login degrades to the server's
@@ -62,6 +67,7 @@ export function startPieRealtimeIfEnabled(
       currentStatus = status
     },
     onChange: options.onChange,
+    onEphemeral: options.onEphemeral,
     ...options.connectionOverrides
   })
   currentConnection = connection

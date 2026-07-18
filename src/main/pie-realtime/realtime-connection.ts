@@ -2,8 +2,10 @@ import { WebSocket } from 'ws'
 import {
   PIE_REALTIME_PROTOCOL_VERSION,
   PieRealtimeServerMessageSchema,
+  type PieRealtimeEphemeral,
   type PieRealtimeResourceChanged
 } from '../../shared/pie-realtime-contract'
+import { cursorSequence } from './realtime-cursor-sequence'
 
 export type RealtimeSocketHandlers = {
   onOpen: () => void
@@ -67,6 +69,8 @@ export type RealtimeConnectionOptions = {
   reconnect?: { baseMs?: number; maxMs?: number; jitterRatio?: number }
   defaultHeartbeatTimeoutMs?: number
   onChange?: (message: PieRealtimeResourceChanged) => void
+  // Additive ephemeral presence/typing frames (not deduped against the cursor).
+  onEphemeral?: (message: PieRealtimeEphemeral) => void
   onStatus?: (status: RealtimeClientStatus) => void
   onSessionRevoked?: (reason: string) => void
   log?: (message: string) => void
@@ -78,14 +82,6 @@ export type RealtimeConnection = {
   start: () => void
   stop: () => void
   getStatus: () => RealtimeClientStatus
-}
-
-// The platform issues cursors as `cursor-<zero-padded sequence>`; decoding the
-// sequence lets us dedupe an at-least-once stream numerically. Unparseable
-// cursors fall back to exact-string dedupe.
-function cursorSequence(cursor: string): number | null {
-  const match = /^cursor-(\d+)$/.exec(cursor)
-  return match ? Number(match[1]) : null
 }
 
 export function createRealtimeConnection(options: RealtimeConnectionOptions): RealtimeConnection {
@@ -278,9 +274,8 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
         break
       case 'presence.changed':
       case 'typing.changed':
-        // Ephemeral collaboration signals: they carry no version and invalidate no
-        // cache, so the Main connection validates them (above) and ignores them here.
-        // Rendering presence/typing in the UI is a later renderer slice.
+        // Validated above; surfaced additively for the chat renderer (no cache dedup).
+        options.onEphemeral?.(message)
         break
     }
   }

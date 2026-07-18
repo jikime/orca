@@ -182,5 +182,7 @@ export type PieRealtimeResyncRequired = z.infer<typeof PieRealtimeResyncRequired
 export type PieRealtimeConnectionClosing = z.infer<typeof PieRealtimeConnectionClosingSchema>
 export type PieRealtimeTypingChanged = z.infer<typeof PieRealtimeTypingChangedSchema>
 export type PieRealtimePresenceChanged = z.infer<typeof PieRealtimePresenceChangedSchema>
+// Non-durable collaboration frames (no cursor/version — the payload IS the state).
+export type PieRealtimeEphemeral = PieRealtimeTypingChanged | PieRealtimePresenceChanged
 export type PieRealtimeServerMessage = z.infer<typeof PieRealtimeServerMessageSchema>
 export type PieResourceChangePage = z.infer<typeof PieResourceChangePageSchema>

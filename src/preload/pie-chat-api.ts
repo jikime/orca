@@ -19,9 +19,12 @@ import {
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_MUTE_CHANNEL_CHANNEL,
   PIE_CHAT_PIN_MESSAGE_CHANNEL,
+  PIE_CHAT_PRESENCE_CHANGED_CHANNEL,
   PIE_CHAT_REMOVE_REACTION_CHANNEL,
   PIE_CHAT_SEARCH_MESSAGES_CHANNEL,
   PIE_CHAT_SEND_MESSAGE_CHANNEL,
+  PIE_CHAT_SEND_TYPING_CHANNEL,
+  PIE_CHAT_TYPING_CHANGED_CHANNEL,
   PIE_CHAT_UNMUTE_CHANNEL_CHANNEL,
   PIE_CHAT_UNPIN_MESSAGE_CHANNEL,
   type PieAttachmentDownload,
@@ -29,7 +32,9 @@ import {
   type PieChannel,
   type PieChatMember,
   type PieChatMessagesChanged,
+  type PieChatPresenceChanged,
   type PieChatRendererApi,
+  type PieChatTypingChanged,
   type PieMessage,
   type PieMessageListResponse,
   type PieMessageSearchResponse,
@@ -130,6 +135,25 @@ export function createPieChatPreloadApi(ipc: PieChatIpcRenderer): PieChatRendere
       }
       ipc.on(PIE_CHAT_MESSAGES_CHANGED_CHANNEL, listener)
       return () => ipc.removeListener(PIE_CHAT_MESSAGES_CHANGED_CHANNEL, listener)
+    },
+    sendTyping: async (channelId) => {
+      await ipc.invoke(PIE_CHAT_SEND_TYPING_CHANNEL, { channelId })
+    },
+    onTypingChanged: (callback) => {
+      const listener = (_event: IpcRendererEvent, input: unknown): void => {
+        // Trusted boundary: Main emits a validated PieChatTypingChanged payload.
+        callback(input as PieChatTypingChanged)
+      }
+      ipc.on(PIE_CHAT_TYPING_CHANGED_CHANNEL, listener)
+      return () => ipc.removeListener(PIE_CHAT_TYPING_CHANGED_CHANNEL, listener)
+    },
+    onPresenceChanged: (callback) => {
+      const listener = (_event: IpcRendererEvent, input: unknown): void => {
+        // Trusted boundary: Main emits a validated PieChatPresenceChanged payload.
+        callback(input as PieChatPresenceChanged)
+      }
+      ipc.on(PIE_CHAT_PRESENCE_CHANGED_CHANNEL, listener)
+      return () => ipc.removeListener(PIE_CHAT_PRESENCE_CHANGED_CHANNEL, listener)
     }
   }
 }
