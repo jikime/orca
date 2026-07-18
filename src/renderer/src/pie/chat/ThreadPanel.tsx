@@ -77,9 +77,10 @@ export function ThreadPanel({
         <div className="text-xs font-medium text-foreground">
           {label(root.authorId, currentUserId)}
         </div>
-        <p className="text-sm whitespace-pre-wrap break-words text-foreground">
+        {/* div, not p: rendered Markdown may contain block elements. */}
+        <div className="text-sm break-words text-foreground">
           <MessageBody body={root.body} />
-        </p>
+        </div>
       </div>
       <ScrollArea className="flex-1" viewportClassName="px-4 py-2">
         {loading && replies.length === 0 ? (
@@ -93,9 +94,10 @@ export function ThreadPanel({
                 <div className="text-xs font-medium text-foreground">
                   {label(reply.authorId, currentUserId)}
                 </div>
-                <p className="text-sm whitespace-pre-wrap break-words text-foreground">
+                {/* div, not p: rendered Markdown may contain block elements. */}
+                <div className="text-sm break-words text-foreground">
                   <MessageBody body={reply.body} />
-                </p>
+                </div>
               </li>
             ))}
           </ol>
