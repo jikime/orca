@@ -4,6 +4,30 @@ import type { PieDomainConfig } from './pie-domain-types'
 // first, then lists that project's records.
 export const PIE_DELIVERY_DOMAINS: readonly PieDomainConfig[] = [
   {
+    key: 'projects',
+    label: 'Projects',
+    scope: 'org',
+    listPath: '/projects',
+    itemPath: (id) => `/projects/${id}`,
+    etagPrefix: 'project',
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'status', label: 'Status', pill: true },
+      { key: 'id', label: 'Project id' }
+    ],
+    createPath: '/projects',
+    createFields: [
+      { key: 'name', label: 'Name', required: true },
+      { key: 'summary', label: 'Summary', type: 'textarea' }
+    ],
+    detailFields: [
+      { key: 'name', label: 'Name' },
+      { key: 'summary', label: 'Summary' },
+      { key: 'status', label: 'Status' },
+      { key: 'id', label: 'Project id' }
+    ]
+  },
+  {
     key: 'change-requests',
     label: 'Change Requests',
     scope: 'project',

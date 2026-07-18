@@ -86,6 +86,14 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
   const list = usePieResource<Record<string, unknown>>(listPath)
   const items = ((list.data?.[config.itemsField ?? 'items'] as Row[]) ?? []).filter(Boolean)
 
+  // Project-scoped domains pick from the org's projects instead of pasting an id.
+  const projectsQuery = usePieResource<Record<string, unknown>>(
+    config.scope === 'project' ? '/projects' : null
+  )
+  const projectOptions = (
+    (projectsQuery.data?.items as { id: string; name: string }[]) ?? []
+  ).filter(Boolean)
+
   const run = async (fn: () => Promise<unknown>): Promise<void> => {
     setBusy(true)
     setError(null)
@@ -142,12 +150,20 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
         )}
         <div className="ml-auto flex items-center gap-2">
           {config.scope === 'project' && (
-            <Input
+            <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              placeholder="Project id…"
-              className="h-8 w-60 text-xs"
-            />
+              className="h-8 w-60 rounded-md border border-input bg-background px-2 text-xs shadow-xs focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50"
+            >
+              <option value="">
+                {projectOptions.length === 0 ? 'No projects — create one first' : 'Select project…'}
+              </option>
+              {projectOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           )}
           {config.createFields && (
             <Button size="sm" onClick={() => setCreating((c) => !c)} disabled={listPath === null}>
