@@ -91,9 +91,11 @@ export function MessageTimeline({
                   <p className="text-sm italic text-muted-foreground">Message deleted</p>
                 ) : (
                   <>
-                    <p
+                    {/* div, not p: rendered Markdown may contain block elements
+                        (lists, code blocks) that are invalid inside a <p>. */}
+                    <div
                       className={cn(
-                        'text-sm whitespace-pre-wrap break-words text-foreground',
+                        'text-sm break-words text-foreground',
                         message.pending && 'text-muted-foreground'
                       )}
                     >
@@ -101,7 +103,7 @@ export function MessageTimeline({
                       {message.edited && (
                         <span className="ml-1 text-xs text-muted-foreground">(edited)</span>
                       )}
-                    </p>
+                    </div>
                     {message.attachments.length > 0 && (
                       <AttachmentList channelId={channelId} attachments={message.attachments} />
                     )}
