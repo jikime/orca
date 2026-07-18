@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/invoice-line-item.v1.schema.json",
+  "title": "Invoice line item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "invoiceId",
+    "description",
+    "quantity",
+    "unitPrice",
+    "amount",
+    "sortOrder",
+    "createdAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "invoiceId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "description": { "type": "string", "minLength": 1 },
+    "quantity": { "type": "string" },
+    "unitPrice": { "type": "string" },
+    "amount": { "type": "string" },
+    "sortOrder": { "type": "integer" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

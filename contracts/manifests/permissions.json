@@ -534,6 +534,24 @@
       "resource": "asset",
       "action": "manage",
       "risk": "elevated"
+    },
+    {
+      "id": "finance.invoice.read",
+      "resource": "invoice",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "finance.invoice.manage",
+      "resource": "invoice",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "finance.payment.record",
+      "resource": "payment",
+      "action": "record",
+      "risk": "elevated"
     }
   ]
 }

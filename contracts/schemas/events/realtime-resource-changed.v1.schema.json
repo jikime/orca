@@ -76,7 +76,10 @@
         "meeting_minutes",
         "asset",
         "asset_link",
-        "asset_event"
+        "asset_event",
+        "invoice",
+        "invoice_line_item",
+        "payment"
       ]
     },
     "resourceId": {

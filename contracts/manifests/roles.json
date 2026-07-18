@@ -95,7 +95,10 @@
         "meeting.manage",
         "meeting.minutes.review",
         "asset.read",
-        "asset.manage"
+        "asset.manage",
+        "finance.invoice.read",
+        "finance.invoice.manage",
+        "finance.payment.record"
       ]
     },
     {
@@ -188,7 +191,10 @@
         "meeting.manage",
         "meeting.minutes.review",
         "asset.read",
-        "asset.manage"
+        "asset.manage",
+        "finance.invoice.read",
+        "finance.invoice.manage",
+        "finance.payment.record"
       ]
     },
     {
@@ -261,7 +267,10 @@
         "meeting.manage",
         "meeting.minutes.review",
         "asset.read",
-        "asset.manage"
+        "asset.manage",
+        "finance.invoice.read",
+        "finance.invoice.manage",
+        "finance.payment.record"
       ]
     },
     {
@@ -306,7 +315,8 @@
         "automation.workqueue.read",
         "ai.governance.read",
         "meeting.read",
-        "asset.read"
+        "asset.read",
+        "finance.invoice.read"
       ]
     },
     {

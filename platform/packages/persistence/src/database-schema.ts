@@ -1335,6 +1335,60 @@ export interface AssetEventsTable {
   occurred_at: TimestampColumn
 }
 
+// === R9 finance: invoices + line items + payments (20260902090001) ===
+// A bill for a customer account. account_id / contract_id / project_id are OPAQUE cross-schema links
+// (no FK). subtotal/total are recomputed from the line items (total = subtotal + tax_amount);
+// amount_paid is drawn down by payments. status walks draft → issued → partially_paid → paid | void.
+// invoice_number is unique per org. version is OCC.
+export interface FinanceInvoicesTable {
+  organization_id: string
+  id: Generated<string>
+  account_id: string
+  contract_id: string | null
+  project_id: string | null
+  invoice_number: string
+  status: Generated<string>
+  currency: Generated<string>
+  subtotal: NumericColumn
+  tax_amount: NumericColumn
+  total: NumericColumn
+  amount_paid: NumericColumn
+  issue_date: NullableDateColumn
+  due_date: NullableDateColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// A billed line. invoice_id is a same-schema composite FK to the parent (never dangles/crosses
+// tenants). amount = round(quantity * unit_price, 2), computed on write; a line change recomputes the
+// parent invoice totals while draft.
+export interface FinanceInvoiceLineItemsTable {
+  organization_id: string
+  id: Generated<string>
+  invoice_id: string
+  description: string
+  quantity: NumericColumn
+  unit_price: NumericColumn
+  amount: NumericColumn
+  sort_order: Generated<number>
+  created_at: TimestampColumn
+}
+
+// An append-only payment receipt. invoice_id is a same-schema composite FK. Recording a payment
+// atomically increments the parent invoice amount_paid under a row lock; recorded_by is OPAQUE.
+export interface FinancePaymentsTable {
+  organization_id: string
+  id: Generated<string>
+  invoice_id: string
+  amount: NumericColumn
+  paid_at: TimestampColumn
+  method: Generated<string>
+  reference: string | null
+  recorded_by: string | null
+  created_at: TimestampColumn
+}
+
 // === R7 ai governance: entitlements + quota + evaluation + guard log (20260830090001) ===
 // What an org MAY use. resource_kind is model|tool, resource_key the OPAQUE resource key. allowed gates
 // access; quota_limit (null = unlimited) caps consumption over quota_period. version is OCC.
@@ -1689,4 +1743,7 @@ export interface Database {
   'assets.assets': AssetsTable
   'assets.asset_links': AssetLinksTable
   'assets.asset_events': AssetEventsTable
+  'finance.invoices': FinanceInvoicesTable
+  'finance.invoice_line_items': FinanceInvoiceLineItemsTable
+  'finance.payments': FinancePaymentsTable
 }

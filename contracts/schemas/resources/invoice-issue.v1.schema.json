@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/invoice-issue.v1.schema.json",
+  "title": "Issue invoice request",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "issueDate": { "type": "string", "format": "date" }
+  }
+}

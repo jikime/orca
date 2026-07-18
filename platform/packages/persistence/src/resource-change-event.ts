@@ -103,6 +103,12 @@ export type ResourceChangeResourceType =
   | 'asset'
   | 'asset_link'
   | 'asset_event'
+  // Finance (R9). Invoice lifecycle (create/update/issue/void), line-item add/remove (which recompute
+  // the parent invoice totals), and append-only payment records ride the same outbox → Worker →
+  // gateway path unchanged.
+  | 'invoice'
+  | 'invoice_line_item'
+  | 'payment'
 
 export type ResourceChangeData = {
   eventId: string

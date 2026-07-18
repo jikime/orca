@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/invoice-create.v1.schema.json",
+  "title": "Create invoice request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accountId", "invoiceNumber"],
+  "properties": {
+    "accountId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "contractId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "projectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "invoiceNumber": { "type": "string", "minLength": 1 },
+    "currency": { "type": "string", "minLength": 1 },
+    "taxAmount": { "type": ["number", "string"] },
+    "dueDate": { "type": "string", "format": "date" }
+  }
+}

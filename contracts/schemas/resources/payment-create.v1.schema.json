@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/payment-create.v1.schema.json",
+  "title": "Record payment request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["amount"],
+  "properties": {
+    "amount": { "type": ["number", "string"] },
+    "method": { "enum": ["bank_transfer", "card", "cash", "other"] },
+    "reference": { "type": "string" },
+    "paidAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

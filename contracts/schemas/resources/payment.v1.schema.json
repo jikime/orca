@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/payment.v1.schema.json",
+  "title": "Invoice payment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "invoiceId",
+    "amount",
+    "paidAt",
+    "method",
+    "reference",
+    "recordedBy",
+    "createdAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "invoiceId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "amount": { "type": "string" },
+    "paidAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "method": { "enum": ["bank_transfer", "card", "cash", "other"] },
+    "reference": { "type": ["string", "null"] },
+    "recordedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

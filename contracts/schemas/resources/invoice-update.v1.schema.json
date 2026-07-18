@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/invoice-update.v1.schema.json",
+  "title": "Update invoice request",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "contractId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "currency": { "type": "string", "minLength": 1 },
+    "taxAmount": { "type": ["number", "string"] },
+    "dueDate": { "type": ["string", "null"], "format": "date" }
+  }
+}

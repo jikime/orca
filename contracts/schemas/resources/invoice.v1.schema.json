@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/invoice.v1.schema.json",
+  "title": "Invoice",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "accountId",
+    "contractId",
+    "projectId",
+    "invoiceNumber",
+    "status",
+    "currency",
+    "subtotal",
+    "taxAmount",
+    "total",
+    "amountPaid",
+    "issueDate",
+    "dueDate",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "accountId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "contractId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "invoiceNumber": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["draft", "issued", "partially_paid", "paid", "void"] },
+    "currency": { "type": "string", "minLength": 1 },
+    "subtotal": { "type": "string" },
+    "taxAmount": { "type": "string" },
+    "total": { "type": "string" },
+    "amountPaid": { "type": "string" },
+    "issueDate": { "type": ["string", "null"], "format": "date" },
+    "dueDate": { "type": ["string", "null"], "format": "date" },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}
