@@ -42,10 +42,12 @@ export function useChatPresenceTyping(
     })
     // Seed AFTER subscribing (so a frame arriving in between isn't lost): Main
     // cached the initial presence burst that this renderer mounted too late to hear.
+    // Optional-chained so a stale preload (dev HMR skew) degrades to live-only
+    // presence instead of crashing the surface.
     let cancelled = false
     void api
-      .getPresenceSnapshot()
-      .then((ids) => {
+      .getPresenceSnapshot?.()
+      ?.then((ids) => {
         if (!cancelled) {
           setOnlineUserIds((current) => new Set([...current, ...ids]))
         }
