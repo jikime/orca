@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/import-request.v1.schema.json",
+  "title": "External import request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source", "dryRun", "items"],
+  "properties": {
+    "source": { "type": "string", "enum": ["jira", "redmine", "csv"] },
+    "dryRun": { "type": "boolean" },
+    "defaultTeamId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["externalSystem", "externalKey", "kind", "title"],
+        "properties": {
+          "externalSystem": { "type": "string", "minLength": 1 },
+          "externalKey": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "enum": ["project", "work_item"] },
+          "title": { "type": "string", "minLength": 1 },
+          "summary": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "priority": { "type": ["string", "null"] },
+          "teamId": {
+            "oneOf": [
+              { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+              { "type": "null" }
+            ]
+          },
+          "assigneeEmail": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

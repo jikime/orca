@@ -59,6 +59,9 @@ export type ResourceChangeResourceType =
   // append-only effort-entry logs ride the same outbox → Worker → gateway path unchanged.
   | 'resource_assignment'
   | 'effort_entry'
+  // External import (R6 slice 6). Import-run lifecycle invalidations ride the same outbox → Worker →
+  // gateway path unchanged; the created/updated projects & work_items already emit their own changes.
+  | 'import_run'
 
 export type ResourceChangeData = {
   eventId: string

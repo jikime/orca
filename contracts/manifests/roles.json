@@ -71,7 +71,8 @@
         "project.plan.read",
         "project.plan.manage",
         "project.resource.read",
-        "project.resource.manage"
+        "project.resource.manage",
+        "project.import.manage"
       ]
     },
     {
@@ -140,7 +141,8 @@
         "project.plan.read",
         "project.plan.manage",
         "project.resource.read",
-        "project.resource.manage"
+        "project.resource.manage",
+        "project.import.manage"
       ]
     },
     {
@@ -192,7 +194,8 @@
         "project.plan.read",
         "project.plan.manage",
         "project.resource.read",
-        "project.resource.manage"
+        "project.resource.manage",
+        "project.import.manage"
       ]
     },
     {

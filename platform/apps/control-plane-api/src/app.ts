@@ -33,6 +33,7 @@ import { registerRequirementRoutes } from './requirement-routes'
 import { registerServiceTicketRoutes } from './service-ticket-routes'
 import { registerPlanningRoutes } from './planning-routes'
 import { registerPlanningResourceRoutes } from './planning-resource-routes'
+import { registerImportRoutes } from './import-routes'
 import { registerInvitationRoutes } from './invitation-routes'
 import { registerRevocationRoutes } from './revocation-routes'
 import type { KeycloakTokenVerifier } from './keycloak-token-verifier'
@@ -189,6 +190,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerServiceTicketRoutes(app, { db: deps.db, registry: deps.registry })
     registerPlanningRoutes(app, { db: deps.db, registry: deps.registry })
     registerPlanningResourceRoutes(app, { db: deps.db, registry: deps.registry })
+    registerImportRoutes(app, { db: deps.db, registry: deps.registry })
     registerChannelRoutes(app, {
       db: deps.db,
       registry: deps.registry,

@@ -1150,6 +1150,34 @@ export interface EffortEntriesTable {
   created_at: TimestampColumn
 }
 
+// R6 slice 6: one row per external import invocation (audit + result record).
+export interface ImportRunsTable {
+  organization_id: string
+  id: Generated<string>
+  source: string
+  dry_run: boolean
+  status: string
+  created_count: Generated<number>
+  updated_count: Generated<number>
+  skipped_count: Generated<number>
+  actor_user_id: string | null
+  created_at: TimestampColumn
+}
+
+// The dedup table: (external_system, external_key, resource_type) is the idempotency key; resource_id
+// is an OPAQUE pointer into delivery (no cross-schema FK).
+export interface ImportExternalLinksTable {
+  organization_id: string
+  id: Generated<string>
+  external_system: string
+  external_key: string
+  resource_type: string
+  resource_id: string
+  import_run_id: string
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -1233,4 +1261,6 @@ export interface Database {
   'planning.baseline_entries': BaselineEntriesTable
   'planning.resource_assignments': ResourceAssignmentsTable
   'planning.effort_entries': EffortEntriesTable
+  'imports.import_runs': ImportRunsTable
+  'imports.import_external_links': ImportExternalLinksTable
 }

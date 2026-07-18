@@ -390,6 +390,12 @@
       "resource": "project_resource",
       "action": "manage",
       "risk": "elevated"
+    },
+    {
+      "id": "project.import.manage",
+      "resource": "project_import",
+      "action": "manage",
+      "risk": "elevated"
     }
   ]
 }
