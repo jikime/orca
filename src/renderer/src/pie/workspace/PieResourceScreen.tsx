@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { apiPost, resourceEtag, PieApiError } from '../control-plane/pie-api-client'
 import { usePieResource } from '../control-plane/use-pie-resource'
-import type { PieDomainConfig, PieFieldSpec } from './pie-domain-registry'
+import type { PieActionSpec, PieDomainConfig, PieFieldSpec } from './pie-domain-registry'
 
 type Row = Record<string, unknown> & { id: string; version?: number; status?: string }
 
@@ -129,11 +129,14 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
     })
   }
 
-  const runAction = (row: Row, verb: string, toStatus?: string): void => {
+  const runAction = (row: Row, action: PieActionSpec): void => {
     const etag =
-      row.version !== undefined ? resourceEtag(config.etagPrefix, row.version) : undefined
-    const body = toStatus ? { toStatus } : undefined
-    void run(() => apiPost(`${config.itemPath(row.id)}/${verb}`, body, etag))
+      action.occ && row.version !== undefined
+        ? resourceEtag(config.etagPrefix, row.version)
+        : undefined
+    // Custom methods are colon-suffixed on the id (`/resource/{id}:verb`), not a
+    // sub-path — the control-plane routes match a `:target` param.
+    void run(() => apiPost(`${config.itemPath(row.id)}:${action.verb}`, action.body, etag))
   }
 
   return (
@@ -260,7 +263,7 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
                       size="sm"
                       variant="outline"
                       disabled={busy}
-                      onClick={() => runAction(selected, action.verb, action.toStatus)}
+                      onClick={() => runAction(selected, action)}
                     >
                       {action.label}
                     </Button>
