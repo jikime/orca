@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/ai-entitlement-upsert.v1.schema.json",
+  "title": "Upsert AI resource entitlement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["resourceKind", "resourceKey", "allowed"],
+  "properties": {
+    "resourceKind": {
+      "enum": ["model", "tool"]
+    },
+    "resourceKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowed": {
+      "type": "boolean"
+    },
+    "quotaLimit": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "quotaPeriod": {
+      "enum": ["day", "month", "total"]
+    }
+  }
+}

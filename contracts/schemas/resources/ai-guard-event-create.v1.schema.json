@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/ai-guard-event-create.v1.schema.json",
+  "title": "Record AI guard event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["guardKind", "action", "detail", "detectedBy"],
+  "properties": {
+    "subjectId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "guardKind": {
+      "enum": ["prompt_injection", "jailbreak", "pii", "secret", "toxicity"]
+    },
+    "action": {
+      "enum": ["blocked", "flagged", "allowed"]
+    },
+    "detail": {
+      "type": "string",
+      "minLength": 1
+    },
+    "detectedBy": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

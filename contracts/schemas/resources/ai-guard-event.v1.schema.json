@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/ai-guard-event.v1.schema.json",
+  "title": "AI guard event record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "subjectId",
+    "guardKind",
+    "action",
+    "detail",
+    "detectedBy",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "subjectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "guardKind": {
+      "enum": ["prompt_injection", "jailbreak", "pii", "secret", "toxicity"]
+    },
+    "action": {
+      "enum": ["blocked", "flagged", "allowed"]
+    },
+    "detail": {
+      "type": "string",
+      "minLength": 1
+    },
+    "detectedBy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

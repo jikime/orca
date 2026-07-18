@@ -87,7 +87,10 @@
         "automation.runbook.approve",
         "automation.runbook.run",
         "automation.workqueue.read",
-        "automation.workqueue.manage"
+        "automation.workqueue.manage",
+        "ai.entitlement.manage",
+        "ai.usage.consume",
+        "ai.governance.read"
       ]
     },
     {
@@ -172,7 +175,10 @@
         "automation.runbook.approve",
         "automation.runbook.run",
         "automation.workqueue.read",
-        "automation.workqueue.manage"
+        "automation.workqueue.manage",
+        "ai.entitlement.manage",
+        "ai.usage.consume",
+        "ai.governance.read"
       ]
     },
     {
@@ -238,7 +244,9 @@
         "automation.runbook.manage",
         "automation.runbook.run",
         "automation.workqueue.read",
-        "automation.workqueue.manage"
+        "automation.workqueue.manage",
+        "ai.usage.consume",
+        "ai.governance.read"
       ]
     },
     {
@@ -280,7 +288,8 @@
         "project.qa.read",
         "project.governance.read",
         "knowledge.read",
-        "automation.workqueue.read"
+        "automation.workqueue.read",
+        "ai.governance.read"
       ]
     },
     {

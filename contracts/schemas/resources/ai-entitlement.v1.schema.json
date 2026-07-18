@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/ai-entitlement.v1.schema.json",
+  "title": "AI resource entitlement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "resourceKind",
+    "resourceKey",
+    "allowed",
+    "quotaLimit",
+    "quotaPeriod",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "resourceKind": {
+      "enum": ["model", "tool"]
+    },
+    "resourceKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowed": {
+      "type": "boolean"
+    },
+    "quotaLimit": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "quotaPeriod": {
+      "enum": ["day", "month", "total"]
+    },
+    "version": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "updatedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

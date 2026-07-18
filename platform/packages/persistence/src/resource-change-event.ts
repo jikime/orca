@@ -83,6 +83,12 @@ export type ResourceChangeResourceType =
   | 'runbook'
   | 'runbook_execution'
   | 'work_queue_item'
+  // AI governance (R7). Per-org AI resource entitlement changes, append-only evaluation records, and
+  // append-only prompt-injection/safety guard events ride the same outbox → Worker → gateway path
+  // unchanged (quota_usage counters are not a realtime resource type — they are enforcement state).
+  | 'ai_entitlement'
+  | 'ai_evaluation'
+  | 'ai_guard_event'
 
 export type ResourceChangeData = {
   eventId: string

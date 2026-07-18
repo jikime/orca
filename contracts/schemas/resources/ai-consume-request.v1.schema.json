@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/ai-consume-request.v1.schema.json",
+  "title": "AI quota consume request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["resourceKind", "resourceKey", "periodKey", "amount"],
+  "properties": {
+    "resourceKind": {
+      "enum": ["model", "tool"]
+    },
+    "resourceKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "periodKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    }
+  }
+}

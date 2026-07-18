@@ -486,6 +486,24 @@
       "resource": "automation_workqueue",
       "action": "manage",
       "risk": "elevated"
+    },
+    {
+      "id": "ai.entitlement.manage",
+      "resource": "ai_entitlement",
+      "action": "manage",
+      "risk": "critical"
+    },
+    {
+      "id": "ai.usage.consume",
+      "resource": "ai_quota",
+      "action": "consume",
+      "risk": "elevated"
+    },
+    {
+      "id": "ai.governance.read",
+      "resource": "ai_governance",
+      "action": "read",
+      "risk": "standard"
     }
   ]
 }

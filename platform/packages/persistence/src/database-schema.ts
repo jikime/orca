@@ -1202,6 +1202,62 @@ export interface WorkQueueItemsTable {
   updated_at: TimestampColumn
 }
 
+// === R7 ai governance: entitlements + quota + evaluation + guard log (20260830090001) ===
+// What an org MAY use. resource_kind is model|tool, resource_key the OPAQUE resource key. allowed gates
+// access; quota_limit (null = unlimited) caps consumption over quota_period. version is OCC.
+export interface AiEntitlementsTable {
+  organization_id: string
+  id: Generated<string>
+  resource_kind: string
+  resource_key: string
+  allowed: Generated<boolean>
+  quota_limit: NullableNumericColumn
+  quota_period: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// Consumption counters. period_key names the window ('2026-07' / '2026-07-18' / 'all'). used accumulates;
+// consume increments it atomically under a FOR UPDATE row lock so concurrent consumes cannot overspend.
+export interface AiQuotaUsageTable {
+  organization_id: string
+  id: Generated<string>
+  resource_kind: string
+  resource_key: string
+  period_key: string
+  used: NumericColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// APPEND-ONLY eval log. subject_id is the OPAQUE id of what was evaluated (no FK). No update/delete.
+export interface AiEvaluationsTable {
+  organization_id: string
+  id: Generated<string>
+  subject_id: string | null
+  model_key: string
+  metric: string
+  score: NumericColumn
+  verdict: string
+  notes: string | null
+  evaluated_by: string | null
+  created_at: TimestampColumn
+}
+
+// APPEND-ONLY prompt-injection / safety guard log (evidence). subject_id is OPAQUE (no FK). No update.
+export interface AiGuardEventsTable {
+  organization_id: string
+  id: Generated<string>
+  subject_id: string | null
+  guard_kind: string
+  action: string
+  detail: string
+  detected_by: string
+  created_at: TimestampColumn
+}
+
 // === R6 s3 service ticket + SLA tables (20260821090001) ===
 // account_id / reporter_contact_id / project_id / contract_id / agent_session_id / remote_session_id
 // are OPAQUE cross-schema links (no FK). sla_policy_id is a same-schema nullable ref. version is OCC.
@@ -1488,4 +1544,8 @@ export interface Database {
   'automation.runbooks': AutomationRunbooksTable
   'automation.runbook_executions': RunbookExecutionsTable
   'automation.work_queue_items': WorkQueueItemsTable
+  'ai.entitlements': AiEntitlementsTable
+  'ai.quota_usage': AiQuotaUsageTable
+  'ai.evaluations': AiEvaluationsTable
+  'ai.guard_events': AiGuardEventsTable
 }

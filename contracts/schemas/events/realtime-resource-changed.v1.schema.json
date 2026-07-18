@@ -65,7 +65,10 @@
         "knowledge_article",
         "runbook",
         "runbook_execution",
-        "work_queue_item"
+        "work_queue_item",
+        "ai_entitlement",
+        "ai_evaluation",
+        "ai_guard_event"
       ]
     },
     "resourceId": {

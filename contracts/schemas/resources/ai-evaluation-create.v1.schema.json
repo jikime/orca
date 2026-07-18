@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/ai-evaluation-create.v1.schema.json",
+  "title": "Record AI evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["modelKey", "metric", "score", "verdict"],
+  "properties": {
+    "subjectId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "modelKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metric": {
+      "type": "string",
+      "minLength": 1
+    },
+    "score": {
+      "type": "number"
+    },
+    "verdict": {
+      "enum": ["pass", "warn", "fail"]
+    },
+    "notes": {
+      "type": ["string", "null"]
+    },
+    "evaluatedBy": {
+      "type": ["string", "null"]
+    }
+  }
+}
