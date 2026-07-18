@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import type { PieSessionState } from '../../../../shared/pie-session-contract'
-import type { PieChannel, PieMessage } from '../../../../shared/pie-chat-contract'
+import type { PieChannel, PieMessage, PieNotification } from '../../../../shared/pie-chat-contract'
 import { ChannelSidebar } from './ChannelSidebar'
 import { ChannelComposer } from './ChannelComposer'
 import { MessageTimeline } from './MessageTimeline'
@@ -14,17 +14,13 @@ import type { TimelineMessage } from './use-pie-chat'
 
 type ChatWorkspaceProps = {
   currentUserId: string
-  currentUserDisplayName: string
 }
 
 // 3-column layout: left nav | center stream | right context. Fixed side
 // widths (~232px / ~264px), center stream fills the remaining space.
 const GRID_COLUMNS = 'grid-cols-[232px_minmax(0,1fr)_264px]'
 
-function ChatWorkspace({
-  currentUserId,
-  currentUserDisplayName
-}: ChatWorkspaceProps): React.JSX.Element {
+function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element {
   const chat = usePieChat(currentUserId)
   const [threadRoot, setThreadRoot] = useState<PieMessage | null>(null)
   const activeChannel = chat.channels.find((channel) => channel.id === chat.selectedChannelId)
@@ -64,6 +60,18 @@ function ChatWorkspace({
         chat.refresh()
       }
       setThreadRoot(null)
+    },
+    [chat]
+  )
+
+  const onSelectNotification = useCallback(
+    (notification: PieNotification) => {
+      void chat.markNotificationRead(notification.id)
+      // Jump to the mention's channel when it is one the user can open.
+      if (notification.channelId && notification.channelId !== chat.selectedChannelId) {
+        chat.selectChannel(notification.channelId)
+        setThreadRoot(null)
+      }
     },
     [chat]
   )
@@ -130,9 +138,11 @@ function ChatWorkspace({
       ) : (
         <ContextSidebar
           members={chat.members}
-          messages={chat.messages}
-          currentUserId={currentUserId}
-          currentUserDisplayName={currentUserDisplayName}
+          channels={chat.channels}
+          notifications={chat.notifications}
+          unreadNotificationCount={chat.unreadNotificationCount}
+          onSelectNotification={onSelectNotification}
+          onMarkAllNotificationsRead={chat.markAllNotificationsRead}
         />
       )}
     </div>
@@ -214,7 +224,5 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
     )
   }
 
-  return (
-    <ChatWorkspace currentUserId={session.userId} currentUserDisplayName={session.displayName} />
-  )
+  return <ChatWorkspace currentUserId={session.userId} />
 }

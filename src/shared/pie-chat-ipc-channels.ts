@@ -23,6 +23,9 @@ export const PIE_CHAT_SEARCH_MESSAGES_CHANNEL = 'pie:chat:search-messages'
 export const PIE_CHAT_CREATE_ATTACHMENT_INTENT_CHANNEL = 'pie:chat:create-attachment-intent'
 export const PIE_CHAT_DOWNLOAD_ATTACHMENT_CHANNEL = 'pie:chat:download-attachment'
 export const PIE_CHAT_LIST_MEMBERS_CHANNEL = 'pie:chat:list-members'
+export const PIE_CHAT_LIST_NOTIFICATIONS_CHANNEL = 'pie:chat:list-notifications'
+export const PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL = 'pie:chat:mark-notification-read'
+export const PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL = 'pie:chat:mark-all-notifications-read'
 export const PIE_CHAT_MESSAGES_CHANGED_CHANNEL = 'pie:chat:messages-changed'
 
 // Type-only re-exports (erased at runtime, so importing this module never pulls
@@ -38,6 +41,8 @@ export type {
   PieMessage,
   PieMessageListResponse,
   PieMessageSearchResponse,
+  PieNotification,
+  PieNotificationListResponse,
   PiePinnedMessage,
   PieSendMessageOptions
 } from './pie-chat-contract'

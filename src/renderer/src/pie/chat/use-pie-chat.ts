@@ -4,6 +4,7 @@ import type {
   PieChatMember,
   PieChatRendererApi,
   PieMessage,
+  PieNotification,
   PieSendMessageOptions
 } from '../../../../shared/pie-chat-contract'
 import { createOptimisticMessage } from './optimistic-message'
@@ -24,6 +25,8 @@ export type PieChatController = {
   members: PieChatMember[]
   selectedChannelId: string | null
   messages: TimelineMessage[]
+  notifications: PieNotification[]
+  unreadNotificationCount: number
   loadingChannels: boolean
   loadingMessages: boolean
   sending: boolean
@@ -32,6 +35,8 @@ export type PieChatController = {
   selectChannelObject: (channel: PieChannel) => void
   sendMessage: (body: string, opts?: PieSendMessageOptions) => Promise<void>
   toggleReaction: (messageId: string, emoji: string) => Promise<void>
+  markNotificationRead: (notificationId: string) => Promise<void>
+  markAllNotificationsRead: () => Promise<void>
   refresh: () => void
 }
 
@@ -51,6 +56,7 @@ export function usePieChat(
   const [members, setMembers] = useState<PieChatMember[]>([])
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [messages, setMessages] = useState<TimelineMessage[]>([])
+  const [notifications, setNotifications] = useState<PieNotification[]>([])
   const [loadingChannels, setLoadingChannels] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [sending, setSending] = useState(false)
@@ -100,15 +106,27 @@ export function usePieChat(
     }
   }, [api])
 
+  // The durable per-user notification feed. A failure is non-fatal (the inbox
+  // just stays empty) so it does not surface a blocking error to the timeline.
+  const loadNotifications = useCallback(async (): Promise<void> => {
+    try {
+      const response = await api.listNotifications()
+      setNotifications(response.items)
+    } catch {
+      setNotifications([])
+    }
+  }, [api])
+
   useEffect(() => {
     void loadChannels()
+    void loadNotifications()
     // Members feed @-mention autocomplete and DM targeting; a failure here is
     // non-fatal (autocomplete just stays empty) so it does not surface an error.
     void api
       .listMembers()
       .then(setMembers)
       .catch(() => setMembers([]))
-  }, [api, loadChannels])
+  }, [api, loadChannels, loadNotifications])
 
   useEffect(() => {
     if (selectedChannelId) {
@@ -124,17 +142,21 @@ export function usePieChat(
   }, [loadMessages])
 
   // Live updates: a Main push nudge, a poll on window focus, and a slow interval.
+  // A mention creates a notification, so every nudge also refreshes the inbox.
   useEffect(() => {
-    const unsubscribe = api.onMessagesChanged(() => refresh())
-    const onFocus = (): void => refresh()
-    window.addEventListener('focus', onFocus)
-    const interval = window.setInterval(refresh, POLL_INTERVAL_MS)
+    const tick = (): void => {
+      refresh()
+      void loadNotifications()
+    }
+    const unsubscribe = api.onMessagesChanged(tick)
+    window.addEventListener('focus', tick)
+    const interval = window.setInterval(tick, POLL_INTERVAL_MS)
     return () => {
       unsubscribe()
-      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('focus', tick)
       window.clearInterval(interval)
     }
-  }, [api, refresh])
+  }, [api, refresh, loadNotifications])
 
   const selectChannel = useCallback((channelId: string) => {
     setSelectedChannelId(channelId)
@@ -232,6 +254,35 @@ export function usePieChat(
     [api, messages]
   )
 
+  const markNotificationRead = useCallback(
+    async (notificationId: string): Promise<void> => {
+      // Optimistically flip the row read; the server call is idempotent, so a
+      // failed request simply reverts to the next feed refresh.
+      setNotifications((current) =>
+        current.map((item) =>
+          item.id === notificationId ? { ...item, read: true, seen: true } : item
+        )
+      )
+      try {
+        await api.markNotificationRead(notificationId)
+      } catch {
+        void loadNotifications()
+      }
+    },
+    [api, loadNotifications]
+  )
+
+  const markAllNotificationsRead = useCallback(async (): Promise<void> => {
+    setNotifications((current) => current.map((item) => ({ ...item, read: true, seen: true })))
+    try {
+      await api.markAllNotificationsRead()
+    } catch {
+      void loadNotifications()
+    }
+  }, [api, loadNotifications])
+
+  const unreadNotificationCount = notifications.filter((item) => !item.read).length
+
   return {
     api,
     currentUserId,
@@ -239,6 +290,8 @@ export function usePieChat(
     members,
     selectedChannelId,
     messages,
+    notifications,
+    unreadNotificationCount,
     loadingChannels,
     loadingMessages,
     sending,
@@ -247,6 +300,8 @@ export function usePieChat(
     selectChannelObject,
     sendMessage,
     toggleReaction,
+    markNotificationRead,
+    markAllNotificationsRead,
     refresh
   }
 }

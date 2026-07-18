@@ -1,50 +1,101 @@
-import type { TimelineMessage } from './use-pie-chat'
+import type { PieChannel, PieNotification } from '../../../../shared/pie-chat-contract'
 
 type NotificationInboxProps = {
-  messages: TimelineMessage[]
-  currentUserId: string
-  currentUserDisplayName: string
+  notifications: PieNotification[]
+  channels: PieChannel[]
+  unreadCount: number
+  onSelect: (notification: PieNotification) => void
+  onMarkAllRead: () => void
 }
 
-// There is no notifications-feed endpoint in the chat contract. The composer
-// writes a mention into the body as literal '@DisplayName' text (mentions are
-// not returned on the message resource — see MessageBody), so scanning the
-// already-loaded timeline for that text is the only real "did someone mention
-// me" signal available without a new fetch. This only covers the currently
-// open channel's loaded messages, not a cross-channel notification feed.
-function mentionsMe(message: TimelineMessage, displayName: string, currentUserId: string): boolean {
-  if (message.authorId === currentUserId || message.deleted) {
-    return false
+// The backend feed carries no actor or message body — only a type + channel/
+// message reference — so a mention reads as "Mentioned you" with the channel
+// name and a relative time, not an author line.
+function describe(notification: PieNotification): string {
+  return notification.type === 'mention' ? 'Mentioned you' : notification.type
+}
+
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 31536000000],
+  ['month', 2592000000],
+  ['day', 86400000],
+  ['hour', 3600000],
+  ['minute', 60000]
+]
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) {
+    return ''
   }
-  return message.body.includes(`@${displayName}`)
+  const deltaMs = then - Date.now()
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  for (const [unit, ms] of RELATIVE_UNITS) {
+    if (Math.abs(deltaMs) >= ms) {
+      return formatter.format(Math.round(deltaMs / ms), unit)
+    }
+  }
+  return formatter.format(Math.round(deltaMs / 1000), 'second')
 }
 
 export function NotificationInbox({
-  messages,
-  currentUserId,
-  currentUserDisplayName
+  notifications,
+  channels,
+  unreadCount,
+  onSelect,
+  onMarkAllRead
 }: NotificationInboxProps): React.JSX.Element {
-  const mentions = messages
-    .filter((message) => mentionsMe(message, currentUserDisplayName, currentUserId))
-    .slice(-5)
-    .toReversed()
+  const channelName = (channelId: string | null): string => {
+    const channel = channelId ? channels.find((item) => item.id === channelId) : undefined
+    return channel ? `#${channel.name}` : 'a channel'
+  }
 
   return (
     <div className="flex max-h-64 shrink-0 flex-col border-t border-border">
-      <h3 className="px-4 pt-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        Notifications
-      </h3>
+      <div className="flex items-center justify-between px-4 pt-3 pb-1">
+        <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Notifications
+        </h3>
+        {unreadCount > 0 && (
+          <button
+            type="button"
+            onClick={onMarkAllRead}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
       <div className="flex-1 overflow-y-auto px-2 pb-3">
-        {mentions.length === 0 ? (
+        {notifications.length === 0 ? (
           <p className="px-2 py-1.5 text-sm text-muted-foreground">No new notifications</p>
         ) : (
           <ul className="flex flex-col gap-0.5">
-            {mentions.map((message) => (
-              <li key={message.optimisticId ?? message.id} className="rounded-md px-2 py-1.5">
-                <p className="truncate text-xs text-muted-foreground">
-                  {message.authorId.slice(0, 8)} mentioned you
-                </p>
-                <p className="truncate text-sm text-foreground">{message.body}</p>
+            {notifications.map((notification) => (
+              <li key={notification.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(notification)}
+                  className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+                >
+                  <span
+                    aria-hidden
+                    data-unread={notification.read ? undefined : 'true'}
+                    className={
+                      notification.read
+                        ? 'mt-1.5 size-1.5 shrink-0 rounded-full bg-transparent'
+                        : 'mt-1.5 size-1.5 shrink-0 rounded-full bg-primary'
+                    }
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-foreground">
+                      {describe(notification)} in {channelName(notification.channelId)}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {relativeTime(notification.createdAt)}
+                    </span>
+                  </span>
+                </button>
               </li>
             ))}
           </ul>

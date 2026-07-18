@@ -8,6 +8,7 @@ import type {
 import { MentionAutocomplete, filterMembers } from './MentionAutocomplete'
 import { AttachmentComposer, type PendingAttachment } from './AttachmentComposer'
 import { ComposerAttachmentPreview } from './ComposerAttachmentPreview'
+import { ComposerFormattingToolbar } from './ComposerFormattingToolbar'
 import { ComposerToolbar } from './ComposerToolbar'
 import { useComposerTextareaAutogrow } from './use-composer-textarea-autogrow'
 
@@ -44,6 +45,7 @@ export function ChannelComposer({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [mentionUserIds, setMentionUserIds] = useState<string[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
+  const [showFormatting, setShowFormatting] = useState(true)
   const textareaRef = useComposerTextareaAutogrow(value)
 
   const mentionQuery = useMemo(() => {
@@ -162,6 +164,9 @@ export function ChannelComposer({
         )}
       >
         <ComposerAttachmentPreview attachments={attachments} onRemove={removeAttachment} />
+        {showFormatting && (
+          <ComposerFormattingToolbar textareaRef={textareaRef} value={value} onChange={setValue} />
+        )}
         <textarea
           ref={textareaRef}
           value={value}
@@ -175,7 +180,13 @@ export function ChannelComposer({
             'placeholder:text-muted-foreground outline-none'
           )}
         />
-        <ComposerToolbar canSend={canSend} sending={sending} onSend={submit}>
+        <ComposerToolbar
+          canSend={canSend}
+          sending={sending}
+          onSend={submit}
+          formattingVisible={showFormatting}
+          onToggleFormatting={() => setShowFormatting((current) => !current)}
+        >
           <AttachmentComposer
             channelId={channelId}
             api={api}
