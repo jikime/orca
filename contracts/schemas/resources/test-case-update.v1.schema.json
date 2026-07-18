@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/test-case-update.v1.schema.json",
+  "title": "Update test case",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "steps": { "type": ["string", "null"] },
+    "expected": { "type": ["string", "null"] },
+    "requirementId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "workItemId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

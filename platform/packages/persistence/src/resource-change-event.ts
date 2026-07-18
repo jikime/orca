@@ -65,6 +65,11 @@ export type ResourceChangeResourceType =
   // Project-execution change requests (R6). Change-request lifecycle (submit/approve/reject/apply)
   // invalidations ride the same outbox → Worker → gateway path unchanged.
   | 'change_request'
+  // QA: deliverables + test cases + defects (R6). Deliverable accept, test_case pass/fail, and defect
+  // status transitions ride the same outbox → Worker → gateway path unchanged.
+  | 'deliverable'
+  | 'test_case'
+  | 'defect'
 
 export type ResourceChangeData = {
   eventId: string

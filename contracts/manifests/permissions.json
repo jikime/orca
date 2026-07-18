@@ -408,6 +408,18 @@
       "resource": "project_change",
       "action": "approve",
       "risk": "critical"
+    },
+    {
+      "id": "project.qa.read",
+      "resource": "project_qa",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "project.qa.manage",
+      "resource": "project_qa",
+      "action": "manage",
+      "risk": "elevated"
     }
   ]
 }

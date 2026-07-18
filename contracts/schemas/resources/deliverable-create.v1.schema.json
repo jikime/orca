@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/deliverable-create.v1.schema.json",
+  "title": "Create project deliverable",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "requirementId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "wbsNodeId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "dueDate": { "type": "string" }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/deliverable-transition.v1.schema.json",
+  "title": "Transition a deliverable",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action"],
+  "properties": {
+    "action": { "enum": ["start", "submit", "accept", "reject"] }
+  }
+}

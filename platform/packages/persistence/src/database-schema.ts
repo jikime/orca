@@ -1012,6 +1012,54 @@ export interface RequirementWorkItemsTable {
   created_at: TimestampColumn
 }
 
+// === R6 qa: deliverables + test cases + defects (20260826090001) ===
+// project_id / requirement_id / wbs_node_id / work_item_id / test_case_id / deliverable_id are OPAQUE
+// cross-schema links (no FK). status is the OCC :transition target; version is the OCC counter.
+export interface DeliverablesTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  requirement_id: string | null
+  wbs_node_id: string | null
+  name: string
+  description: string | null
+  status: Generated<string>
+  due_date: NullableDateColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface TestCasesTable {
+  organization_id: string
+  id: Generated<string>
+  requirement_id: string | null
+  work_item_id: string | null
+  title: string
+  steps: string | null
+  expected: string | null
+  status: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface DefectsTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  test_case_id: string | null
+  work_item_id: string | null
+  deliverable_id: string | null
+  title: string
+  description: string | null
+  severity: Generated<string>
+  status: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // === R6 s3 service ticket + SLA tables (20260821090001) ===
 // account_id / reporter_contact_id / project_id / contract_id / agent_session_id / remote_session_id
 // are OPAQUE cross-schema links (no FK). sla_policy_id is a same-schema nullable ref. version is OCC.
@@ -1280,6 +1328,9 @@ export interface Database {
   'requirements.requirements': RequirementsTable
   'requirements.requirement_work_items': RequirementWorkItemsTable
   'requirements.requirement_acceptances': RequirementAcceptancesTable
+  'qa.deliverables': DeliverablesTable
+  'qa.test_cases': TestCasesTable
+  'qa.defects': DefectsTable
   'planning.wbs_nodes': WbsNodesTable
   'planning.milestones': MilestonesTable
   'planning.schedule_baselines': ScheduleBaselinesTable

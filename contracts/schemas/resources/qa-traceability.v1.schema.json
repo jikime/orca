@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/qa-traceability.v1.schema.json",
+  "title": "Requirement qa traceability (requirement → test_cases + deliverables + defects)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requirementId", "deliverables", "testCases", "defects", "coverage"],
+  "properties": {
+    "requirementId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "deliverables": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/deliverable.v1.schema.json" }
+    },
+    "testCases": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/test-case.v1.schema.json" }
+    },
+    "defects": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/defect.v1.schema.json" }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hasDeliverable",
+        "hasTestCase",
+        "hasPassingTest",
+        "hasAcceptedDeliverable",
+        "hasOpenDefect",
+        "testCaseCount",
+        "deliverableCount",
+        "defectCount"
+      ],
+      "properties": {
+        "hasDeliverable": { "type": "boolean" },
+        "hasTestCase": { "type": "boolean" },
+        "hasPassingTest": { "type": "boolean" },
+        "hasAcceptedDeliverable": { "type": "boolean" },
+        "hasOpenDefect": { "type": "boolean" },
+        "testCaseCount": { "type": "integer" },
+        "deliverableCount": { "type": "integer" },
+        "defectCount": { "type": "integer" }
+      }
+    }
+  }
+}

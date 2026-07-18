@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/test-case.v1.schema.json",
+  "title": "Test case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "requirementId",
+    "workItemId",
+    "title",
+    "steps",
+    "expected",
+    "status",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "requirementId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "workItemId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "steps": { "type": ["string", "null"] },
+    "expected": { "type": ["string", "null"] },
+    "status": { "enum": ["draft", "ready", "passed", "failed", "blocked"] },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

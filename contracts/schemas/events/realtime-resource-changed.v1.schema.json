@@ -55,7 +55,10 @@
         "agent_session_intake",
         "requirement",
         "requirement_acceptance",
-        "change_request"
+        "change_request",
+        "deliverable",
+        "test_case",
+        "defect"
       ]
     },
     "resourceId": {

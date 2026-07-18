@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/test-case-create.v1.schema.json",
+  "title": "Create test case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "steps": { "type": "string" },
+    "expected": { "type": "string" },
+    "requirementId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "workItemId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  }
+}
