@@ -131,6 +131,7 @@ import {
 import { reconnectSshTargetForRendererStartup } from './startup/ssh-startup-reconnect'
 import { bootstrapPieDesktopBoundary } from './pie/pie-desktop-bootstrap'
 import { PieChatOverlay } from './pie/chat/PieChatOverlay'
+import { PieWorkspace } from './pie/workspace/PieWorkspace'
 import { shouldRenderPetOverlay } from './components/pet/pet-overlay-visibility'
 import { applyDocumentTheme } from './lib/document-theme'
 import { getSystemPrefersDark } from './lib/terminal-theme'
@@ -2455,6 +2456,7 @@ function App(): React.JSX.Element {
                               {activeView === 'automations' ? <AutomationsPage /> : null}
                               {activeView === 'activity' ? <ActivityPrototypePage /> : null}
                               {activeView === 'space' ? <WorkspaceSpacePage /> : null}
+                              {activeView === 'pie' ? <PieWorkspace /> : null}
                               {activeView === 'mobile' ? <MobilePage /> : null}
                               {activeView === 'terminal' &&
                               creationLayoutActive &&

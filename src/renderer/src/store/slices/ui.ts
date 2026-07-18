@@ -507,7 +507,8 @@ const TOP_LEVEL_VIEW_LOOKUP: Record<TopLevelView, true> = {
   automations: true,
   space: true,
   skills: true,
-  mobile: true
+  mobile: true,
+  pie: true
 }
 const KNOWN_TOP_LEVEL_VIEWS = new Set<string>(Object.keys(TOP_LEVEL_VIEW_LOOKUP))
 
@@ -623,62 +624,13 @@ export type UISlice = {
   acknowledgeAgents: (paneKeys: string[]) => void
   unacknowledgeAgents: (paneKeys: string[]) => void
   activeView: TopLevelView
-  previousViewBeforeTasks:
-    | 'terminal'
-    | 'settings'
-    | 'activity'
-    | 'automations'
-    | 'space'
-    | 'skills'
-    | 'mobile'
-  previousViewBeforeSettings:
-    | 'terminal'
-    | 'tasks'
-    | 'activity'
-    | 'automations'
-    | 'space'
-    | 'skills'
-    | 'mobile'
-  previousViewBeforeActivity:
-    | 'terminal'
-    | 'settings'
-    | 'tasks'
-    | 'automations'
-    | 'space'
-    | 'skills'
-    | 'mobile'
-  previousViewBeforeAutomations:
-    | 'terminal'
-    | 'settings'
-    | 'tasks'
-    | 'activity'
-    | 'space'
-    | 'skills'
-    | 'mobile'
-  previousViewBeforeSpace:
-    | 'terminal'
-    | 'settings'
-    | 'tasks'
-    | 'activity'
-    | 'automations'
-    | 'skills'
-    | 'mobile'
-  previousViewBeforeSkills:
-    | 'terminal'
-    | 'settings'
-    | 'tasks'
-    | 'activity'
-    | 'automations'
-    | 'space'
-    | 'mobile'
-  previousViewBeforeMobile:
-    | 'terminal'
-    | 'settings'
-    | 'tasks'
-    | 'activity'
-    | 'automations'
-    | 'space'
-    | 'skills'
+  previousViewBeforeTasks: Exclude<TopLevelView, 'tasks'>
+  previousViewBeforeSettings: Exclude<TopLevelView, 'settings'>
+  previousViewBeforeActivity: Exclude<TopLevelView, 'activity'>
+  previousViewBeforeAutomations: Exclude<TopLevelView, 'automations'>
+  previousViewBeforeSpace: Exclude<TopLevelView, 'space'>
+  previousViewBeforeSkills: Exclude<TopLevelView, 'skills'>
+  previousViewBeforeMobile: Exclude<TopLevelView, 'mobile'>
   setActiveView: (view: UISlice['activeView']) => void
   taskPageData: {
     preselectedRepoId?: string
