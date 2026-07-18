@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import type { PieChannel, PieChatMember } from '../../../../shared/pie-chat-contract'
 import { MessageAvatar } from './MessageAvatar'
 import { dmParticipantLabel } from './dm-participant-label'
+import { translate } from '@/i18n/i18n'
 
 type DirectMessageListProps = {
   dms: PieChannel[]
@@ -53,7 +54,9 @@ function DirectMessageRow({
       {unread > 0 ? (
         <span
           className="ml-auto min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-medium text-primary-foreground"
-          aria-label={`${unread} unread`}
+          aria-label={translate('auto.pie.chat.DirectMessageList.9b550129b0', '{{value0}} unread', {
+            value0: unread
+          })}
         >
           {unread > 99 ? '99+' : unread}
         </span>
@@ -81,10 +84,12 @@ export function DirectMessageList({
   return (
     <>
       <p className="px-2 pt-3 text-xs font-medium uppercase text-muted-foreground">
-        Direct messages
+        {translate('auto.pie.chat.DirectMessageList.5998ec9258', 'Direct messages')}
       </p>
       {dms.length === 0 ? (
-        <p className="px-2 py-1.5 text-[13px] text-muted-foreground">No direct messages yet</p>
+        <p className="px-2 py-1.5 text-[13px] text-muted-foreground">
+          {translate('auto.pie.chat.DirectMessageList.be2afe9b07', 'No direct messages yet')}
+        </p>
       ) : (
         dms.map((channel) => (
           <DirectMessageRow

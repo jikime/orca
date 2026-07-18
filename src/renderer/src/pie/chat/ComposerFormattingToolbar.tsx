@@ -14,6 +14,7 @@ import { Toggle } from '@/components/ui/toggle'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
+import { translate } from '@/i18n/i18n'
 
 type ComposerFormattingToolbarProps = {
   editor: Editor | null
@@ -42,7 +43,9 @@ export function ComposerFormattingToolbar({
       editor.chain().focus().unsetLink().run()
       return
     }
-    const url = globalThis.prompt?.('Link URL')
+    const url = globalThis.prompt?.(
+      translate('auto.pie.chat.ComposerFormattingToolbar.fce63e588e', 'Link URL')
+    )
     if (!url) {
       return
     }
@@ -55,8 +58,12 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('bold') ?? false}
         onPressedChange={() => editor?.chain().focus().toggleBold().run()}
-        aria-label="Bold"
-        title={`Bold (${mod}B)`}
+        aria-label={translate('auto.pie.chat.ComposerFormattingToolbar.03d76cb53b', 'Bold')}
+        title={translate(
+          'auto.pie.chat.ComposerFormattingToolbar.55d75f9b6a',
+          'Bold ({{value0}}B)',
+          { value0: mod }
+        )}
       >
         <Bold />
       </Toggle>
@@ -64,8 +71,12 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('italic') ?? false}
         onPressedChange={() => editor?.chain().focus().toggleItalic().run()}
-        aria-label="Italic"
-        title={`Italic (${mod}I)`}
+        aria-label={translate('auto.pie.chat.ComposerFormattingToolbar.86e7920051', 'Italic')}
+        title={translate(
+          'auto.pie.chat.ComposerFormattingToolbar.d23ea3e657',
+          'Italic ({{value0}}I)',
+          { value0: mod }
+        )}
       >
         <Italic />
       </Toggle>
@@ -73,8 +84,12 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('underline') ?? false}
         onPressedChange={() => editor?.chain().focus().toggleMark('underline').run()}
-        aria-label="Underline"
-        title={`Underline (${mod}U)`}
+        aria-label={translate('auto.pie.chat.ComposerFormattingToolbar.755dce67eb', 'Underline')}
+        title={translate(
+          'auto.pie.chat.ComposerFormattingToolbar.aa643a0f4c',
+          'Underline ({{value0}}U)',
+          { value0: mod }
+        )}
       >
         <Underline />
       </Toggle>
@@ -82,8 +97,11 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('strike') ?? false}
         onPressedChange={() => editor?.chain().focus().toggleStrike().run()}
-        aria-label="Strikethrough"
-        title="Strikethrough"
+        aria-label={translate(
+          'auto.pie.chat.ComposerFormattingToolbar.138e85856a',
+          'Strikethrough'
+        )}
+        title={translate('auto.pie.chat.ComposerFormattingToolbar.138e85856a', 'Strikethrough')}
       >
         <Strikethrough />
       </Toggle>
@@ -92,8 +110,8 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('link') ?? false}
         onPressedChange={promptForLink}
-        aria-label="Link"
-        title="Link"
+        aria-label={translate('auto.pie.chat.ComposerFormattingToolbar.4833d75420', 'Link')}
+        title={translate('auto.pie.chat.ComposerFormattingToolbar.4833d75420', 'Link')}
       >
         <LinkIcon />
       </Toggle>
@@ -101,8 +119,8 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('orderedList') ?? false}
         onPressedChange={() => editor?.chain().focus().toggleOrderedList().run()}
-        aria-label="Ordered list"
-        title="Ordered list"
+        aria-label={translate('auto.pie.chat.ComposerFormattingToolbar.90b200f199', 'Ordered list')}
+        title={translate('auto.pie.chat.ComposerFormattingToolbar.90b200f199', 'Ordered list')}
       >
         <ListOrdered />
       </Toggle>
@@ -110,8 +128,11 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('bulletList') ?? false}
         onPressedChange={() => editor?.chain().focus().toggleBulletList().run()}
-        aria-label="Unordered list"
-        title="Bulleted list"
+        aria-label={translate(
+          'auto.pie.chat.ComposerFormattingToolbar.57764bef33',
+          'Unordered list'
+        )}
+        title={translate('auto.pie.chat.ComposerFormattingToolbar.bca81fd69b', 'Bulleted list')}
       >
         <List />
       </Toggle>
@@ -120,14 +141,19 @@ export function ComposerFormattingToolbar({
         size="sm"
         pressed={editor?.isActive('codeBlock') ?? false}
         onPressedChange={() => editor?.chain().focus().toggleCodeBlock().run()}
-        aria-label="Code block"
-        title="Code block"
+        aria-label={translate('auto.pie.chat.ComposerFormattingToolbar.09454cd357', 'Code block')}
+        title={translate('auto.pie.chat.ComposerFormattingToolbar.09454cd357', 'Code block')}
       >
         <Code />
       </Toggle>
       <Popover>
         <PopoverTrigger asChild>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="Emoji">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={translate('auto.pie.chat.ComposerFormattingToolbar.9357dca58b', 'Emoji')}
+          >
             <Smile />
           </Button>
         </PopoverTrigger>
@@ -138,7 +164,11 @@ export function ComposerFormattingToolbar({
                 key={emoji}
                 type="button"
                 onClick={() => editor?.chain().focus().insertContent(emoji).run()}
-                aria-label={`Insert ${emoji}`}
+                aria-label={translate(
+                  'auto.pie.chat.ComposerFormattingToolbar.bad7b0e4c0',
+                  'Insert {{value0}}',
+                  { value0: emoji }
+                )}
                 className="flex size-8 items-center justify-center rounded-md text-base hover:bg-accent"
               >
                 {emoji}

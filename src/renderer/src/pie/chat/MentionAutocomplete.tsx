@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import type { PieChatMember } from '../../../../shared/pie-chat-contract'
+import { translate } from '@/i18n/i18n'
 
 type MentionAutocompleteProps = {
   members: PieChatMember[]
@@ -35,7 +36,7 @@ export function MentionAutocomplete({
     <ul
       className="mb-1 max-h-40 overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
       role="listbox"
-      aria-label="Mention suggestions"
+      aria-label={translate('auto.pie.chat.MentionAutocomplete.dfa38ec247', 'Mention suggestions')}
     >
       {matches.map((member, index) => (
         <li key={member.userId}>

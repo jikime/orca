@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import type { PieChatRendererApi, PieMessage } from '../../../../shared/pie-chat-contract'
 import { MessageComposer } from './MessageComposer'
 import { MessageBody } from './MessageBody'
+import { translate } from '@/i18n/i18n'
 
 type ThreadPanelProps = {
   channelId: string
@@ -63,11 +64,13 @@ export function ThreadPanel({
   return (
     <div className="flex h-full w-full flex-col border-l border-border bg-background">
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
-        <h3 className="text-sm font-medium text-foreground">Thread</h3>
+        <h3 className="text-sm font-medium text-foreground">
+          {translate('auto.pie.chat.ThreadPanel.9bfe3362e2', 'Thread')}
+        </h3>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close thread"
+          aria-label={translate('auto.pie.chat.ThreadPanel.948c50b342', 'Close thread')}
           className="text-sm text-muted-foreground hover:text-foreground"
         >
           ✕
@@ -84,9 +87,13 @@ export function ThreadPanel({
       </div>
       <ScrollArea className="flex-1" viewportClassName="px-4 py-2">
         {loading && replies.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">Loading…</p>
+          <p className="py-2 text-sm text-muted-foreground">
+            {translate('auto.pie.chat.ThreadPanel.0dc91c7465', 'Loading…')}
+          </p>
         ) : replies.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">No replies yet</p>
+          <p className="py-2 text-sm text-muted-foreground">
+            {translate('auto.pie.chat.ThreadPanel.422de4e5e4', 'No replies yet')}
+          </p>
         ) : (
           <ol className="flex flex-col gap-2">
             {replies.map((reply) => (
@@ -106,7 +113,7 @@ export function ThreadPanel({
       <MessageComposer disabled={false} sending={sending} onSend={sendReply} />
       <div className="px-3 pb-2">
         <Button type="button" variant="ghost" size="sm" className="w-full" onClick={onClose}>
-          Close
+          {translate('auto.pie.chat.ThreadPanel.07dae26381', 'Close')}
         </Button>
       </div>
     </div>

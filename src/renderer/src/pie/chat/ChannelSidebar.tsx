@@ -7,6 +7,7 @@ import type {
 } from '../../../../shared/pie-chat-contract'
 import { DmComposer } from './DmComposer'
 import { DirectMessageList } from './DirectMessageList'
+import { translate } from '@/i18n/i18n'
 
 type ChannelSidebarProps = {
   channels: PieChannel[]
@@ -52,7 +53,9 @@ function ChannelRow({ channel, active, onSelect }: ChannelRowProps): React.JSX.E
       {unread > 0 ? (
         <span
           className="ml-auto min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-medium text-primary-foreground"
-          aria-label={`${unread} unread`}
+          aria-label={translate('auto.pie.chat.ChannelSidebar.332167b29c', '{{value0}} unread', {
+            value0: unread
+          })}
         >
           {unread > 99 ? '99+' : unread}
         </span>
@@ -83,7 +86,9 @@ export function ChannelSidebar({
   return (
     <div className="flex h-full min-w-0 flex-col border-r border-border bg-sidebar">
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-sm font-medium text-sidebar-foreground">Messages</span>
+        <span className="text-sm font-medium text-sidebar-foreground">
+          {translate('auto.pie.chat.ChannelSidebar.d4b567493d', 'Messages')}
+        </span>
         <DmComposer
           members={members}
           currentUserId={currentUserId}
@@ -92,15 +97,22 @@ export function ChannelSidebar({
         />
       </div>
       <ScrollArea className="flex-1">
-        <nav className="flex flex-col gap-0.5 px-2 pb-2" aria-label="Channels">
+        <nav
+          className="flex flex-col gap-0.5 px-2 pb-2"
+          aria-label={translate('auto.pie.chat.ChannelSidebar.5855bc71db', 'Channels')}
+        >
           {loading && channels.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</p>
+            <p className="px-2 py-1.5 text-sm text-muted-foreground">
+              {translate('auto.pie.chat.ChannelSidebar.7dad5ec92e', 'Loading…')}
+            </p>
           ) : channels.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-muted-foreground">No channels yet</p>
+            <p className="px-2 py-1.5 text-sm text-muted-foreground">
+              {translate('auto.pie.chat.ChannelSidebar.28a333bc28', 'No channels yet')}
+            </p>
           ) : (
             <>
               <p className="px-2 pt-1 text-xs font-medium uppercase text-muted-foreground">
-                Channels
+                {translate('auto.pie.chat.ChannelSidebar.5855bc71db', 'Channels')}
               </p>
               {namedChannels.map((channel) => (
                 <ChannelRow

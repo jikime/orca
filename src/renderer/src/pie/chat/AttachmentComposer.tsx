@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { PieChatRendererApi } from '../../../../shared/pie-chat-contract'
+import { translate } from '@/i18n/i18n'
 
 export type PendingAttachment = {
   id: string
@@ -63,7 +64,7 @@ export function AttachmentComposer({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        aria-label="Attach a file"
+        aria-label={translate('auto.pie.chat.AttachmentComposer.2cfdefee37', 'Attach a file')}
         className="flex size-8 items-center justify-center rounded-md border border-input text-sm text-muted-foreground hover:bg-accent disabled:opacity-50"
       >
         {uploading ? '…' : '📎'}

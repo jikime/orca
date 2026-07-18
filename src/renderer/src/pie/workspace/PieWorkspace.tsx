@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Bot,
   BookOpen,
@@ -21,9 +22,10 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatScreen } from '../chat/ChatScreen'
 import { PieResourceScreen } from './PieResourceScreen'
 import { WorkItemBoard } from './WorkItemBoard'
-import { PIE_DELIVERY_DOMAINS } from './pie-delivery-domains'
-import { PIE_OPS_DOMAINS } from './pie-ops-domains'
+import { buildPieDeliveryDomains } from './pie-delivery-domains'
+import { buildPieOpsDomains } from './pie-ops-domains'
 import type { PieDomainConfig } from './pie-domain-types'
+import { translate } from '@/i18n/i18n'
 
 const ICONS: Record<string, LucideIcon> = {
   'change-requests': FileDiff,
@@ -100,8 +102,13 @@ function NavSection({
 // domain surface. Chat keeps its full screen; every other domain renders from the
 // declarative registry through one generic PieResourceScreen.
 export function PieWorkspace(): React.JSX.Element {
+  // Subscribe to language changes so the domain labels below re-resolve on switch;
+  // the registries are cheap enough to rebuild each render (matches Orca nav usage).
+  useTranslation()
   const [active, setActive] = useState<string>('chat')
-  const domain = [...PIE_DELIVERY_DOMAINS, ...PIE_OPS_DOMAINS].find((d) => d.key === active) ?? null
+  const deliveryDomains = buildPieDeliveryDomains()
+  const opsDomains = buildPieOpsDomains()
+  const domain = [...deliveryDomains, ...opsDomains].find((d) => d.key === active) ?? null
 
   return (
     <div className="grid h-full min-h-0 grid-cols-[13rem_minmax(0,1fr)]">
@@ -109,25 +116,25 @@ export function PieWorkspace(): React.JSX.Element {
         <ScrollArea className="min-h-0 flex-1" viewportClassName="px-2 pb-3">
           <NavItem
             icon={MessagesSquare}
-            label="Chat"
+            label={translate('auto.pie.workspace.PieWorkspace.962a528982', 'Chat')}
             active={active === 'chat'}
             onClick={() => setActive('chat')}
           />
           <NavItem
             icon={KanbanSquare}
-            label="Board"
+            label={translate('auto.pie.workspace.PieWorkspace.1e7b750215', 'Board')}
             active={active === 'board'}
             onClick={() => setActive('board')}
           />
           <NavSection
-            title="Delivery"
-            domains={PIE_DELIVERY_DOMAINS}
+            title={translate('auto.pie.workspace.PieWorkspace.e4f8d6f1d4', 'Delivery')}
+            domains={deliveryDomains}
             active={active}
             onSelect={setActive}
           />
           <NavSection
-            title="Operations"
-            domains={PIE_OPS_DOMAINS}
+            title={translate('auto.pie.workspace.PieWorkspace.b97282a892', 'Operations')}
+            domains={opsDomains}
             active={active}
             onSelect={setActive}
           />

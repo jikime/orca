@@ -9,6 +9,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { PieChatRendererApi, PieMessage } from '../../../../shared/pie-chat-contract'
+import { translate } from '@/i18n/i18n'
 
 type MessageSearchProps = {
   api: PieChatRendererApi
@@ -44,15 +45,17 @@ export function MessageSearch({ api, onSelect }: MessageSearchProps): React.JSX.
       <DialogTrigger asChild>
         <button
           type="button"
-          aria-label="Search messages"
+          aria-label={translate('auto.pie.chat.MessageSearch.80369f911c', 'Search messages')}
           className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          🔍 Search
+          {translate('auto.pie.chat.MessageSearch.2cd24b7430', '🔍 Search')}
         </button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Search messages</DialogTitle>
+          <DialogTitle>
+            {translate('auto.pie.chat.MessageSearch.80369f911c', 'Search messages')}
+          </DialogTitle>
         </DialogHeader>
         <Input
           value={query}
@@ -63,16 +66,20 @@ export function MessageSearch({ api, onSelect }: MessageSearchProps): React.JSX.
               void run()
             }
           }}
-          placeholder="Search all channels…"
-          aria-label="Search query"
+          placeholder={translate('auto.pie.chat.MessageSearch.23c294cdb6', 'Search all channels…')}
+          aria-label={translate('auto.pie.chat.MessageSearch.74c0712232', 'Search query')}
           autoFocus
         />
         <ScrollArea className="max-h-80">
           <div className="flex flex-col gap-1">
             {searching ? (
-              <p className="px-1 py-2 text-sm text-muted-foreground">Searching…</p>
+              <p className="px-1 py-2 text-sm text-muted-foreground">
+                {translate('auto.pie.chat.MessageSearch.23b1e37fa3', 'Searching…')}
+              </p>
             ) : searched && results.length === 0 ? (
-              <p className="px-1 py-2 text-sm text-muted-foreground">No matches</p>
+              <p className="px-1 py-2 text-sm text-muted-foreground">
+                {translate('auto.pie.chat.MessageSearch.4f46932269', 'No matches')}
+              </p>
             ) : (
               results.map((message) => (
                 <button

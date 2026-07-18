@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import type { PieChatMember } from '../../../../shared/pie-chat-contract'
 import { ComposerToolbar } from './ComposerToolbar'
 import { RichChatComposerEditor, type RichChatComposerEditorHandle } from './RichChatComposerEditor'
+import { translate } from '@/i18n/i18n'
 
 type MessageComposerProps = {
   disabled: boolean
@@ -45,7 +46,7 @@ export function MessageComposer({
           ref={editorRef}
           members={NO_MEMBERS}
           disabled={disabled}
-          placeholder="Write a message…"
+          placeholder={translate('auto.pie.chat.MessageComposer.b3da98cf31', 'Write a message…')}
           showFormatting={showFormatting}
           onEmptyChange={setEmpty}
           onEnterSubmit={submit}
@@ -59,7 +60,10 @@ export function MessageComposer({
         />
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
-        Enter to send · Shift+Enter for a new line
+        {translate(
+          'auto.pie.chat.MessageComposer.d0e71fb68e',
+          'Enter to send · Shift+Enter for a new line'
+        )}
       </p>
     </div>
   )

@@ -12,6 +12,7 @@ import {
 import { usePieResource } from '../control-plane/use-pie-resource'
 import { useWorkItemBoard, type WorkItem } from './use-work-item-board'
 import { WorkItemDetail } from './WorkItemDetail'
+import { translate } from '@/i18n/i18n'
 
 const PRIORITY_TONE: Record<string, string> = {
   urgent: 'bg-destructive',
@@ -116,7 +117,7 @@ export function WorkItemBoard(): React.JSX.Element {
   if (!board.loading && !board.team) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        No team in this org yet.
+        {translate('auto.pie.workspace.WorkItemBoard.55fc58e108', 'No team in this org yet.')}
       </div>
     )
   }
@@ -124,7 +125,9 @@ export function WorkItemBoard(): React.JSX.Element {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-        <h2 className="text-sm font-semibold text-foreground">Board</h2>
+        <h2 className="text-sm font-semibold text-foreground">
+          {translate('auto.pie.workspace.WorkItemBoard.243c0fa1a8', 'Board')}
+        </h2>
         <div className="flex overflow-hidden rounded-md border border-input">
           {(['board', 'list'] as const).map((v) => (
             <button
@@ -144,23 +147,47 @@ export function WorkItemBoard(): React.JSX.Element {
           <FilterSelect
             value={priorityFilter}
             onChange={setPriorityFilter}
-            placeholder="Priority"
+            placeholder={translate('auto.pie.workspace.WorkItemBoard.33422451f8', 'Priority')}
             options={[
-              { value: 'all', label: 'All priorities' },
-              { value: 'urgent', label: 'Urgent' },
-              { value: 'high', label: 'High' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'low', label: 'Low' },
-              { value: 'none', label: 'No priority' }
+              {
+                value: 'all',
+                label: translate('auto.pie.workspace.WorkItemBoard.9769d64796', 'All priorities')
+              },
+              {
+                value: 'urgent',
+                label: translate('auto.pie.workspace.WorkItemBoard.d3ad5c9f54', 'Urgent')
+              },
+              {
+                value: 'high',
+                label: translate('auto.pie.workspace.WorkItemBoard.1ad21becf8', 'High')
+              },
+              {
+                value: 'medium',
+                label: translate('auto.pie.workspace.WorkItemBoard.d14a042678', 'Medium')
+              },
+              {
+                value: 'low',
+                label: translate('auto.pie.workspace.WorkItemBoard.5f739cc800', 'Low')
+              },
+              {
+                value: 'none',
+                label: translate('auto.pie.workspace.WorkItemBoard.758d2790ab', 'No priority')
+              }
             ]}
           />
           <FilterSelect
             value={assigneeFilter}
             onChange={setAssigneeFilter}
-            placeholder="Assignee"
+            placeholder={translate('auto.pie.workspace.WorkItemBoard.b565a2ab30', 'Assignee')}
             options={[
-              { value: 'all', label: 'All assignees' },
-              { value: 'unassigned', label: 'Unassigned' },
+              {
+                value: 'all',
+                label: translate('auto.pie.workspace.WorkItemBoard.7561482dbe', 'All assignees')
+              },
+              {
+                value: 'unassigned',
+                label: translate('auto.pie.workspace.WorkItemBoard.71230ef6f0', 'Unassigned')
+              },
               ...board.members.map((m) => ({
                 value: m.userId,
                 label: m.displayName || m.userId.slice(0, 8)
@@ -170,9 +197,12 @@ export function WorkItemBoard(): React.JSX.Element {
           <FilterSelect
             value={projectId || 'all'}
             onChange={(v) => setProjectId(v === 'all' ? '' : v)}
-            placeholder="Project"
+            placeholder={translate('auto.pie.workspace.WorkItemBoard.f8420a103a', 'Project')}
             options={[
-              { value: 'all', label: 'All projects' },
+              {
+                value: 'all',
+                label: translate('auto.pie.workspace.WorkItemBoard.130caa9064', 'All projects')
+              },
               ...projects.map((p) => ({ value: p.id, label: p.name }))
             ]}
           />
@@ -229,7 +259,10 @@ export function WorkItemBoard(): React.JSX.Element {
                             setDraft((d) => ({ ...d, [col.id]: '' }))
                           }
                         }}
-                        placeholder="+ New issue"
+                        placeholder={translate(
+                          'auto.pie.workspace.WorkItemBoard.7ebeac7b75',
+                          '+ New issue'
+                        )}
                         className="h-8 border-dashed bg-transparent text-[13px] shadow-none"
                       />
                     </div>

@@ -1,4 +1,5 @@
 import type { PieChannel, PieNotification } from '../../../../shared/pie-chat-contract'
+import { translate } from '@/i18n/i18n'
 
 type NotificationInboxProps = {
   notifications: PieNotification[]
@@ -54,7 +55,7 @@ export function NotificationInbox({
     <div className="flex max-h-64 shrink-0 flex-col border-t border-border">
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Notifications
+          {translate('auto.pie.chat.NotificationInbox.2c80f2a8e0', 'Notifications')}
         </h3>
         {unreadCount > 0 && (
           <button
@@ -62,13 +63,15 @@ export function NotificationInbox({
             onClick={onMarkAllRead}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
-            Mark all read
+            {translate('auto.pie.chat.NotificationInbox.e12c4cd18c', 'Mark all read')}
           </button>
         )}
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-3">
         {notifications.length === 0 ? (
-          <p className="px-2 py-1.5 text-sm text-muted-foreground">No new notifications</p>
+          <p className="px-2 py-1.5 text-sm text-muted-foreground">
+            {translate('auto.pie.chat.NotificationInbox.a9d880377a', 'No new notifications')}
+          </p>
         ) : (
           <ul className="flex flex-col gap-0.5">
             {notifications.map((notification) => (
@@ -89,7 +92,9 @@ export function NotificationInbox({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-foreground">
-                      {describe(notification)} in {channelName(notification.channelId)}
+                      {describe(notification)}{' '}
+                      {translate('auto.pie.chat.NotificationInbox.276316e695', 'in')}{' '}
+                      {channelName(notification.channelId)}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
                       {relativeTime(notification.createdAt)}

@@ -3945,7 +3945,8 @@
           "196c1b5362": "Abrir tareas de GitLab",
           "0ccba862b8": "Abrir tareas de GitHub",
           "fee535205b": "Tareas",
-          "d599269755": "Ocultar de la barra lateral"
+          "d599269755": "Ocultar de la barra lateral",
+          "b1d73cc4fe": "Pie"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Limpiar",
@@ -13064,6 +13065,286 @@
           "b3d7e0f1a8": "solicitud de fusión",
           "a2c6d9e0f7": "Solicitud de fusión",
           "91b5c8d7e6": "GitLab"
+        }
+      }
+    },
+    "pie": {
+      "workspace": {
+        "PieResourceScreen": {
+          "6d663fd51e": "Cerca",
+          "999415bde0": "Cargando…",
+          "c793ddb812": "Detalles",
+          "9d6ab76050": "Nada aquí todavía.",
+          "6e77642240": "Crear",
+          "4e4c45f739": "Seleccionar…",
+          "10c6f525bc": "Ingrese una identificación de proyecto para cargar {{value0}}."
+        },
+        "PieWorkspace": {
+          "b97282a892": "Operaciones",
+          "1e7b750215": "Junta",
+          "962a528982": "Charlar",
+          "e4f8d6f1d4": "Entrega"
+        },
+        "WorkItemBoard": {
+          "130caa9064": "Todos los proyectos",
+          "f8420a103a": "Proyecto",
+          "71230ef6f0": "No asignado",
+          "b565a2ab30": "Cesionario",
+          "5f739cc800": "Bajo",
+          "d14a042678": "Medio",
+          "7561482dbe": "Todos los cesionarios",
+          "7ebeac7b75": "+ Nuevo número",
+          "758d2790ab": "Sin prioridad",
+          "1ad21becf8": "Alto",
+          "d3ad5c9f54": "Urgente",
+          "33422451f8": "Prioridad",
+          "9769d64796": "Todas las prioridades",
+          "243c0fa1a8": "Junta",
+          "55fc58e108": "Aún no hay equipo en esta organización."
+        },
+        "WorkItemDetail": {
+          "81f3aa6605": "No asignado",
+          "69f14263ba": "Prioridad",
+          "6794705376": "Cesionario",
+          "2434c8f9ee": "Estado",
+          "8f37fea8b7": "Cerca"
+        },
+        "pie": {
+          "delivery": {
+            "domains": {
+              "856bc71328": "Resumen",
+              "a7035e605f": "En general",
+              "5577678c87": "Estado",
+              "b920236cd6": "Fin del período",
+              "03b015adff": "Inicio del período",
+              "ef1d02d24f": "Razón fundamental",
+              "ec89029718": "Contexto",
+              "e6e9cf4220": "Decisión",
+              "e81fd696ec": "Título",
+              "6ba70fb787": "Informes de estado",
+              "9622b7c6fa": "Aceptar",
+              "83130cda83": "Mitigar",
+              "31d542fb20": "Cerca",
+              "81b7126888": "Mitigación",
+              "5eccddaa0f": "Gravedad",
+              "f50a9db9fc": "Impacto",
+              "4d670ba007": "Probabilidad",
+              "f2793498c9": "Categoría",
+              "8825780019": "Decidido por",
+              "f31f87fec9": "Descripción",
+              "2f763b3394": "Triaje",
+              "da87343849": "Resolver",
+              "9c316a9cc3": "Decisiones",
+              "01821240ba": "Defectos",
+              "78766269bb": "Rechazar",
+              "f813ae200a": "Entregar",
+              "bb0c1e914c": "Nombre",
+              "b7c66fb7d9": "Fecha de vencimiento",
+              "b1541ca4f2": "Pendiente",
+              "f87ead2c8e": "Riesgos del proyecto",
+              "8f07e74824": "Entregables",
+              "8aa8226f51": "Identificación del requisito",
+              "0f06b726df": "Aplicar",
+              "d27db98c62": "Aprobar",
+              "f110aadd65": "Costo Δ",
+              "2cef9c56b0": "Horario Δ (días)",
+              "59cbef5216": "Cambio de alcance",
+              "61bfd56903": "Δ días",
+              "0d3345601f": "Proyectos",
+              "f6f2ed2887": "Identificación del proyecto",
+              "39a3a89e8b": "Solicitudes de cambio"
+            }
+          },
+          "ops": {
+            "domains": {
+              "95a8b8e69d": "Período",
+              "6b7f0bc652": "Amable",
+              "afddd7551b": "Cuota",
+              "8507ad7924": "Recurso",
+              "8e8226c6c1": "Permitido",
+              "cf6eb43198": "Límite de cuota",
+              "c87527c1ec": "Fin",
+              "78422e6236": "Comenzar",
+              "6d6f8659b8": "Alcance",
+              "fc9f0120f9": "Clave de recursos",
+              "22916adcef": "Estado",
+              "7558897f37": "Título",
+              "0ca0b4a900": "Reuniones",
+              "0e17bc6c84": "Asunto",
+              "b1d49e5eb4": "Vacío",
+              "c2d496ec71": "Derechos de IA",
+              "0c5566b8cf": "ID de alcance",
+              "a23ebfc448": "Pagado",
+              "3ec379e60a": "Total parcial",
+              "93e54e9220": "Total",
+              "73c4426af5": "Número",
+              "5079a679db": "Divisa",
+              "c103f6de2b": "Facturas",
+              "6295d36edc": "Retirarse",
+              "d0c35a1071": "Restaurar",
+              "d45406d6fb": "Número de factura",
+              "28c54cd015": "Monto del impuesto",
+              "039bef29bf": "ID de cuenta del cliente",
+              "b8f6d5ef6e": "Tipo",
+              "678fbbfce0": "Nombre",
+              "48b3df35ec": "Proveedor",
+              "89c9540eab": "Activos",
+              "81fb82367f": "Descripción",
+              "e4c781ff80": "Serie/etiqueta",
+              "437df4544e": "enviar a reparar",
+              "52b598b3a0": "Aprobación",
+              "9cae18d8ad": "Objetivo",
+              "34b5aa2f05": "Tipo de objetivo",
+              "cd4f4f1d0f": "Publicar",
+              "1a20ba7b02": "Archivo",
+              "c04cda5c36": "Cuerpo",
+              "6859884216": "Libros de ejecución",
+              "66f6a2a799": "Fuente",
+              "dffb733c6e": "Visibilidad",
+              "ce0500516c": "Revisar",
+              "aff96ed4ff": "Base de conocimientos",
+              "9947ed3ef8": "Estado de revisión",
+              "0a045d4064": "Enviar para revisión",
+              "9d145af54f": "Cuerpo (markdown)"
+            }
+          }
+        }
+      },
+      "chat": {
+        "ChannelComposer": {
+          "34937e0c68": "Escribe un mensaje…",
+          "882ae59e91": "Menciona a alguien",
+          "1af09ff097": "Ingrese para enviar · Mayús+Intro para una nueva línea · @ para mencionar"
+        },
+        "ChannelSidebar": {
+          "5855bc71db": "Canales",
+          "7dad5ec92e": "Cargando…",
+          "d4b567493d": "Mensajes",
+          "28a333bc28": "Aún no hay canales",
+          "332167b29c": "{{value0}} sin leer"
+        },
+        "AttachmentComposer": {
+          "2cfdefee37": "Adjuntar un archivo"
+        },
+        "ChatHeader": {
+          "4cdc4c7776": "Charlar",
+          "9bfb580842": "apagado"
+        },
+        "ChatScreen": {
+          "b53e1add3a": "Iniciando sesión…",
+          "eaf7ac990b": "Iniciar sesión",
+          "e9c3f412e7": "Cargando…",
+          "ff4184c27d": "Su sesión de Pie expiró: inicie sesión nuevamente para continuar.",
+          "c601569f79": "Inicia sesión para usar Pie Chat",
+          "8bcadb6d26": "No se pudo cargar tu sesión de Pie",
+          "5a6de3b2da": "Selecciona un canal para empezar a chatear"
+        },
+        "ComposerFormattingToolbar": {
+          "9357dca58b": "emojis",
+          "bad7b0e4c0": "Insertar {{value0}}",
+          "09454cd357": "bloque de código",
+          "4833d75420": "Enlace",
+          "bca81fd69b": "Lista con viñetas",
+          "138e85856a": "Tachado",
+          "755dce67eb": "Subrayar",
+          "aa643a0f4c": "Subrayado ({{value0}}U)",
+          "90b200f199": "lista ordenada",
+          "57764bef33": "lista desordenada",
+          "d23ea3e657": "Cursiva ({{value0}}I)",
+          "03d76cb53b": "Atrevido",
+          "86e7920051": "Itálico",
+          "fce63e588e": "URL del enlace",
+          "55d75f9b6a": "Negrita ({{value0}}B)"
+        },
+        "ComposerAttachmentPreview": {
+          "40ba889af4": "Quitar {{value0}}"
+        },
+        "ComposerToolbar": {
+          "dbf6c0f4ed": "Enviar",
+          "1fda93a8c8": "Automóvil club británico",
+          "d591551131": "Envío…"
+        },
+        "DirectMessageList": {
+          "be2afe9b07": "Aún no hay mensajes directos",
+          "5998ec9258": "Mensajes directos",
+          "9b550129b0": "{{value0}} sin leer"
+        },
+        "DmComposer": {
+          "759a3472a6": "seleccionado)",
+          "7ececbf9e0": "Mensaje directo (",
+          "304963e359": "Iniciar grupo DM",
+          "d30c787a40": "Iniciar DM",
+          "159a31af95": "Ningún otro miembro",
+          "df18494cba": "Canal",
+          "abefa39cf1": "Crear",
+          "71b41c4b26": "nombre del canal",
+          "9d965c7854": "Nuevo nombre del canal",
+          "7c07b24848": "Nuevo canal o DM"
+        },
+        "MemberRoster": {
+          "558b852803": "desconectado",
+          "d2c8e2e550": "en línea",
+          "785e2d0a54": "No se encontraron miembros",
+          "1a08c81d30": "Miembros ·"
+        },
+        "MessageComposer": {
+          "b3da98cf31": "Escribe un mensaje…",
+          "d0e71fb68e": "Ingresar para enviar · Mayús+Intro para una nueva línea"
+        },
+        "MessageSearch": {
+          "4f46932269": "No hay coincidencias",
+          "23b1e37fa3": "Búsqueda…",
+          "80369f911c": "Buscar mensajes",
+          "23c294cdb6": "Buscar todos los canales…",
+          "74c0712232": "Consulta de búsqueda",
+          "2cd24b7430": "🔍 Buscar"
+        },
+        "MentionAutocomplete": {
+          "dfa38ec247": "Mencionar sugerencias"
+        },
+        "MessageTimeline": {
+          "79541c630f": "Responder",
+          "879efb1ff3": "No se pudo enviar",
+          "61bb0789a8": "Reaccionar",
+          "6af9f3e38d": "Aún no hay mensajes",
+          "0da3375b15": "(editado)",
+          "06f442945e": "Mensaje eliminado",
+          "deb1250abe": "Cargando mensajes…"
+        },
+        "NotificationInbox": {
+          "276316e695": "en",
+          "e12c4cd18c": "Marcar todo como leído",
+          "2c80f2a8e0": "Notificaciones",
+          "a9d880377a": "No hay notificaciones nuevas"
+        },
+        "PieChatOverlay": {
+          "ed05a16d63": "Cerrar (Esc)",
+          "e337005fc5": "Espacio de trabajo circular",
+          "e939209ea6": "Cerrar el espacio de trabajo circular"
+        },
+        "PinsPanel": {
+          "9355d14e9f": "Cargando…",
+          "d9e89d3a21": "No hay mensajes fijados",
+          "995cea7450": "Mensajes fijados",
+          "b411bd16ee": "📌 Pines"
+        },
+        "PinnedBanner": {
+          "8ce9b55bfd": "fijado por"
+        },
+        "ReactionBar": {
+          "ae15d47337": "Reaccionar {{value0}}",
+          "b1a3927f6d": "Añadir reacción"
+        },
+        "ThreadFacepile": {
+          "d3d50882be": "respuestas",
+          "6173a7a63e": "responder"
+        },
+        "ThreadPanel": {
+          "07dae26381": "Cerca",
+          "0dc91c7465": "Cargando…",
+          "9bfe3362e2": "Hilo",
+          "948c50b342": "Cerrar hilo",
+          "422de4e5e4": "Aún no hay respuestas"
         }
       }
     }

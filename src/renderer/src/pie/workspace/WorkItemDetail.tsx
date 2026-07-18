@@ -6,6 +6,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import type { BoardMember, BoardState, WorkItem } from './use-work-item-board'
+import { translate } from '@/i18n/i18n'
 
 const PRIORITIES = ['none', 'urgent', 'high', 'medium', 'low'] as const
 const META = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'
@@ -51,13 +52,13 @@ export function WorkItemDetail({
           onClick={onClose}
           className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent"
         >
-          Close
+          {translate('auto.pie.workspace.WorkItemDetail.8f37fea8b7', 'Close')}
         </button>
       </div>
       <div className="flex flex-col gap-4 overflow-y-auto px-4 py-4">
         <h3 className="text-base leading-snug font-semibold text-foreground">{item.title}</h3>
 
-        <Field label="Status">
+        <Field label={translate('auto.pie.workspace.WorkItemDetail.2434c8f9ee', 'Status')}>
           <Select value={item.stateId} onValueChange={onMove}>
             <SelectTrigger size="sm" className="w-full">
               <SelectValue />
@@ -72,7 +73,7 @@ export function WorkItemDetail({
           </Select>
         </Field>
 
-        <Field label="Priority">
+        <Field label={translate('auto.pie.workspace.WorkItemDetail.69f14263ba', 'Priority')}>
           <Select value={item.priority || 'none'} onValueChange={onSetPriority}>
             <SelectTrigger size="sm" className="w-full">
               <SelectValue />
@@ -87,16 +88,23 @@ export function WorkItemDetail({
           </Select>
         </Field>
 
-        <Field label="Assignee">
+        <Field label={translate('auto.pie.workspace.WorkItemDetail.6794705376', 'Assignee')}>
           <Select
             value={item.assigneeId ?? 'unassigned'}
             onValueChange={(v) => onAssign(v === 'unassigned' ? null : v)}
           >
             <SelectTrigger size="sm" className="w-full">
-              <SelectValue placeholder="Unassigned" />
+              <SelectValue
+                placeholder={translate(
+                  'auto.pie.workspace.WorkItemDetail.81f3aa6605',
+                  'Unassigned'
+                )}
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
+              <SelectItem value="unassigned">
+                {translate('auto.pie.workspace.WorkItemDetail.81f3aa6605', 'Unassigned')}
+              </SelectItem>
               {members.map((m) => (
                 <SelectItem key={m.userId} value={m.userId}>
                   {m.displayName || m.userId.slice(0, 8)}

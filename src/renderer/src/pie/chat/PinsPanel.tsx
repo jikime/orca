@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { PieChatRendererApi, PiePinnedMessage } from '../../../../shared/pie-chat-contract'
+import { translate } from '@/i18n/i18n'
 
 type PinsPanelProps = {
   channelId: string
@@ -35,22 +36,26 @@ export function PinsPanel({ channelId, api, onJumpToMessage }: PinsPanelProps): 
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="Pinned messages"
+          aria-label={translate('auto.pie.chat.PinsPanel.995cea7450', 'Pinned messages')}
           className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          📌 Pins
+          {translate('auto.pie.chat.PinsPanel.b411bd16ee', '📌 Pins')}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <div className="border-b border-border px-3 py-2 text-sm font-medium text-foreground">
-          Pinned messages
+          {translate('auto.pie.chat.PinsPanel.995cea7450', 'Pinned messages')}
         </div>
         <ScrollArea className="max-h-72">
           <div className="p-1">
             {loading && pins.length === 0 ? (
-              <p className="px-2 py-2 text-sm text-muted-foreground">Loading…</p>
+              <p className="px-2 py-2 text-sm text-muted-foreground">
+                {translate('auto.pie.chat.PinsPanel.9355d14e9f', 'Loading…')}
+              </p>
             ) : pins.length === 0 ? (
-              <p className="px-2 py-2 text-sm text-muted-foreground">No pinned messages</p>
+              <p className="px-2 py-2 text-sm text-muted-foreground">
+                {translate('auto.pie.chat.PinsPanel.d9e89d3a21', 'No pinned messages')}
+              </p>
             ) : (
               pins.map((pin) => (
                 <button

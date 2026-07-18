@@ -1,4 +1,5 @@
 import type { PendingAttachment } from './AttachmentComposer'
+import { translate } from '@/i18n/i18n'
 
 type ComposerAttachmentPreviewProps = {
   attachments: PendingAttachment[]
@@ -31,7 +32,11 @@ export function ComposerAttachmentPreview({
           <span className="max-w-40 truncate">{attachment.filename}</span>
           <button
             type="button"
-            aria-label={`Remove ${attachment.filename}`}
+            aria-label={translate(
+              'auto.pie.chat.ComposerAttachmentPreview.40ba889af4',
+              'Remove {{value0}}',
+              { value0: attachment.filename }
+            )}
             onClick={() => onRemove(attachment.id)}
             className="text-muted-foreground hover:text-foreground"
           >

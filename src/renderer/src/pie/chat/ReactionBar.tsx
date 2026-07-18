@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { PieMessageReaction } from '../../../../shared/pie-chat-contract'
+import { translate } from '@/i18n/i18n'
 
 // A small, fixed quick-pick set keeps the picker dependency-free (no emoji-mart)
 // while covering the common acknowledgements.
@@ -35,7 +36,7 @@ export function ReactionBar({ reactions, onToggle }: ReactionBarProps): React.JS
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label="Add reaction"
+            aria-label={translate('auto.pie.chat.ReactionBar.b1a3927f6d', 'Add reaction')}
             className="flex size-6 items-center justify-center rounded-full border border-border bg-muted text-xs text-muted-foreground hover:bg-accent"
           >
             +
@@ -48,7 +49,9 @@ export function ReactionBar({ reactions, onToggle }: ReactionBarProps): React.JS
                 key={emoji}
                 type="button"
                 onClick={() => onToggle(emoji)}
-                aria-label={`React ${emoji}`}
+                aria-label={translate('auto.pie.chat.ReactionBar.ae15d47337', 'React {{value0}}', {
+                  value0: emoji
+                })}
                 className="flex size-8 items-center justify-center rounded-md text-base hover:bg-accent"
               >
                 {emoji}

@@ -1,3 +1,4 @@
+import { translate } from '@/i18n/i18n'
 type ThreadFacepileProps = {
   replyCount: number
   onOpen: () => void
@@ -21,7 +22,10 @@ export function ThreadFacepile({
       className="mt-1 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
     >
       <span aria-hidden>💬</span>
-      {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+      {replyCount}{' '}
+      {replyCount === 1
+        ? translate('auto.pie.chat.ThreadFacepile.6173a7a63e', 'reply')
+        : translate('auto.pie.chat.ThreadFacepile.d3d50882be', 'replies')}
     </button>
   )
 }

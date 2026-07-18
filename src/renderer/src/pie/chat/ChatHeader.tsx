@@ -7,6 +7,7 @@ import type {
 } from '../../../../shared/pie-chat-contract'
 import { PinsPanel } from './PinsPanel'
 import { MessageSearch } from './MessageSearch'
+import { translate } from '@/i18n/i18n'
 
 type ChatHeaderProps = {
   channel: PieChannel | undefined
@@ -61,8 +62,14 @@ export function ChatHeader({
     <header className="flex h-14 shrink-0 flex-col justify-center gap-0.5 border-b border-border px-4">
       <div className="flex items-center justify-between">
         <h2 className="truncate text-sm font-medium text-foreground">
-          {channel ? `${channel.kind === 'dm' ? '@' : '#'} ${channel.name}` : 'Chat'}
-          {muted && <span className="ml-2 text-xs text-muted-foreground">muted</span>}
+          {channel
+            ? `${channel.kind === 'dm' ? '@' : '#'} ${channel.name}`
+            : translate('auto.pie.chat.ChatHeader.4cdc4c7776', 'Chat')}
+          {muted && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              {translate('auto.pie.chat.ChatHeader.9bfb580842', 'muted')}
+            </span>
+          )}
         </h2>
         {channel && (
           <div className="flex items-center gap-1">

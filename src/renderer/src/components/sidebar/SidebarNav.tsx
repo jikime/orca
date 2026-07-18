@@ -84,7 +84,9 @@ const SidebarNav = React.memo(function SidebarNav() {
           className={cn('size-4 shrink-0', !pieActive && 'text-worktree-sidebar-foreground/30')}
           strokeWidth={pieActive ? 2.25 : 1.75}
         />
-        <span className="flex-1">Pie</span>
+        <span className="flex-1">
+          {translate('auto.components.sidebar.SidebarNav.b1d73cc4fe', 'Pie')}
+        </span>
       </button>
       {showAutomationsButton ? (
         <ContextMenu>

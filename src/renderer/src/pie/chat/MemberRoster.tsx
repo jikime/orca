@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { PieChatMember } from '../../../../shared/pie-chat-contract'
 import { MessageAvatar } from './MessageAvatar'
+import { translate } from '@/i18n/i18n'
 
 type MemberRosterProps = {
   members: PieChatMember[]
@@ -14,11 +15,14 @@ export function MemberRoster({ members, onlineUserIds }: MemberRosterProps): Rea
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <h3 className="px-4 pt-3 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        Members · {onlineCount}/{members.length} online
+        {translate('auto.pie.chat.MemberRoster.1a08c81d30', 'Members ·')} {onlineCount}/
+        {members.length} {translate('auto.pie.chat.MemberRoster.d2c8e2e550', 'online')}
       </h3>
       <ScrollArea className="min-h-0 flex-1" viewportClassName="px-2 pb-2">
         {members.length === 0 ? (
-          <p className="px-2 py-1.5 text-sm text-muted-foreground">No members found</p>
+          <p className="px-2 py-1.5 text-sm text-muted-foreground">
+            {translate('auto.pie.chat.MemberRoster.785e2d0a54', 'No members found')}
+          </p>
         ) : (
           <ul className="flex flex-col gap-0.5">
             {members.map((member) => {
@@ -43,7 +47,11 @@ export function MemberRoster({ members, onlineUserIds }: MemberRosterProps): Rea
                   >
                     {member.displayName}
                   </span>
-                  <span className="sr-only">{online ? 'online' : 'offline'}</span>
+                  <span className="sr-only">
+                    {online
+                      ? translate('auto.pie.chat.MemberRoster.d2c8e2e550', 'online')
+                      : translate('auto.pie.chat.MemberRoster.558b852803', 'offline')}
+                  </span>
                 </li>
               )
             })}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { PieChatRendererApi, PiePinnedMessage } from '../../../../shared/pie-chat-contract'
+import { translate } from '@/i18n/i18n'
 
 type PinnedBannerProps = {
   channelId: string
@@ -42,7 +43,10 @@ export function PinnedBanner({ channelId, api }: PinnedBannerProps): React.JSX.E
     <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-1.5 text-xs text-muted-foreground">
       <span aria-hidden>📌</span>
       <span className="min-w-0 flex-1 truncate text-foreground">{pin.message.body}</span>
-      <span className="shrink-0">pinned by {authorLabel(pin.pinnedBy)}</span>
+      <span className="shrink-0">
+        {translate('auto.pie.chat.PinnedBanner.8ce9b55bfd', 'pinned by')}{' '}
+        {authorLabel(pin.pinnedBy)}
+      </span>
     </div>
   )
 }

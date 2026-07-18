@@ -16,6 +16,7 @@ import { apiPost, resourceEtag, PieApiError } from '../control-plane/pie-api-cli
 import { usePieResource } from '../control-plane/use-pie-resource'
 import { PieStatusBadge } from './PieStatusBadge'
 import type { PieActionSpec, PieDomainConfig, PieFieldSpec } from './pie-domain-registry'
+import { translate } from '@/i18n/i18n'
 
 type Row = Record<string, unknown> & { id: string; version?: number; status?: string }
 
@@ -44,7 +45,9 @@ function FieldInput({
     return (
       <Select value={value || undefined} onValueChange={onChange}>
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select…" />
+          <SelectValue
+            placeholder={translate('auto.pie.workspace.PieResourceScreen.4e4c45f739', 'Select…')}
+          />
         </SelectTrigger>
         <SelectContent>
           {(field.options ?? []).map((opt) => (
@@ -216,7 +219,8 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
           </div>
           <div className="mt-3">
             <Button size="sm" onClick={submitCreate} disabled={busy}>
-              Create {config.label.replace(/s$/, '')}
+              {translate('auto.pie.workspace.PieResourceScreen.6e77642240', 'Create')}{' '}
+              {config.label.replace(/s$/, '')}
             </Button>
           </div>
         </div>
@@ -226,11 +230,24 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
         <div className="min-h-0 flex-1">
           <ScrollArea className="h-full">
             {listPath === null ? (
-              <EmptyState text={`Enter a project id to load ${config.label.toLowerCase()}.`} />
+              <EmptyState
+                text={translate(
+                  'auto.pie.workspace.PieResourceScreen.10c6f525bc',
+                  'Enter a project id to load {{value0}}.',
+                  { value0: config.label.toLowerCase() }
+                )}
+              />
             ) : list.loading ? (
-              <EmptyState text="Loading…" />
+              <EmptyState
+                text={translate('auto.pie.workspace.PieResourceScreen.999415bde0', 'Loading…')}
+              />
             ) : items.length === 0 ? (
-              <EmptyState text="Nothing here yet." />
+              <EmptyState
+                text={translate(
+                  'auto.pie.workspace.PieResourceScreen.9d6ab76050',
+                  'Nothing here yet.'
+                )}
+              />
             ) : (
               <table className="w-full border-collapse text-[13px]">
                 <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
@@ -284,13 +301,15 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
         {selected && (
           <aside className="flex w-[22rem] shrink-0 flex-col border-l border-border bg-card">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-              <span className="text-xs font-semibold text-foreground">Details</span>
+              <span className="text-xs font-semibold text-foreground">
+                {translate('auto.pie.workspace.PieResourceScreen.c793ddb812', 'Details')}
+              </span>
               <button
                 type="button"
                 onClick={() => setSelected(null)}
                 className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent"
               >
-                Close
+                {translate('auto.pie.workspace.PieResourceScreen.6d663fd51e', 'Close')}
               </button>
             </div>
             <ScrollArea className="min-h-0 flex-1">

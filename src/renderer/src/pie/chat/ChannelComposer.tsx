@@ -9,6 +9,7 @@ import { AttachmentComposer, type PendingAttachment } from './AttachmentComposer
 import { ComposerAttachmentPreview } from './ComposerAttachmentPreview'
 import { ComposerToolbar } from './ComposerToolbar'
 import { RichChatComposerEditor, type RichChatComposerEditorHandle } from './RichChatComposerEditor'
+import { translate } from '@/i18n/i18n'
 
 type ChannelComposerProps = {
   channelId: string
@@ -91,7 +92,7 @@ export function ChannelComposer({
         <RichChatComposerEditor
           ref={editorRef}
           members={members}
-          placeholder="Write a message…"
+          placeholder={translate('auto.pie.chat.ChannelComposer.34937e0c68', 'Write a message…')}
           showFormatting={showFormatting}
           onEmptyChange={setEmpty}
           onType={notifyTyping ? () => notifyTyping(channelId) : undefined}
@@ -113,7 +114,7 @@ export function ChannelComposer({
           <button
             type="button"
             onClick={() => editorRef.current?.triggerMention()}
-            aria-label="Mention someone"
+            aria-label={translate('auto.pie.chat.ChannelComposer.882ae59e91', 'Mention someone')}
             className="flex size-8 items-center justify-center rounded-md border border-input text-sm text-muted-foreground hover:bg-accent"
           >
             @
@@ -121,7 +122,10 @@ export function ChannelComposer({
         </ComposerToolbar>
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
-        Enter to send · Shift+Enter for a new line · @ to mention
+        {translate(
+          'auto.pie.chat.ChannelComposer.1af09ff097',
+          'Enter to send · Shift+Enter for a new line · @ to mention'
+        )}
       </p>
     </div>
   )

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
+import { translate } from '@/i18n/i18n'
 
 type ComposerToolbarProps = {
   canSend: boolean
@@ -35,13 +36,15 @@ export function ComposerToolbar({
             aria-label="Toggle formatting"
             className="text-muted-foreground"
           >
-            Aa
+            {translate('auto.pie.chat.ComposerToolbar.1fda93a8c8', 'Aa')}
           </Toggle>
         )}
         {children}
       </div>
       <Button type="button" size="sm" onClick={onSend} disabled={!canSend}>
-        {sending ? 'Sending…' : 'Send'}
+        {sending
+          ? translate('auto.pie.chat.ComposerToolbar.d591551131', 'Sending…')
+          : translate('auto.pie.chat.ComposerToolbar.dbf6c0f4ed', 'Send')}
       </Button>
     </div>
   )

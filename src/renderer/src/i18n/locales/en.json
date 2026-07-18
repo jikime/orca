@@ -3960,7 +3960,8 @@
           "196c1b5362": "Open GitLab tasks",
           "0ccba862b8": "Open GitHub tasks",
           "fee535205b": "Tasks",
-          "d599269755": "Hide from sidebar"
+          "d599269755": "Hide from sidebar",
+          "b1d73cc4fe": "Pie"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Clear",
@@ -13064,6 +13065,286 @@
           "b3d7e0f1a8": "merge request",
           "a2c6d9e0f7": "Merge Request",
           "91b5c8d7e6": "GitLab"
+        }
+      }
+    },
+    "pie": {
+      "workspace": {
+        "PieResourceScreen": {
+          "6d663fd51e": "Close",
+          "c793ddb812": "Details",
+          "9d6ab76050": "Nothing here yet.",
+          "999415bde0": "Loading…",
+          "10c6f525bc": "Enter a project id to load {{value0}}.",
+          "6e77642240": "Create",
+          "4e4c45f739": "Select…"
+        },
+        "PieWorkspace": {
+          "b97282a892": "Operations",
+          "e4f8d6f1d4": "Delivery",
+          "1e7b750215": "Board",
+          "962a528982": "Chat"
+        },
+        "WorkItemBoard": {
+          "7ebeac7b75": "+ New issue",
+          "130caa9064": "All projects",
+          "f8420a103a": "Project",
+          "71230ef6f0": "Unassigned",
+          "7561482dbe": "All assignees",
+          "b565a2ab30": "Assignee",
+          "758d2790ab": "No priority",
+          "5f739cc800": "Low",
+          "d14a042678": "Medium",
+          "1ad21becf8": "High",
+          "d3ad5c9f54": "Urgent",
+          "9769d64796": "All priorities",
+          "33422451f8": "Priority",
+          "243c0fa1a8": "Board",
+          "55fc58e108": "No team in this org yet."
+        },
+        "WorkItemDetail": {
+          "81f3aa6605": "Unassigned",
+          "6794705376": "Assignee",
+          "69f14263ba": "Priority",
+          "2434c8f9ee": "Status",
+          "8f37fea8b7": "Close"
+        },
+        "pie": {
+          "delivery": {
+            "domains": {
+              "856bc71328": "Summary",
+              "a7035e605f": "Overall",
+              "b920236cd6": "Period end",
+              "03b015adff": "Period start",
+              "5577678c87": "Status",
+              "6ba70fb787": "Status Reports",
+              "ef1d02d24f": "Rationale",
+              "e6e9cf4220": "Decision",
+              "ec89029718": "Context",
+              "e81fd696ec": "Title",
+              "8825780019": "Decided by",
+              "9c316a9cc3": "Decisions",
+              "9622b7c6fa": "Accept",
+              "31d542fb20": "Close",
+              "83130cda83": "Mitigate",
+              "81b7126888": "Mitigation",
+              "5eccddaa0f": "Severity",
+              "f50a9db9fc": "Impact",
+              "4d670ba007": "Probability",
+              "f2793498c9": "Category",
+              "f31f87fec9": "Description",
+              "f87ead2c8e": "Project Risks",
+              "da87343849": "Resolve",
+              "2f763b3394": "Triage",
+              "01821240ba": "Defects",
+              "78766269bb": "Reject",
+              "f813ae200a": "Submit",
+              "bb0c1e914c": "Name",
+              "b7c66fb7d9": "Due date",
+              "8aa8226f51": "Requirement id",
+              "b1541ca4f2": "Due",
+              "8f07e74824": "Deliverables",
+              "0f06b726df": "Apply",
+              "d27db98c62": "Approve",
+              "59cbef5216": "Scope change",
+              "f110aadd65": "Cost Δ",
+              "2cef9c56b0": "Schedule Δ (days)",
+              "61bfd56903": "Δ days",
+              "39a3a89e8b": "Change Requests",
+              "f6f2ed2887": "Project id",
+              "0d3345601f": "Projects"
+            }
+          },
+          "ops": {
+            "domains": {
+              "95a8b8e69d": "Period",
+              "cf6eb43198": "Quota limit",
+              "6b7f0bc652": "Kind",
+              "8507ad7924": "Resource",
+              "fc9f0120f9": "Resource key",
+              "afddd7551b": "Quota",
+              "8e8226c6c1": "Allowed",
+              "c2d496ec71": "AI Entitlements",
+              "c87527c1ec": "End",
+              "78422e6236": "Start",
+              "6d6f8659b8": "Scope",
+              "22916adcef": "Status",
+              "7558897f37": "Title",
+              "0c5566b8cf": "Scope id",
+              "0ca0b4a900": "Meetings",
+              "b1d49e5eb4": "Void",
+              "0e17bc6c84": "Issue",
+              "a23ebfc448": "Paid",
+              "93e54e9220": "Total",
+              "3ec379e60a": "Subtotal",
+              "73c4426af5": "Number",
+              "28c54cd015": "Tax amount",
+              "5079a679db": "Currency",
+              "039bef29bf": "Customer account id",
+              "d45406d6fb": "Invoice number",
+              "c103f6de2b": "Invoices",
+              "6295d36edc": "Retire",
+              "d0c35a1071": "Restore",
+              "437df4544e": "Send to repair",
+              "e4c781ff80": "Serial / tag",
+              "b8f6d5ef6e": "Type",
+              "678fbbfce0": "Name",
+              "48b3df35ec": "Vendor",
+              "89c9540eab": "Assets",
+              "34b5aa2f05": "Target kind",
+              "81fb82367f": "Description",
+              "52b598b3a0": "Approval",
+              "9cae18d8ad": "Target",
+              "6859884216": "Runbooks",
+              "1a20ba7b02": "Archive",
+              "cd4f4f1d0f": "Publish",
+              "0a045d4064": "Submit for review",
+              "9947ed3ef8": "Review status",
+              "c04cda5c36": "Body",
+              "66f6a2a799": "Source",
+              "dffb733c6e": "Visibility",
+              "9d145af54f": "Body (markdown)",
+              "ce0500516c": "Review",
+              "aff96ed4ff": "Knowledge Base"
+            }
+          }
+        }
+      },
+      "chat": {
+        "AttachmentComposer": {
+          "2cfdefee37": "Attach a file"
+        },
+        "ChannelComposer": {
+          "1af09ff097": "Enter to send · Shift+Enter for a new line · @ to mention",
+          "882ae59e91": "Mention someone",
+          "34937e0c68": "Write a message…"
+        },
+        "ChannelSidebar": {
+          "5855bc71db": "Channels",
+          "28a333bc28": "No channels yet",
+          "7dad5ec92e": "Loading…",
+          "d4b567493d": "Messages",
+          "332167b29c": "{{value0}} unread"
+        },
+        "ChatHeader": {
+          "9bfb580842": "muted",
+          "4cdc4c7776": "Chat"
+        },
+        "ChatScreen": {
+          "eaf7ac990b": "Sign in",
+          "b53e1add3a": "Signing in…",
+          "c601569f79": "Sign in to use Pie chat",
+          "ff4184c27d": "Your Pie session expired — sign in again to continue.",
+          "e9c3f412e7": "Loading…",
+          "8bcadb6d26": "Could not load your Pie session",
+          "5a6de3b2da": "Select a channel to start chatting"
+        },
+        "ComposerAttachmentPreview": {
+          "40ba889af4": "Remove {{value0}}"
+        },
+        "ComposerFormattingToolbar": {
+          "bad7b0e4c0": "Insert {{value0}}",
+          "9357dca58b": "Emoji",
+          "09454cd357": "Code block",
+          "bca81fd69b": "Bulleted list",
+          "57764bef33": "Unordered list",
+          "90b200f199": "Ordered list",
+          "4833d75420": "Link",
+          "138e85856a": "Strikethrough",
+          "aa643a0f4c": "Underline ({{value0}}U)",
+          "755dce67eb": "Underline",
+          "d23ea3e657": "Italic ({{value0}}I)",
+          "86e7920051": "Italic",
+          "55d75f9b6a": "Bold ({{value0}}B)",
+          "03d76cb53b": "Bold",
+          "fce63e588e": "Link URL"
+        },
+        "ComposerToolbar": {
+          "dbf6c0f4ed": "Send",
+          "d591551131": "Sending…",
+          "1fda93a8c8": "Aa"
+        },
+        "DirectMessageList": {
+          "be2afe9b07": "No direct messages yet",
+          "5998ec9258": "Direct messages",
+          "9b550129b0": "{{value0}} unread"
+        },
+        "DmComposer": {
+          "d30c787a40": "Start DM",
+          "304963e359": "Start group DM",
+          "159a31af95": "No other members",
+          "759a3472a6": "selected)",
+          "7ececbf9e0": "Direct message (",
+          "abefa39cf1": "Create",
+          "9d965c7854": "New channel name",
+          "71b41c4b26": "channel-name",
+          "df18494cba": "Channel",
+          "7c07b24848": "New channel or DM"
+        },
+        "MemberRoster": {
+          "558b852803": "offline",
+          "d2c8e2e550": "online",
+          "785e2d0a54": "No members found",
+          "1a08c81d30": "Members ·"
+        },
+        "MentionAutocomplete": {
+          "dfa38ec247": "Mention suggestions"
+        },
+        "MessageComposer": {
+          "d0e71fb68e": "Enter to send · Shift+Enter for a new line",
+          "b3da98cf31": "Write a message…"
+        },
+        "MessageSearch": {
+          "4f46932269": "No matches",
+          "23b1e37fa3": "Searching…",
+          "74c0712232": "Search query",
+          "23c294cdb6": "Search all channels…",
+          "80369f911c": "Search messages",
+          "2cd24b7430": "🔍 Search"
+        },
+        "MessageTimeline": {
+          "79541c630f": "Reply",
+          "61bb0789a8": "React",
+          "879efb1ff3": "Failed to send",
+          "0da3375b15": "(edited)",
+          "06f442945e": "Message deleted",
+          "6af9f3e38d": "No messages yet",
+          "deb1250abe": "Loading messages…"
+        },
+        "NotificationInbox": {
+          "276316e695": "in",
+          "a9d880377a": "No new notifications",
+          "e12c4cd18c": "Mark all read",
+          "2c80f2a8e0": "Notifications"
+        },
+        "PieChatOverlay": {
+          "ed05a16d63": "Close (Esc)",
+          "e939209ea6": "Close Pie workspace",
+          "e337005fc5": "Pie workspace"
+        },
+        "PinnedBanner": {
+          "8ce9b55bfd": "pinned by"
+        },
+        "PinsPanel": {
+          "d9e89d3a21": "No pinned messages",
+          "9355d14e9f": "Loading…",
+          "995cea7450": "Pinned messages",
+          "b411bd16ee": "📌 Pins"
+        },
+        "ReactionBar": {
+          "ae15d47337": "React {{value0}}",
+          "b1a3927f6d": "Add reaction"
+        },
+        "ThreadFacepile": {
+          "d3d50882be": "replies",
+          "6173a7a63e": "reply"
+        },
+        "ThreadPanel": {
+          "07dae26381": "Close",
+          "422de4e5e4": "No replies yet",
+          "0dc91c7465": "Loading…",
+          "948c50b342": "Close thread",
+          "9bfe3362e2": "Thread"
         }
       }
     }

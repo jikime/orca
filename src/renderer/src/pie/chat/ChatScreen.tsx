@@ -12,6 +12,7 @@ import { ContextSidebar } from './ContextSidebar'
 import { TypingIndicator } from './TypingIndicator'
 import { usePieChat } from './use-pie-chat'
 import type { TimelineMessage } from './use-pie-chat'
+import { translate } from '@/i18n/i18n'
 
 type ChatWorkspaceProps = {
   currentUserId: string
@@ -128,7 +129,7 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
           </div>
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            Select a channel to start chatting
+            {translate('auto.pie.chat.ChatScreen.5a6de3b2da', 'Select a channel to start chatting')}
           </div>
         )}
       </div>
@@ -216,7 +217,7 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
   if (failed) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-destructive">
-        Could not load your Pie session
+        {translate('auto.pie.chat.ChatScreen.8bcadb6d26', 'Could not load your Pie session')}
       </div>
     )
   }
@@ -224,7 +225,7 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
   if (!session) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        Loading…
+        {translate('auto.pie.chat.ChatScreen.e9c3f412e7', 'Loading…')}
       </div>
     )
   }
@@ -238,11 +239,16 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-background">
         <p className="text-sm text-muted-foreground">
           {reauth
-            ? 'Your Pie session expired — sign in again to continue.'
-            : 'Sign in to use Pie chat'}
+            ? translate(
+                'auto.pie.chat.ChatScreen.ff4184c27d',
+                'Your Pie session expired — sign in again to continue.'
+              )
+            : translate('auto.pie.chat.ChatScreen.c601569f79', 'Sign in to use Pie chat')}
         </p>
         <Button onClick={() => void signIn()} disabled={signingIn}>
-          {signingIn ? 'Signing in…' : 'Sign in'}
+          {signingIn
+            ? translate('auto.pie.chat.ChatScreen.b53e1add3a', 'Signing in…')
+            : translate('auto.pie.chat.ChatScreen.eaf7ac990b', 'Sign in')}
         </Button>
       </div>
     )
