@@ -6,6 +6,7 @@ import type {
   PieChatRendererApi
 } from '../../../../shared/pie-chat-contract'
 import { DmComposer } from './DmComposer'
+import { DirectMessageList } from './DirectMessageList'
 
 type ChannelSidebarProps = {
   channels: PieChannel[]
@@ -91,19 +92,13 @@ export function ChannelSidebar({
                   onSelect={onSelect}
                 />
               ))}
-              {dms.length > 0 && (
-                <p className="px-2 pt-3 text-xs font-medium uppercase text-muted-foreground">
-                  Direct messages
-                </p>
-              )}
-              {dms.map((channel) => (
-                <ChannelRow
-                  key={channel.id}
-                  channel={channel}
-                  active={channel.id === selectedChannelId}
-                  onSelect={onSelect}
-                />
-              ))}
+              <DirectMessageList
+                dms={dms}
+                members={members}
+                currentUserId={currentUserId}
+                selectedChannelId={selectedChannelId}
+                onSelect={onSelect}
+              />
             </>
           )}
         </nav>
