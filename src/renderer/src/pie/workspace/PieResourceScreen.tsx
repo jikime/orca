@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { apiPost, resourceEtag, PieApiError } from '../control-plane/pie-api-client'
 import { usePieResource } from '../control-plane/use-pie-resource'
+import { PieStatusBadge } from './PieStatusBadge'
 import type { PieActionSpec, PieDomainConfig, PieFieldSpec } from './pie-domain-registry'
 
 type Row = Record<string, unknown> & { id: string; version?: number; status?: string }
 
-function fieldClass(): string {
-  return 'w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50'
-}
+const META_LABEL = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'
+const FIELD =
+  'w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-xs transition-[color,box-shadow] focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50'
 
 function FieldInput({
   field,
@@ -25,7 +27,7 @@ function FieldInput({
   if (field.type === 'textarea') {
     return (
       <textarea
-        className={cn(fieldClass(), 'min-h-20 resize-y')}
+        className={cn(FIELD, 'min-h-20 resize-y')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -33,7 +35,7 @@ function FieldInput({
   }
   if (field.type === 'select') {
     return (
-      <select className={fieldClass()} value={value} onChange={(e) => onChange(e.target.value)}>
+      <select className={FIELD} value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
         {(field.options ?? []).map((opt) => (
           <option key={opt} value={opt}>
@@ -64,18 +66,6 @@ function buildBody(fields: readonly PieFieldSpec[], form: Record<string, string>
     body[field.key] = field.type === 'number' ? Number(raw) : raw
   }
   return body
-}
-
-function StatusPill({ value }: { value: unknown }): React.JSX.Element {
-  const text = String(value ?? '')
-  const tone = /reject|fail|overdue|lost|critical|red/i.test(text)
-    ? 'bg-destructive/15 text-destructive'
-    : /approv|paid|accept|active|published|done|green|met/i.test(text)
-      ? 'bg-emerald-500/15 text-emerald-600'
-      : 'bg-muted text-muted-foreground'
-  return (
-    <span className={cn('rounded-full px-1.5 py-0.5 text-[11px] font-medium', tone)}>{text}</span>
-  )
 }
 
 export function PieResourceScreen({ config }: { config: PieDomainConfig }): React.JSX.Element {
@@ -134,22 +124,29 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
       action.occ && row.version !== undefined
         ? resourceEtag(config.etagPrefix, row.version)
         : undefined
-    // Custom methods are colon-suffixed on the id (`/resource/{id}:verb`), not a
-    // sub-path — the control-plane routes match a `:target` param.
     void run(() => apiPost(`${config.itemPath(row.id)}:${action.verb}`, action.body, etag))
   }
 
+  const visibleActions = (config.actions ?? []).filter(
+    (a) => !a.whenStatus || (selected?.status && a.whenStatus.includes(selected.status))
+  )
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
         <h2 className="text-sm font-semibold text-foreground">{config.label}</h2>
-        <div className="flex items-center gap-2">
+        {listPath !== null && !list.loading && (
+          <Badge variant="secondary" className="rounded-full">
+            {items.length}
+          </Badge>
+        )}
+        <div className="ml-auto flex items-center gap-2">
           {config.scope === 'project' && (
             <Input
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              placeholder="Project id"
-              className="h-8 w-64 text-xs"
+              placeholder="Project id…"
+              className="h-8 w-60 text-xs"
             />
           )}
           {config.createFields && (
@@ -158,121 +155,155 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
             </Button>
           )}
         </div>
-      </div>
+      </header>
 
       {error && (
-        <div className="border-b border-border bg-destructive/10 px-4 py-2 text-xs text-destructive">
+        <div className="border-b border-border bg-destructive/10 px-4 py-2 text-xs font-medium text-destructive">
           {error}
         </div>
       )}
 
       {creating && config.createFields && (
-        <div className="flex flex-col gap-2 border-b border-border bg-muted/40 px-4 py-3">
-          {config.createFields.map((field) => (
-            <label key={field.key} className="flex flex-col gap-1 text-xs text-muted-foreground">
-              {field.label}
-              {field.required && <span className="sr-only">required</span>}
-              <FieldInput
-                field={field}
-                value={form[field.key] ?? ''}
-                onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
-              />
-            </label>
-          ))}
-          <div>
+        <div className="border-b border-border bg-muted/30 px-4 py-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+            {config.createFields.map((field) => (
+              <label
+                key={field.key}
+                className={cn('flex flex-col gap-1', field.type === 'textarea' && 'col-span-2')}
+              >
+                <span className={META_LABEL}>
+                  {field.label}
+                  {field.required && <span className="text-destructive"> *</span>}
+                </span>
+                <FieldInput
+                  field={field}
+                  value={form[field.key] ?? ''}
+                  onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+                />
+              </label>
+            ))}
+          </div>
+          <div className="mt-3">
             <Button size="sm" onClick={submitCreate} disabled={busy}>
-              Create
+              Create {config.label.replace(/s$/, '')}
             </Button>
           </div>
         </div>
       )}
 
       <div className="flex min-h-0 flex-1">
-        <ScrollArea className="min-h-0 flex-1 border-r border-border">
-          {listPath === null ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">
-              Enter a project id to load {config.label.toLowerCase()}.
-            </p>
-          ) : list.loading ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">Loading…</p>
-          ) : items.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">Nothing here yet.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-background">
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  {config.columns.map((col) => (
-                    <th key={col.key} className="px-4 py-2 font-medium">
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <tr
-                    key={row.id}
-                    onClick={() => setSelected(row)}
-                    className={cn(
-                      'cursor-pointer border-b border-border/60 hover:bg-accent',
-                      selected?.id === row.id && 'bg-accent'
-                    )}
-                  >
+        <div className="min-h-0 flex-1">
+          <ScrollArea className="h-full">
+            {listPath === null ? (
+              <EmptyState text={`Enter a project id to load ${config.label.toLowerCase()}.`} />
+            ) : list.loading ? (
+              <EmptyState text="Loading…" />
+            ) : items.length === 0 ? (
+              <EmptyState text="Nothing here yet." />
+            ) : (
+              <table className="w-full border-collapse text-[13px]">
+                <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
+                  <tr className="border-b border-border">
                     {config.columns.map((col) => (
-                      <td key={col.key} className="px-4 py-2">
-                        {col.pill ? (
-                          <StatusPill value={row[col.key]} />
-                        ) : (
-                          <span className="text-foreground">{String(row[col.key] ?? '')}</span>
-                        )}
-                      </td>
+                      <th
+                        key={col.key}
+                        className={cn(META_LABEL, 'px-4 py-2 text-left font-semibold')}
+                      >
+                        {col.label}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </ScrollArea>
+                </thead>
+                <tbody>
+                  {items.map((row) => (
+                    <tr
+                      key={row.id}
+                      onClick={() => setSelected(row)}
+                      data-current={selected?.id === row.id ? 'true' : undefined}
+                      className={cn(
+                        'cursor-pointer border-b border-border/50 transition-colors hover:bg-accent',
+                        selected?.id === row.id && 'bg-accent'
+                      )}
+                    >
+                      {config.columns.map((col, i) => (
+                        <td
+                          key={col.key}
+                          className={cn(
+                            'px-4 py-2 align-middle',
+                            i === 0 && 'font-medium text-foreground'
+                          )}
+                        >
+                          {col.pill ? (
+                            <PieStatusBadge value={row[col.key]} />
+                          ) : (
+                            <span className={i === 0 ? '' : 'text-muted-foreground'}>
+                              {String(row[col.key] ?? '—')}
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </ScrollArea>
+        </div>
 
         {selected && (
-          <div className="flex w-96 shrink-0 flex-col border-l border-border">
+          <aside className="flex w-[22rem] shrink-0 flex-col border-l border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+              <span className="text-xs font-semibold text-foreground">Details</span>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent"
+              >
+                Close
+              </button>
+            </div>
             <ScrollArea className="min-h-0 flex-1">
-              <div className="flex flex-col gap-3 px-4 py-3">
+              <div className="flex flex-col gap-3.5 px-4 py-3.5">
                 {(config.detailFields ?? config.columns).map((field) => (
-                  <div key={field.key} className="flex flex-col gap-0.5">
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {field.label}
-                    </span>
-                    <span className="text-sm break-words text-foreground">
-                      {String(selected[field.key] ?? '—')}
-                    </span>
+                  <div key={field.key} className="flex flex-col gap-1">
+                    <span className={META_LABEL}>{field.label}</span>
+                    {/status|severity/i.test(field.key) ? (
+                      <PieStatusBadge value={selected[field.key]} />
+                    ) : (
+                      <span className="text-sm break-words whitespace-pre-wrap text-foreground">
+                        {String(selected[field.key] ?? '—')}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
             </ScrollArea>
-            {config.actions && (
+            {visibleActions.length > 0 && (
               <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
-                {config.actions
-                  .filter(
-                    (a) =>
-                      !a.whenStatus || (selected.status && a.whenStatus.includes(selected.status))
-                  )
-                  .map((action) => (
-                    <Button
-                      key={action.label}
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => runAction(selected, action)}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
+                {visibleActions.map((action) => (
+                  <Button
+                    key={action.label}
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => runAction(selected, action)}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
               </div>
             )}
-          </div>
+          </aside>
         )}
       </div>
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }): React.JSX.Element {
+  return (
+    <div className="flex h-40 items-center justify-center px-4 text-sm text-muted-foreground">
+      {text}
     </div>
   )
 }
