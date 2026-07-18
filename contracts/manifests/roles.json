@@ -72,7 +72,9 @@
         "project.plan.manage",
         "project.resource.read",
         "project.resource.manage",
-        "project.import.manage"
+        "project.import.manage",
+        "project.change.request",
+        "project.change.approve"
       ]
     },
     {
@@ -142,7 +144,9 @@
         "project.plan.manage",
         "project.resource.read",
         "project.resource.manage",
-        "project.import.manage"
+        "project.import.manage",
+        "project.change.request",
+        "project.change.approve"
       ]
     },
     {
@@ -195,7 +199,8 @@
         "project.plan.manage",
         "project.resource.read",
         "project.resource.manage",
-        "project.import.manage"
+        "project.import.manage",
+        "project.change.request"
       ]
     },
     {
@@ -258,7 +263,8 @@
         "requirement.accept",
         "service.ticket.read",
         "project.plan.read",
-        "project.resource.read"
+        "project.resource.read",
+        "project.change.approve"
       ]
     },
     {

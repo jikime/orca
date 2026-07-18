@@ -29,6 +29,7 @@ import { registerDeliveryRoutes } from './delivery-routes'
 import { registerWorkItemRoutes } from './work-item-routes'
 import { registerCrmAccountRoutes } from './crm-account-routes'
 import { registerCrmContractRoutes } from './crm-contract-routes'
+import { registerChangeRequestRoutes } from './change-request-routes'
 import { registerRequirementRoutes } from './requirement-routes'
 import { registerServiceTicketRoutes } from './service-ticket-routes'
 import { registerPlanningRoutes } from './planning-routes'
@@ -186,6 +187,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerWorkItemRoutes(app, { db: deps.db, registry: deps.registry })
     registerCrmAccountRoutes(app, { db: deps.db, registry: deps.registry })
     registerCrmContractRoutes(app, { db: deps.db, registry: deps.registry })
+    registerChangeRequestRoutes(app, { db: deps.db, registry: deps.registry })
     registerRequirementRoutes(app, { db: deps.db, registry: deps.registry })
     registerServiceTicketRoutes(app, { db: deps.db, registry: deps.registry })
     registerPlanningRoutes(app, { db: deps.db, registry: deps.registry })

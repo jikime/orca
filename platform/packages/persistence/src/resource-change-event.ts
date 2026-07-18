@@ -62,6 +62,9 @@ export type ResourceChangeResourceType =
   // External import (R6 slice 6). Import-run lifecycle invalidations ride the same outbox → Worker →
   // gateway path unchanged; the created/updated projects & work_items already emit their own changes.
   | 'import_run'
+  // Project-execution change requests (R6). Change-request lifecycle (submit/approve/reject/apply)
+  // invalidations ride the same outbox → Worker → gateway path unchanged.
+  | 'change_request'
 
 export type ResourceChangeData = {
   eventId: string

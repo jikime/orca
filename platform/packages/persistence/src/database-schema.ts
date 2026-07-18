@@ -960,6 +960,30 @@ export interface CrmContractProjectsTable {
   created_at: TimestampColumn
 }
 
+// === R6 project-execution change requests (20260825090001) ===
+// project_id / wbs_node_id / requirement_id are OPAQUE cross-schema links (no FK); version is the
+// OCC counter. status is the pre-approval execution gate (draft→submitted→approved→applied).
+export interface ChangeRequestsTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  wbs_node_id: string | null
+  requirement_id: string | null
+  title: string
+  description: string | null
+  status: Generated<string>
+  scope_delta: string | null
+  schedule_delta_days: number | null
+  cost_delta: NullableNumericColumn
+  requested_by: string | null
+  approver_user_id: string | null
+  decided_at: NullableTimestampColumn
+  applied_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // === R6 s2 requirements + traceability tables (20260820090001) ===
 // project_id / contract_scope_item_id are OPAQUE cross-schema links (no FK); version is the OCC counter.
 export interface RequirementsTable {
@@ -1249,6 +1273,7 @@ export interface Database {
   'crm.change_orders': CrmChangeOrdersTable
   'crm.change_order_scope_items': CrmChangeOrderScopeItemsTable
   'crm.contract_projects': CrmContractProjectsTable
+  'change.change_requests': ChangeRequestsTable
   'service.sla_policies': ServiceSlaPoliciesTable
   'service.tickets': ServiceTicketsTable
   'service.ticket_replies': ServiceTicketRepliesTable

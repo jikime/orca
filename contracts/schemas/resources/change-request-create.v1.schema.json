@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/change-request-create.v1.schema.json",
+  "title": "Create project change request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "scopeDelta": {
+      "type": "string"
+    },
+    "scheduleDeltaDays": {
+      "type": "integer"
+    },
+    "costDelta": {
+      "type": ["number", "string"]
+    },
+    "wbsNodeId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "requirementId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    }
+  }
+}

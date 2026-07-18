@@ -396,6 +396,18 @@
       "resource": "project_import",
       "action": "manage",
       "risk": "elevated"
+    },
+    {
+      "id": "project.change.request",
+      "resource": "project_change",
+      "action": "request",
+      "risk": "standard"
+    },
+    {
+      "id": "project.change.approve",
+      "resource": "project_change",
+      "action": "approve",
+      "risk": "critical"
     }
   ]
 }

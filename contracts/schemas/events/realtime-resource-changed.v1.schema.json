@@ -54,7 +54,8 @@
         "agent_provenance",
         "agent_session_intake",
         "requirement",
-        "requirement_acceptance"
+        "requirement_acceptance",
+        "change_request"
       ]
     },
     "resourceId": {
