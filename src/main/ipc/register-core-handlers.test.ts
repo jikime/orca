@@ -135,6 +135,15 @@ const {
 vi.mock('electron', () => ({
   app: {
     getPath: getPathMock
+  },
+  // pie-chat + pie-auth-login registrars call ipcMain.handle/removeHandler and
+  // read webContents; the mock only needs these to be no-ops for registration.
+  ipcMain: {
+    handle: vi.fn(),
+    removeHandler: vi.fn()
+  },
+  webContents: {
+    fromId: vi.fn()
   }
 }))
 
