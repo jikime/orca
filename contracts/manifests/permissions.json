@@ -522,6 +522,18 @@
       "resource": "meeting_minutes",
       "action": "review",
       "risk": "elevated"
+    },
+    {
+      "id": "asset.read",
+      "resource": "asset",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "asset.manage",
+      "resource": "asset",
+      "action": "manage",
+      "risk": "elevated"
     }
   ]
 }

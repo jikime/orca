@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset-assign.v1.schema.json",
+  "title": "Assign an asset to a user",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assignedToUserId"],
+  "properties": {
+    "assignedToUserId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

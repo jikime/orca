@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset-update.v1.schema.json",
+  "title": "Update asset",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "assetType": { "enum": ["hardware", "software", "license", "service", "other"] },
+    "accountId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "identifier": { "type": ["string", "null"] },
+    "vendor": { "type": ["string", "null"] },
+    "purchaseDate": { "type": ["string", "null"], "format": "date" },
+    "warrantyEnd": { "type": ["string", "null"], "format": "date" },
+    "notes": { "type": ["string", "null"] }
+  }
+}

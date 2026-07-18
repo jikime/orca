@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset-link.v1.schema.json",
+  "title": "Asset CMDB relationship link",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "assetId",
+    "linkedKind",
+    "linkedId",
+    "relation",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "assetId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "linkedKind": { "enum": ["ticket", "work_item", "asset"] },
+    "linkedId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "relation": { "enum": ["used_by", "depends_on", "affected_by", "related"] },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

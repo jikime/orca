@@ -37,6 +37,7 @@ import { registerKnowledgeRoutes } from './knowledge-routes'
 import { registerAutomationRoutes } from './automation-routes'
 import { registerMeetingRoutes } from './meeting-routes'
 import { registerAiGovernanceRoutes } from './ai-governance-routes'
+import { registerAssetRoutes } from './asset-routes'
 import { registerServiceTicketRoutes } from './service-ticket-routes'
 import { registerPlanningRoutes } from './planning-routes'
 import { registerPlanningResourceRoutes } from './planning-resource-routes'
@@ -201,6 +202,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerAutomationRoutes(app, { db: deps.db, registry: deps.registry })
     registerAiGovernanceRoutes(app, { db: deps.db, registry: deps.registry })
     registerMeetingRoutes(app, { db: deps.db, registry: deps.registry })
+    registerAssetRoutes(app, { db: deps.db, registry: deps.registry })
     registerServiceTicketRoutes(app, { db: deps.db, registry: deps.registry })
     registerPlanningRoutes(app, { db: deps.db, registry: deps.registry })
     registerPlanningResourceRoutes(app, { db: deps.db, registry: deps.registry })

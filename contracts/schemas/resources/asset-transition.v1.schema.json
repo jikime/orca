@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset-transition.v1.schema.json",
+  "title": "Transition an asset status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action"],
+  "properties": {
+    "action": { "enum": ["repair", "restore", "retire", "report_lost"] }
+  }
+}

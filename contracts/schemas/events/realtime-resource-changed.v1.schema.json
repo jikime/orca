@@ -73,7 +73,10 @@
         "meeting_participant",
         "meeting_recording",
         "meeting_transcript",
-        "meeting_minutes"
+        "meeting_minutes",
+        "asset",
+        "asset_link",
+        "asset_event"
       ]
     },
     "resourceId": {

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset-event.v1.schema.json",
+  "title": "Asset lifecycle event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "assetId",
+    "eventKind",
+    "detail",
+    "actorUserId",
+    "occurredAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "assetId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "eventKind": {
+      "enum": ["created", "assigned", "unassigned", "status_changed", "moved", "linked", "unlinked"]
+    },
+    "detail": { "type": ["object", "null"] },
+    "actorUserId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "occurredAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

@@ -93,7 +93,9 @@
         "ai.governance.read",
         "meeting.read",
         "meeting.manage",
-        "meeting.minutes.review"
+        "meeting.minutes.review",
+        "asset.read",
+        "asset.manage"
       ]
     },
     {
@@ -184,7 +186,9 @@
         "ai.governance.read",
         "meeting.read",
         "meeting.manage",
-        "meeting.minutes.review"
+        "meeting.minutes.review",
+        "asset.read",
+        "asset.manage"
       ]
     },
     {
@@ -255,7 +259,9 @@
         "ai.governance.read",
         "meeting.read",
         "meeting.manage",
-        "meeting.minutes.review"
+        "meeting.minutes.review",
+        "asset.read",
+        "asset.manage"
       ]
     },
     {
@@ -299,7 +305,8 @@
         "knowledge.read",
         "automation.workqueue.read",
         "ai.governance.read",
-        "meeting.read"
+        "meeting.read",
+        "asset.read"
       ]
     },
     {

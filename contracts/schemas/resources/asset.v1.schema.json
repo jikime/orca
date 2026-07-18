@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset.v1.schema.json",
+  "title": "Asset registry entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "name",
+    "assetType",
+    "status",
+    "accountId",
+    "projectId",
+    "assignedToUserId",
+    "identifier",
+    "vendor",
+    "purchaseDate",
+    "warrantyEnd",
+    "notes",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "name": { "type": "string", "minLength": 1 },
+    "assetType": { "enum": ["hardware", "software", "license", "service", "other"] },
+    "status": { "enum": ["active", "in_repair", "retired", "lost"] },
+    "accountId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "assignedToUserId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "identifier": { "type": ["string", "null"] },
+    "vendor": { "type": ["string", "null"] },
+    "purchaseDate": { "type": ["string", "null"], "format": "date" },
+    "warrantyEnd": { "type": ["string", "null"], "format": "date" },
+    "notes": { "type": ["string", "null"] },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

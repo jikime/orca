@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset-link-create.v1.schema.json",
+  "title": "Create asset CMDB link",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["linkedKind", "linkedId"],
+  "properties": {
+    "linkedKind": { "enum": ["ticket", "work_item", "asset"] },
+    "linkedId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "relation": { "enum": ["used_by", "depends_on", "affected_by", "related"] }
+  }
+}

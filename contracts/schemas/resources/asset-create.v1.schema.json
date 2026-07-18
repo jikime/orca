@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/asset-create.v1.schema.json",
+  "title": "Create asset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "assetType": { "enum": ["hardware", "software", "license", "service", "other"] },
+    "accountId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "projectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "assignedToUserId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "identifier": { "type": "string" },
+    "vendor": { "type": "string" },
+    "purchaseDate": { "type": "string", "format": "date" },
+    "warrantyEnd": { "type": "string", "format": "date" },
+    "notes": { "type": "string" }
+  }
+}

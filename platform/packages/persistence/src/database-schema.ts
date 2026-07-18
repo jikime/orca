@@ -1285,6 +1285,56 @@ export interface MeetingMinutesTable {
   updated_at: TimestampColumn
 }
 
+// === R8 asset registry / CMDB (20260901090001) ===
+// A registry entry. account_id / project_id / assigned_to_user_id are OPAQUE cross-schema links (no FK).
+// status walks active → in_repair → active|retired|lost (a status change is the OCC :transition;
+// assignment is an OCC update). version is OCC.
+export interface AssetsTable {
+  organization_id: string
+  id: Generated<string>
+  name: string
+  asset_type: Generated<string>
+  status: Generated<string>
+  account_id: string | null
+  project_id: string | null
+  assigned_to_user_id: string | null
+  identifier: string | null
+  vendor: string | null
+  purchase_date: NullableDateColumn
+  warranty_end: NullableDateColumn
+  notes: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// The CMDB relationship graph. asset_id / linked_id are OPAQUE ids (no FK). A UNIQUE
+// (organization_id, asset_id, linked_kind, linked_id, relation) makes a duplicate edge a constraint
+// error. version present for wire uniformity.
+export interface AssetLinksTable {
+  organization_id: string
+  id: Generated<string>
+  asset_id: string
+  linked_kind: string
+  linked_id: string
+  relation: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// The append-only lifecycle log — every asset mutation writes one row (never updated in place, so no
+// version/OCC). asset_id / actor_user_id are OPAQUE ids (no FK). detail is opaque jsonb.
+export interface AssetEventsTable {
+  organization_id: string
+  id: Generated<string>
+  asset_id: string
+  event_kind: string
+  detail: NullableJsonbColumn
+  actor_user_id: string | null
+  occurred_at: TimestampColumn
+}
+
 // === R7 ai governance: entitlements + quota + evaluation + guard log (20260830090001) ===
 // What an org MAY use. resource_kind is model|tool, resource_key the OPAQUE resource key. allowed gates
 // access; quota_limit (null = unlimited) caps consumption over quota_period. version is OCC.
@@ -1636,4 +1686,7 @@ export interface Database {
   'meetings.recordings': MeetingRecordingsTable
   'meetings.transcripts': MeetingTranscriptsTable
   'meetings.minutes': MeetingMinutesTable
+  'assets.assets': AssetsTable
+  'assets.asset_links': AssetLinksTable
+  'assets.asset_events': AssetEventsTable
 }
