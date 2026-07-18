@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileDiff,
   Gavel,
+  KanbanSquare,
   MessagesSquare,
   PackageCheck,
   PlayCircle,
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatScreen } from '../chat/ChatScreen'
 import { PieResourceScreen } from './PieResourceScreen'
+import { WorkItemBoard } from './WorkItemBoard'
 import { PIE_DELIVERY_DOMAINS } from './pie-delivery-domains'
 import { PIE_OPS_DOMAINS } from './pie-ops-domains'
 import type { PieDomainConfig } from './pie-domain-types'
@@ -111,6 +113,12 @@ export function PieWorkspace(): React.JSX.Element {
             active={active === 'chat'}
             onClick={() => setActive('chat')}
           />
+          <NavItem
+            icon={KanbanSquare}
+            label="Board"
+            active={active === 'board'}
+            onClick={() => setActive('board')}
+          />
           <NavSection
             title="Delivery"
             domains={PIE_DELIVERY_DOMAINS}
@@ -126,7 +134,13 @@ export function PieWorkspace(): React.JSX.Element {
         </ScrollArea>
       </nav>
       <div className="min-h-0">
-        {domain ? <PieResourceScreen key={domain.key} config={domain} /> : <ChatScreen />}
+        {domain ? (
+          <PieResourceScreen key={domain.key} config={domain} />
+        ) : active === 'board' ? (
+          <WorkItemBoard />
+        ) : (
+          <ChatScreen />
+        )}
       </div>
     </div>
   )
