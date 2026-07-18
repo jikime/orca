@@ -10,6 +10,7 @@ import {
 import type { Editor } from '@tiptap/core'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { cn } from '@/lib/utils'
+import { translate } from '@/i18n/i18n'
 import type { PieChatMember } from '../../../../shared/pie-chat-contract'
 import { MentionAutocomplete, filterMembers } from './MentionAutocomplete'
 import { ComposerFormattingToolbar } from './ComposerFormattingToolbar'
@@ -142,7 +143,7 @@ export const RichChatComposerEditor = forwardRef<
           'chat-composer-content max-h-48 min-h-[1.5rem] w-full overflow-y-auto',
           'whitespace-pre-wrap break-words px-3 py-2 text-sm text-foreground outline-none'
         ),
-        'aria-label': 'Message'
+        'aria-label': translate('auto.pie.chat.RichChatComposerEditor.arialabel', 'Message')
       },
       handleKeyDown: (_view, event) => {
         const current = mentionRef.current

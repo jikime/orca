@@ -17,7 +17,9 @@ type ThreadPanelProps = {
 }
 
 function label(authorId: string, currentUserId: string): string {
-  return authorId === currentUserId ? 'You' : authorId.slice(0, 8)
+  return authorId === currentUserId
+    ? translate('auto.pie.chat.ThreadPanel.selfauthor', 'You')
+    : authorId.slice(0, 8)
 }
 
 export function ThreadPanel({

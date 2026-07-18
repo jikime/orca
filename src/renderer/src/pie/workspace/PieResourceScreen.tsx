@@ -169,8 +169,14 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
                 <SelectValue
                   placeholder={
                     projectOptions.length === 0
-                      ? 'No projects — create one first'
-                      : 'Select project…'
+                      ? translate(
+                          'auto.pie.workspace.PieResourceScreen.noprojects',
+                          'No projects — create one first'
+                        )
+                      : translate(
+                          'auto.pie.workspace.PieResourceScreen.selectproject',
+                          'Select project…'
+                        )
                   }
                 />
               </SelectTrigger>
@@ -185,7 +191,9 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
           )}
           {config.createFields && (
             <Button size="sm" onClick={() => setCreating((c) => !c)} disabled={listPath === null}>
-              {creating ? 'Cancel' : 'New'}
+              {creating
+                ? translate('auto.pie.workspace.PieResourceScreen.cancel', 'Cancel')
+                : translate('auto.pie.workspace.PieResourceScreen.new', 'New')}
             </Button>
           )}
         </div>

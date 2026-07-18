@@ -1,3 +1,4 @@
+import { translate } from '@/i18n/i18n'
 import type { PieChatMember } from '../../../../shared/pie-chat-contract'
 
 type TypingIndicatorProps = {
@@ -12,7 +13,9 @@ export function TypingIndicator({
   members
 }: TypingIndicatorProps): React.JSX.Element {
   const names = typingUserIds.map(
-    (id) => members.find((member) => member.userId === id)?.displayName ?? 'Someone'
+    (id) =>
+      members.find((member) => member.userId === id)?.displayName ??
+      translate('auto.pie.chat.TypingIndicator.someone', 'Someone')
   )
   const label =
     names.length === 0

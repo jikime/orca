@@ -20,7 +20,9 @@ type MessageTimelineProps = {
 }
 
 function authorLabel(authorId: string, currentUserId: string): string {
-  return authorId === currentUserId ? 'You' : authorId.slice(0, 8)
+  return authorId === currentUserId
+    ? translate('auto.pie.chat.MessageTimeline.selfauthor', 'You')
+    : authorId.slice(0, 8)
 }
 
 function formatTime(iso: string): string {
@@ -150,7 +152,9 @@ export function MessageTimeline({
                       className="hover:text-foreground"
                       onClick={() => onTogglePin(message)}
                     >
-                      {message.pinned ? 'Unpin' : 'Pin'}
+                      {message.pinned
+                        ? translate('auto.pie.chat.MessageTimeline.unpin', 'Unpin')
+                        : translate('auto.pie.chat.MessageTimeline.pin', 'Pin')}
                     </button>
                   </div>
                 )}

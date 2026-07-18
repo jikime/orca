@@ -13,7 +13,9 @@ type NotificationInboxProps = {
 // message reference — so a mention reads as "Mentioned you" with the channel
 // name and a relative time, not an author line.
 function describe(notification: PieNotification): string {
-  return notification.type === 'mention' ? 'Mentioned you' : notification.type
+  return notification.type === 'mention'
+    ? translate('auto.pie.chat.NotificationInbox.mentionedyou', 'Mentioned you')
+    : notification.type
 }
 
 const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
