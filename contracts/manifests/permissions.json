@@ -504,6 +504,24 @@
       "resource": "ai_governance",
       "action": "read",
       "risk": "standard"
+    },
+    {
+      "id": "meeting.read",
+      "resource": "meeting",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "meeting.manage",
+      "resource": "meeting",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "meeting.minutes.review",
+      "resource": "meeting_minutes",
+      "action": "review",
+      "risk": "elevated"
     }
   ]
 }

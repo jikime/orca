@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-transcript-create.v1.schema.json",
+  "title": "Create meeting transcript",
+  "description": "Persists a transcript. Requires at least one of content / segments.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source"],
+  "properties": {
+    "source": {
+      "enum": ["live_caption", "post_recording", "ai"]
+    },
+    "content": {
+      "type": "string"
+    },
+    "segments": {
+      "oneOf": [{ "type": "array" }, { "type": "object" }]
+    },
+    "language": {
+      "type": "string"
+    }
+  }
+}

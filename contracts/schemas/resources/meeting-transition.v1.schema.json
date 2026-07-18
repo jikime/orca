@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-transition.v1.schema.json",
+  "title": "Meeting status transition",
+  "description": "Moves a meeting along the scheduled → live → ended lifecycle (or cancels it).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["toStatus"],
+  "properties": {
+    "toStatus": {
+      "enum": ["live", "ended", "cancelled"]
+    }
+  }
+}

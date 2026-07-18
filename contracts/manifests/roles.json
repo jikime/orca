@@ -90,7 +90,10 @@
         "automation.workqueue.manage",
         "ai.entitlement.manage",
         "ai.usage.consume",
-        "ai.governance.read"
+        "ai.governance.read",
+        "meeting.read",
+        "meeting.manage",
+        "meeting.minutes.review"
       ]
     },
     {
@@ -178,7 +181,10 @@
         "automation.workqueue.manage",
         "ai.entitlement.manage",
         "ai.usage.consume",
-        "ai.governance.read"
+        "ai.governance.read",
+        "meeting.read",
+        "meeting.manage",
+        "meeting.minutes.review"
       ]
     },
     {
@@ -246,7 +252,10 @@
         "automation.workqueue.read",
         "automation.workqueue.manage",
         "ai.usage.consume",
-        "ai.governance.read"
+        "ai.governance.read",
+        "meeting.read",
+        "meeting.manage",
+        "meeting.minutes.review"
       ]
     },
     {
@@ -289,7 +298,8 @@
         "project.governance.read",
         "knowledge.read",
         "automation.workqueue.read",
-        "ai.governance.read"
+        "ai.governance.read",
+        "meeting.read"
       ]
     },
     {

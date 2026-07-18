@@ -1202,6 +1202,89 @@ export interface WorkQueueItemsTable {
   updated_at: TimestampColumn
 }
 
+// === R7 meetings: signaling/metadata/consent/recording-ref/transcript/minutes (20260831090001) ===
+// A meeting (media transport is infra). scope_kind/scope_id are the OPAQUE project/ticket context the
+// result is preserved in. status walks scheduled → live → ended (or cancelled). version is OCC.
+export interface MeetingsTable {
+  organization_id: string
+  id: Generated<string>
+  title: string
+  scope_kind: Generated<string>
+  scope_id: string | null
+  host_user_id: string
+  scheduled_start: NullableTimestampColumn
+  scheduled_end: NullableTimestampColumn
+  status: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// A member's presence + recording consent in a meeting. meeting_id is OPAQUE (no FK). consent_recording
+// is the 녹화 동의 the recording gate consults. version is OCC.
+export interface MeetingParticipantsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  user_id: string
+  role: Generated<string>
+  consent_recording: Generated<boolean>
+  joined_at: NullableTimestampColumn
+  left_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// A recording reference (the media upload is infra). object_ref is the OPAQUE storage object id set at
+// :finalize; status walks pending → available (or failed). version is OCC.
+export interface MeetingRecordingsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  object_ref: string | null
+  status: Generated<string>
+  duration_seconds: number | null
+  started_at: TimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// A caption/transcript. meeting_id is OPAQUE (no FK). content OR segments carries the text (at least
+// one). source records provenance (live_caption | post_recording | ai). version is OCC.
+export interface MeetingTranscriptsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  content: string | null
+  segments: NullableJsonbColumn
+  source: string
+  language: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// AI/human meeting minutes. meeting_id is OPAQUE (no FK). source_type records provenance; review_status
+// + reviewed_by + reviewed_at is the human review record. AI-authored minutes may not be finalized while
+// unreviewed. status walks draft → finalized. version is OCC.
+export interface MeetingMinutesTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  summary: string
+  source_type: Generated<string>
+  review_status: Generated<string>
+  reviewed_by: string | null
+  reviewed_at: NullableTimestampColumn
+  status: Generated<string>
+  author_user_id: string
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // === R7 ai governance: entitlements + quota + evaluation + guard log (20260830090001) ===
 // What an org MAY use. resource_kind is model|tool, resource_key the OPAQUE resource key. allowed gates
 // access; quota_limit (null = unlimited) caps consumption over quota_period. version is OCC.
@@ -1548,4 +1631,9 @@ export interface Database {
   'ai.quota_usage': AiQuotaUsageTable
   'ai.evaluations': AiEvaluationsTable
   'ai.guard_events': AiGuardEventsTable
+  'meetings.meetings': MeetingsTable
+  'meetings.participants': MeetingParticipantsTable
+  'meetings.recordings': MeetingRecordingsTable
+  'meetings.transcripts': MeetingTranscriptsTable
+  'meetings.minutes': MeetingMinutesTable
 }

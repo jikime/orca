@@ -89,6 +89,14 @@ export type ResourceChangeResourceType =
   | 'ai_entitlement'
   | 'ai_evaluation'
   | 'ai_guard_event'
+  // Meetings (R7). Meeting lifecycle, participant/consent, recording-ref, transcript, and AI/human
+  // minutes invalidations ride the same outbox → Worker → gateway path unchanged (the media plane —
+  // LiveKit/WebRTC transport — is infra and emits no control-plane resource change).
+  | 'meeting'
+  | 'meeting_participant'
+  | 'meeting_recording'
+  | 'meeting_transcript'
+  | 'meeting_minutes'
 
 export type ResourceChangeData = {
   eventId: string

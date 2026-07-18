@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-participant-add.v1.schema.json",
+  "title": "Add meeting participant",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["userId"],
+  "properties": {
+    "userId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "role": {
+      "enum": ["host", "participant"]
+    },
+    "consentRecording": {
+      "type": "boolean"
+    }
+  }
+}

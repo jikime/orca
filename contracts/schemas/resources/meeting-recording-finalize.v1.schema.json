@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-recording-finalize.v1.schema.json",
+  "title": "Finalize meeting recording",
+  "description": "Attaches the opaque storage object ref + duration to a pending recording (the media upload is infra) and marks it available (or failed).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["objectRef", "durationSeconds"],
+  "properties": {
+    "objectRef": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "durationSeconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed": {
+      "type": "boolean"
+    }
+  }
+}

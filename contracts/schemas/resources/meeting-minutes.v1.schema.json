@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-minutes.v1.schema.json",
+  "title": "Meeting minutes",
+  "description": "AI/human meeting minutes with provenance (sourceType) and a human review record. AI-authored minutes must be reviewed and approved before they may be finalized: model output does not substitute for approval (doc 14 §R7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "meetingId",
+    "summary",
+    "sourceType",
+    "reviewStatus",
+    "reviewedBy",
+    "reviewedAt",
+    "status",
+    "authorUserId",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "meetingId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "sourceType": {
+      "enum": ["manual", "ai"]
+    },
+    "reviewStatus": {
+      "enum": ["unreviewed", "approved", "rejected"]
+    },
+    "reviewedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "reviewedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "status": {
+      "enum": ["draft", "finalized"]
+    },
+    "authorUserId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "version": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "updatedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

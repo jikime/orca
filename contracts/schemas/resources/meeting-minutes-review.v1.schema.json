@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-minutes-review.v1.schema.json",
+  "title": "Meeting minutes review verdict",
+  "description": "A human reviewer's verdict on minutes. Approving AI-authored minutes is what unlocks finalize (doc 14 §R7): model output does not substitute for approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision"],
+  "properties": {
+    "decision": {
+      "enum": ["approve", "reject"]
+    }
+  }
+}

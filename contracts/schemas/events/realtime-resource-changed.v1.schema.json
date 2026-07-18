@@ -68,7 +68,12 @@
         "work_queue_item",
         "ai_entitlement",
         "ai_evaluation",
-        "ai_guard_event"
+        "ai_guard_event",
+        "meeting",
+        "meeting_participant",
+        "meeting_recording",
+        "meeting_transcript",
+        "meeting_minutes"
       ]
     },
     "resourceId": {

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-participant-consent.v1.schema.json",
+  "title": "Set meeting participant recording consent",
+  "description": "Records a participant's 녹화 동의. Absent consent field defaults to granting consent.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "consent": {
+      "type": "boolean"
+    }
+  }
+}
