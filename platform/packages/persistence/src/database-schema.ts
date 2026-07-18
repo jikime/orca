@@ -1146,6 +1146,62 @@ export interface KnowledgeArticlesTable {
   tsv: ColumnType<never, never, never>
 }
 
+// === R7 automation: approval-gated runbooks + work queue (20260829090001) ===
+// A runbook DEFINITION. steps is an ordered jsonb step list opaque to the control plane.
+// requires_approval defaults true so an execution is inert until approved. version is OCC.
+export interface AutomationRunbooksTable {
+  organization_id: string
+  id: Generated<string>
+  name: string
+  description: string | null
+  steps: JsonbColumn
+  target_kind: string
+  requires_approval: Generated<boolean>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// A single RUN of a runbook. runbook_id / target_id / rollback_of_execution_id are OPAQUE ids (no
+// FK). status is the pre-run approval gate: an unapproved :run is refused. approver_user_id +
+// approved_at record the AUDITED approval; result the AUDITED outcome; rollback_of_execution_id the
+// AUDITED compensating run (rollback-is-new-execution). version is OCC.
+export interface RunbookExecutionsTable {
+  organization_id: string
+  id: Generated<string>
+  runbook_id: string
+  target_id: string
+  target_kind: string
+  status: Generated<string>
+  requested_by: string | null
+  approver_user_id: string | null
+  approved_at: NullableTimestampColumn
+  result: NullableJsonbColumn
+  rollback_of_execution_id: string | null
+  started_at: NullableTimestampColumn
+  finished_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// A unit of work in the operator queue. subject_id is the OPAQUE id of what it tracks (no FK).
+// assignee_user_id is set on :claim. status/priority are checked vocabularies. version is OCC.
+export interface WorkQueueItemsTable {
+  organization_id: string
+  id: Generated<string>
+  title: string
+  description: string | null
+  kind: string
+  subject_id: string | null
+  status: Generated<string>
+  assignee_user_id: string | null
+  priority: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // === R6 s3 service ticket + SLA tables (20260821090001) ===
 // account_id / reporter_contact_id / project_id / contract_id / agent_session_id / remote_session_id
 // are OPAQUE cross-schema links (no FK). sla_policy_id is a same-schema nullable ref. version is OCC.
@@ -1429,4 +1485,7 @@ export interface Database {
   'planning.effort_entries': EffortEntriesTable
   'imports.import_runs': ImportRunsTable
   'imports.import_external_links': ImportExternalLinksTable
+  'automation.runbooks': AutomationRunbooksTable
+  'automation.runbook_executions': RunbookExecutionsTable
+  'automation.work_queue_items': WorkQueueItemsTable
 }

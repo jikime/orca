@@ -62,7 +62,10 @@
         "project_risk",
         "project_decision",
         "status_report",
-        "knowledge_article"
+        "knowledge_article",
+        "runbook",
+        "runbook_execution",
+        "work_queue_item"
       ]
     },
     "resourceId": {

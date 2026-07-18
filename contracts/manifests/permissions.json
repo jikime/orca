@@ -456,6 +456,36 @@
       "resource": "knowledge",
       "action": "review",
       "risk": "elevated"
+    },
+    {
+      "id": "automation.runbook.manage",
+      "resource": "automation_runbook",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "automation.runbook.approve",
+      "resource": "automation_runbook",
+      "action": "approve",
+      "risk": "critical"
+    },
+    {
+      "id": "automation.runbook.run",
+      "resource": "automation_runbook",
+      "action": "run",
+      "risk": "elevated"
+    },
+    {
+      "id": "automation.workqueue.read",
+      "resource": "automation_workqueue",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "automation.workqueue.manage",
+      "resource": "automation_workqueue",
+      "action": "manage",
+      "risk": "elevated"
     }
   ]
 }

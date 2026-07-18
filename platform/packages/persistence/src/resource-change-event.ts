@@ -78,6 +78,11 @@ export type ResourceChangeResourceType =
   // Knowledge base (R7). Article lifecycle (create/update/transition/review) invalidations ride the
   // same outbox → Worker → gateway path unchanged.
   | 'knowledge_article'
+  // Automation (R7). Approval-gated runbook definitions, their executions (approve/run/complete/
+  // rollback), and work-queue items ride the same outbox → Worker → gateway path unchanged.
+  | 'runbook'
+  | 'runbook_execution'
+  | 'work_queue_item'
 
 export type ResourceChangeData = {
   eventId: string

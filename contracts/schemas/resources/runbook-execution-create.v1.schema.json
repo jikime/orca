@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/runbook-execution-create.v1.schema.json",
+  "title": "Create runbook execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["targetId", "targetKind"],
+  "properties": {
+    "targetId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "targetKind": {
+      "enum": ["project", "ticket", "environment"]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/work-queue-item-transition.v1.schema.json",
+  "title": "Transition work queue item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["toStatus"],
+  "properties": {
+    "toStatus": {
+      "enum": ["in_progress", "done", "cancelled", "queued"]
+    }
+  }
+}

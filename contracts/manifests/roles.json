@@ -82,7 +82,12 @@
         "knowledge.read",
         "knowledge.customer_read",
         "knowledge.manage",
-        "knowledge.review"
+        "knowledge.review",
+        "automation.runbook.manage",
+        "automation.runbook.approve",
+        "automation.runbook.run",
+        "automation.workqueue.read",
+        "automation.workqueue.manage"
       ]
     },
     {
@@ -162,7 +167,12 @@
         "knowledge.read",
         "knowledge.customer_read",
         "knowledge.manage",
-        "knowledge.review"
+        "knowledge.review",
+        "automation.runbook.manage",
+        "automation.runbook.approve",
+        "automation.runbook.run",
+        "automation.workqueue.read",
+        "automation.workqueue.manage"
       ]
     },
     {
@@ -224,7 +234,11 @@
         "knowledge.read",
         "knowledge.customer_read",
         "knowledge.manage",
-        "knowledge.review"
+        "knowledge.review",
+        "automation.runbook.manage",
+        "automation.runbook.run",
+        "automation.workqueue.read",
+        "automation.workqueue.manage"
       ]
     },
     {
@@ -265,7 +279,8 @@
         "project.resource.read",
         "project.qa.read",
         "project.governance.read",
-        "knowledge.read"
+        "knowledge.read",
+        "automation.workqueue.read"
       ]
     },
     {
