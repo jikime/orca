@@ -14,7 +14,10 @@ export {
   PIE_CHAT_LIST_CHANNELS_CHANNEL,
   PIE_CHAT_LIST_MEMBERS_CHANNEL,
   PIE_CHAT_LIST_MESSAGES_CHANNEL,
+  PIE_CHAT_LIST_NOTIFICATIONS_CHANNEL,
   PIE_CHAT_LIST_PINS_CHANNEL,
+  PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL,
+  PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL,
   PIE_CHAT_MARK_READ_CHANNEL,
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_MUTE_CHANNEL_CHANNEL,
@@ -189,6 +192,38 @@ export const PieAttachmentDownloadSchema = z
   })
   .passthrough()
 
+// One durable per-user notification (currently only type 'mention'). Mirrors
+// NotificationResource from @pie/persistence. `type` stays a plain string so a
+// future notification kind does not fail client validation. channelId/messageId
+// reference the mention's location; the actor + message body are NOT on this
+// resource (backend only stores the reference), so the inbox shows type +
+// channel + relative time, not an author line or the message text.
+export const PieNotificationSchema = z
+  .object({
+    id: opaqueIdSchema,
+    organizationId: opaqueIdSchema,
+    userId: opaqueIdSchema,
+    type: z.string(),
+    channelId: z.string().nullable(),
+    messageId: z.string().nullable(),
+    seen: z.boolean(),
+    read: z.boolean(),
+    createdAt: z.string()
+  })
+  .passthrough()
+
+export const PieNotificationListResponseSchema = z
+  .object({
+    items: z.array(PieNotificationSchema),
+    nextCursor: z.string().nullable()
+  })
+  .passthrough()
+
+// The read-all route returns the count of rows it flipped to read.
+export const PieNotificationsReadAllResponseSchema = z
+  .object({ updated: z.number().int() })
+  .passthrough()
+
 export type ChannelVisibility = z.infer<typeof ChannelVisibilitySchema>
 export type ChannelKind = z.infer<typeof ChannelKindSchema>
 export type PieChannel = z.infer<typeof PieChannelSchema>
@@ -206,6 +241,8 @@ export type PieMessageSearchResponse = z.infer<typeof PieMessageSearchResponseSc
 export type PieChatMember = z.infer<typeof PieChatMemberSchema>
 export type PieAttachmentIntent = z.infer<typeof PieAttachmentIntentSchema>
 export type PieAttachmentDownload = z.infer<typeof PieAttachmentDownloadSchema>
+export type PieNotification = z.infer<typeof PieNotificationSchema>
+export type PieNotificationListResponse = z.infer<typeof PieNotificationListResponseSchema>
 
 // Renderer-facing bridge. It never carries tokens or the org/user ids the renderer
 // should not hold — Main resolves those from the auth lifecycle + session broker.
@@ -249,5 +286,10 @@ export type PieChatRendererApi = {
     file: ArrayBuffer
   ) => Promise<PieAttachmentIntent>
   downloadAttachment: (channelId: string, attachmentId: string) => Promise<PieAttachmentDownload>
+  // The caller's own durable notification feed (mentions). markAll returns the
+  // count flipped to read so the renderer can zero its unread badge optimistically.
+  listNotifications: () => Promise<PieNotificationListResponse>
+  markNotificationRead: (notificationId: string) => Promise<PieNotification>
+  markAllNotificationsRead: () => Promise<number>
   onMessagesChanged: (callback: (event: PieChatMessagesChanged) => void) => () => void
 }

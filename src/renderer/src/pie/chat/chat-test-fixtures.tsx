@@ -8,6 +8,7 @@ import type {
   PieChatMessagesChanged,
   PieChatRendererApi,
   PieMessage,
+  PieNotification,
   PiePinnedMessage
 } from '../../../../shared/pie-chat-contract'
 import type { PieSessionState } from '../../../../shared/pie-session-contract'
@@ -66,6 +67,21 @@ export function member(userId: string, displayName: string): PieChatMember {
   return { userId, displayName }
 }
 
+export function notification(overrides: Partial<PieNotification> = {}): PieNotification {
+  return {
+    id: '20000000-0000-4000-8000-0000000000c1',
+    organizationId: ORG,
+    userId: USER,
+    type: 'mention',
+    channelId: CHANNEL,
+    messageId: '20000000-0000-4000-8000-000000000010',
+    seen: false,
+    read: false,
+    createdAt: '2026-07-16T00:00:00.000Z',
+    ...overrides
+  }
+}
+
 export function pinnedMessage(msg: PieMessage): PiePinnedMessage {
   return { message: msg, pinnedBy: USER, pinnedAt: '2026-07-16T00:00:00.000Z' }
 }
@@ -122,6 +138,9 @@ export function makeChatApi(overrides: Partial<PieChatRendererApi> = {}): FakeCh
         contentType: 'image/png',
         expiresAt: 'x'
       }),
+    listNotifications: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    markNotificationRead: vi.fn().mockResolvedValue(undefined),
+    markAllNotificationsRead: vi.fn().mockResolvedValue(0),
     onMessagesChanged: (callback) => {
       changedCallbacks.push(callback)
       return () => {

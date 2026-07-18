@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from 'react'
 import { cn } from '@/lib/utils'
+import { ComposerFormattingToolbar } from './ComposerFormattingToolbar'
 import { ComposerToolbar } from './ComposerToolbar'
 import { useComposerTextareaAutogrow } from './use-composer-textarea-autogrow'
 
@@ -18,6 +19,7 @@ export function MessageComposer({
   onSend
 }: MessageComposerProps): React.JSX.Element {
   const [value, setValue] = useState('')
+  const [showFormatting, setShowFormatting] = useState(true)
   const textareaRef = useComposerTextareaAutogrow(value)
   const canSend = value.trim().length > 0 && !disabled && !sending
 
@@ -46,6 +48,9 @@ export function MessageComposer({
           'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'
         )}
       >
+        {showFormatting && !disabled && (
+          <ComposerFormattingToolbar textareaRef={textareaRef} value={value} onChange={setValue} />
+        )}
         <textarea
           ref={textareaRef}
           value={value}
@@ -61,7 +66,13 @@ export function MessageComposer({
             'disabled:cursor-not-allowed disabled:opacity-50'
           )}
         />
-        <ComposerToolbar canSend={canSend} sending={sending} onSend={submit} />
+        <ComposerToolbar
+          canSend={canSend}
+          sending={sending}
+          onSend={submit}
+          formattingVisible={showFormatting}
+          onToggleFormatting={() => setShowFormatting((current) => !current)}
+        />
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
         Enter to send · Shift+Enter for a new line

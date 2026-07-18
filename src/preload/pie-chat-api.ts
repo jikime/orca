@@ -11,7 +11,10 @@ import {
   PIE_CHAT_LIST_CHANNELS_CHANNEL,
   PIE_CHAT_LIST_MEMBERS_CHANNEL,
   PIE_CHAT_LIST_MESSAGES_CHANNEL,
+  PIE_CHAT_LIST_NOTIFICATIONS_CHANNEL,
   PIE_CHAT_LIST_PINS_CHANNEL,
+  PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL,
+  PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL,
   PIE_CHAT_MARK_READ_CHANNEL,
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_MUTE_CHANNEL_CHANNEL,
@@ -30,6 +33,8 @@ import {
   type PieMessage,
   type PieMessageListResponse,
   type PieMessageSearchResponse,
+  type PieNotification,
+  type PieNotificationListResponse,
   type PiePinnedMessage
 } from '../shared/pie-chat-ipc-channels'
 
@@ -110,6 +115,14 @@ export function createPieChatPreloadApi(ipc: PieChatIpcRenderer): PieChatRendere
         channelId,
         attachmentId
       }) as Promise<PieAttachmentDownload>,
+    listNotifications: () =>
+      ipc.invoke(PIE_CHAT_LIST_NOTIFICATIONS_CHANNEL) as Promise<PieNotificationListResponse>,
+    markNotificationRead: (notificationId) =>
+      ipc.invoke(PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL, {
+        notificationId
+      }) as Promise<PieNotification>,
+    markAllNotificationsRead: () =>
+      ipc.invoke(PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL) as Promise<number>,
     onMessagesChanged: (callback) => {
       const listener = (_event: IpcRendererEvent, input: unknown): void => {
         // Trusted boundary: Main emits a validated PieChatMessagesChanged payload.

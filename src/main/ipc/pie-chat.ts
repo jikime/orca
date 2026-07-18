@@ -30,6 +30,7 @@ import {
 } from './pie-chat-ipc-shared'
 import { registerPieChatActionHandlers } from './pie-chat-actions'
 import { registerPieChatAdminHandlers } from './pie-chat-admin'
+import { registerPieChatNotificationHandlers } from './pie-chat-notifications'
 import { registerPieChatSearchAttachmentHandlers } from './pie-chat-search-attachments'
 
 export type { PieChatHandlerDeps } from './pie-chat-ipc-shared'
@@ -150,5 +151,6 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
 
   registerPieChatActionHandlers(deps)
   registerPieChatAdminHandlers(deps)
+  registerPieChatNotificationHandlers(deps)
   registerPieChatSearchAttachmentHandlers(deps)
 }
