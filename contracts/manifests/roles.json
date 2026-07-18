@@ -76,7 +76,9 @@
         "project.change.request",
         "project.change.approve",
         "project.qa.read",
-        "project.qa.manage"
+        "project.qa.manage",
+        "project.governance.read",
+        "project.governance.manage"
       ]
     },
     {
@@ -150,7 +152,9 @@
         "project.change.request",
         "project.change.approve",
         "project.qa.read",
-        "project.qa.manage"
+        "project.qa.manage",
+        "project.governance.read",
+        "project.governance.manage"
       ]
     },
     {
@@ -206,7 +210,9 @@
         "project.import.manage",
         "project.change.request",
         "project.qa.read",
-        "project.qa.manage"
+        "project.qa.manage",
+        "project.governance.read",
+        "project.governance.manage"
       ]
     },
     {
@@ -245,7 +251,8 @@
         "service.ticket.reply_public",
         "project.plan.read",
         "project.resource.read",
-        "project.qa.read"
+        "project.qa.read",
+        "project.governance.read"
       ]
     },
     {
@@ -272,7 +279,8 @@
         "project.plan.read",
         "project.resource.read",
         "project.change.approve",
-        "project.qa.read"
+        "project.qa.read",
+        "project.governance.read"
       ]
     },
     {

@@ -420,6 +420,18 @@
       "resource": "project_qa",
       "action": "manage",
       "risk": "elevated"
+    },
+    {
+      "id": "project.governance.read",
+      "resource": "project_governance",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "project.governance.manage",
+      "resource": "project_governance",
+      "action": "manage",
+      "risk": "elevated"
     }
   ]
 }

@@ -58,7 +58,10 @@
         "change_request",
         "deliverable",
         "test_case",
-        "defect"
+        "defect",
+        "project_risk",
+        "project_decision",
+        "status_report"
       ]
     },
     "resourceId": {

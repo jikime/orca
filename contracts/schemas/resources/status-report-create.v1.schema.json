@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/status-report-create.v1.schema.json",
+  "title": "Create project status report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["periodStart", "periodEnd", "summary"],
+  "properties": {
+    "periodStart": { "type": "string" },
+    "periodEnd": { "type": "string" },
+    "overallStatus": { "enum": ["green", "amber", "red"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "highlights": { "type": "string" },
+    "risksSummary": { "type": "string" },
+    "nextSteps": { "type": "string" }
+  }
+}

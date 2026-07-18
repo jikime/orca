@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/status-report-update.v1.schema.json",
+  "title": "Update project status report",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "periodStart": { "type": "string" },
+    "periodEnd": { "type": "string" },
+    "overallStatus": { "enum": ["green", "amber", "red"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "highlights": { "type": ["string", "null"] },
+    "risksSummary": { "type": ["string", "null"] },
+    "nextSteps": { "type": ["string", "null"] }
+  }
+}

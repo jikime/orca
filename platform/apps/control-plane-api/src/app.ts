@@ -32,6 +32,7 @@ import { registerCrmContractRoutes } from './crm-contract-routes'
 import { registerChangeRequestRoutes } from './change-request-routes'
 import { registerRequirementRoutes } from './requirement-routes'
 import { registerQaRoutes } from './qa-routes'
+import { registerGovernanceRoutes } from './governance-routes'
 import { registerServiceTicketRoutes } from './service-ticket-routes'
 import { registerPlanningRoutes } from './planning-routes'
 import { registerPlanningResourceRoutes } from './planning-resource-routes'
@@ -191,6 +192,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerChangeRequestRoutes(app, { db: deps.db, registry: deps.registry })
     registerRequirementRoutes(app, { db: deps.db, registry: deps.registry })
     registerQaRoutes(app, { db: deps.db, registry: deps.registry })
+    registerGovernanceRoutes(app, { db: deps.db, registry: deps.registry })
     registerServiceTicketRoutes(app, { db: deps.db, registry: deps.registry })
     registerPlanningRoutes(app, { db: deps.db, registry: deps.registry })
     registerPlanningResourceRoutes(app, { db: deps.db, registry: deps.registry })

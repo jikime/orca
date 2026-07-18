@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/project-risk-update.v1.schema.json",
+  "title": "Update project risk",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": ["string", "null"] },
+    "category": { "enum": ["schedule", "budget", "technical", "resource", "external"] },
+    "probability": { "enum": ["low", "medium", "high"] },
+    "impact": { "enum": ["low", "medium", "high"] },
+    "mitigation": { "type": ["string", "null"] },
+    "ownerUserId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

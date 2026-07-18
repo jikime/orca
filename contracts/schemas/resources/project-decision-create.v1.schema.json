@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/project-decision-create.v1.schema.json",
+  "title": "Create project decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "decision"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "context": { "type": "string" },
+    "decision": { "type": "string", "minLength": 1 },
+    "rationale": { "type": "string" },
+    "relatedRiskId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "supersedesId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/project-decision.v1.schema.json",
+  "title": "Project decision log entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "projectId",
+    "title",
+    "context",
+    "decision",
+    "rationale",
+    "decidedBy",
+    "decidedAt",
+    "relatedRiskId",
+    "supersedesId",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "projectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "title": { "type": "string", "minLength": 1 },
+    "context": { "type": ["string", "null"] },
+    "decision": { "type": "string", "minLength": 1 },
+    "rationale": { "type": ["string", "null"] },
+    "decidedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "decidedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "relatedRiskId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "supersedesId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

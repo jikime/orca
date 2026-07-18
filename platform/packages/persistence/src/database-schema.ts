@@ -844,6 +844,7 @@ type NullableNumericColumn = ColumnType<
   string | number | null
 >
 type NullableDateColumn = ColumnType<string | null, string | null | undefined, string | null>
+type DateColumn = ColumnType<string, string, string>
 
 // === R6 CRM / contract tables (20260819090001) ===
 export interface CrmAccountsTable {
@@ -1055,6 +1056,65 @@ export interface DefectsTable {
   description: string | null
   severity: Generated<string>
   status: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// === R6 governance tables (20260827090001) ===
+// project_id / owner_user_id are OPAQUE cross-schema links (no FK). severity is DERIVED from
+// probability × impact and stored (computed on write). version is OCC.
+export interface ProjectRisksTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  title: string
+  description: string | null
+  category: Generated<string>
+  probability: Generated<string>
+  impact: Generated<string>
+  severity: Generated<string>
+  status: Generated<string>
+  mitigation: string | null
+  owner_user_id: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// Append-oriented decision log: supersedes_id / related_risk_id / decided_by are OPAQUE same-tenant
+// links (no FK). A superseding decision is a NEW row referencing the prior via supersedes_id.
+export interface ProjectDecisionsTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  title: string
+  context: string | null
+  decision: string
+  rationale: string | null
+  decided_by: string | null
+  decided_at: TimestampColumn
+  related_risk_id: string | null
+  supersedes_id: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// Periodic status report: overall_status is green|amber|red over [period_start, period_end].
+// project_id / reported_by are OPAQUE links (no FK). version is OCC.
+export interface StatusReportsTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  period_start: DateColumn
+  period_end: DateColumn
+  overall_status: Generated<string>
+  summary: string
+  highlights: string | null
+  risks_summary: string | null
+  next_steps: string | null
+  reported_by: string | null
   version: DefaultedBigIntColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
@@ -1331,6 +1391,9 @@ export interface Database {
   'qa.deliverables': DeliverablesTable
   'qa.test_cases': TestCasesTable
   'qa.defects': DefectsTable
+  'governance.project_risks': ProjectRisksTable
+  'governance.project_decisions': ProjectDecisionsTable
+  'governance.status_reports': StatusReportsTable
   'planning.wbs_nodes': WbsNodesTable
   'planning.milestones': MilestonesTable
   'planning.schedule_baselines': ScheduleBaselinesTable

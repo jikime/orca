@@ -70,6 +70,11 @@ export type ResourceChangeResourceType =
   | 'deliverable'
   | 'test_case'
   | 'defect'
+  // Project governance (R6). Risk register, decision log, and periodic status-report invalidations
+  // ride the same outbox → Worker → gateway path unchanged.
+  | 'project_risk'
+  | 'project_decision'
+  | 'status_report'
 
 export type ResourceChangeData = {
   eventId: string

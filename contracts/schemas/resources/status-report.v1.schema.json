@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/status-report.v1.schema.json",
+  "title": "Project status report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "projectId",
+    "periodStart",
+    "periodEnd",
+    "overallStatus",
+    "summary",
+    "highlights",
+    "risksSummary",
+    "nextSteps",
+    "reportedBy",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "projectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "periodStart": { "type": "string" },
+    "periodEnd": { "type": "string" },
+    "overallStatus": { "enum": ["green", "amber", "red"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "highlights": { "type": ["string", "null"] },
+    "risksSummary": { "type": ["string", "null"] },
+    "nextSteps": { "type": ["string", "null"] },
+    "reportedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

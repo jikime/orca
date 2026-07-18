@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/project-governance-summary.v1.schema.json",
+  "title": "Project governance summary (open risks + latest status + recent decisions)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "openRisksBySeverity",
+    "openRiskCount",
+    "latestStatusReport",
+    "recentDecisions"
+  ],
+  "properties": {
+    "projectId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "openRisksBySeverity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "medium", "high", "critical"],
+      "properties": {
+        "low": { "type": "integer" },
+        "medium": { "type": "integer" },
+        "high": { "type": "integer" },
+        "critical": { "type": "integer" }
+      }
+    },
+    "openRiskCount": { "type": "integer" },
+    "latestStatusReport": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/resources/status-report.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "recentDecisions": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/project-decision.v1.schema.json" }
+    }
+  }
+}
