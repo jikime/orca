@@ -177,8 +177,17 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
           setFailed(true)
         }
       })
+    // Track session transitions live: a failed token refresh flips the session to
+    // reauth_required, and a re-login flips it back to signed_in. Without this the
+    // surface keeps its mount-time snapshot and 401s silently instead of prompting.
+    const unsubscribe = window.api?.pie?.session?.onChanged?.((event) => {
+      if (!cancelled) {
+        setSession(event.session)
+      }
+    })
     return () => {
       cancelled = true
+      unsubscribe?.()
     }
   }, [readSession])
 
@@ -213,10 +222,18 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
     )
   }
 
-  if (session.status === 'signed_out') {
+  // Any non-signed-in state prompts a sign-in. reauth_required means a token
+  // refresh failed (expired refresh token / ended IdP session), so the message
+  // distinguishes it from a first-time sign-in.
+  if (session.status !== 'signed_in') {
+    const reauth = session.status === 'reauth_required'
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-background">
-        <p className="text-sm text-muted-foreground">Sign in to use Pie chat</p>
+        <p className="text-sm text-muted-foreground">
+          {reauth
+            ? 'Your Pie session expired — sign in again to continue.'
+            : 'Sign in to use Pie chat'}
+        </p>
         <Button onClick={() => void signIn()} disabled={signingIn}>
           {signingIn ? 'Signing in…' : 'Sign in'}
         </Button>
