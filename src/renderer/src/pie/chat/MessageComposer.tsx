@@ -1,8 +1,8 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { ComposerFormattingToolbar } from './ComposerFormattingToolbar'
+import type { PieChatMember } from '../../../../shared/pie-chat-contract'
 import { ComposerToolbar } from './ComposerToolbar'
-import { useComposerTextareaAutogrow } from './use-composer-textarea-autogrow'
+import { RichChatComposerEditor, type RichChatComposerEditorHandle } from './RichChatComposerEditor'
 
 type MessageComposerProps = {
   disabled: boolean
@@ -10,34 +10,27 @@ type MessageComposerProps = {
   onSend: (body: string) => void | Promise<void>
 }
 
-// Thread replies have no attachments or mentions, so this stays a sibling of
-// ChannelComposer's container/toolbar shape (STYLEGUIDE "sibling components")
-// without inventing left-side controls that would do nothing.
+// Thread replies have no attachments, and mentions are optional; this stays a
+// visual sibling of ChannelComposer's container/toolbar shape (STYLEGUIDE
+// "sibling components") without inventing left-side controls that do nothing.
+const NO_MEMBERS: PieChatMember[] = []
+
 export function MessageComposer({
   disabled,
   sending,
   onSend
 }: MessageComposerProps): React.JSX.Element {
-  const [value, setValue] = useState('')
+  const [empty, setEmpty] = useState(true)
   const [showFormatting, setShowFormatting] = useState(true)
-  const textareaRef = useComposerTextareaAutogrow(value)
-  const canSend = value.trim().length > 0 && !disabled && !sending
+  const editorRef = useRef<RichChatComposerEditorHandle>(null)
+  const canSend = !empty && !disabled && !sending
 
   const submit = (): void => {
     if (!canSend) {
       return
     }
-    void onSend(value)
-    setValue('')
-  }
-
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    // Enter sends; Shift+Enter inserts a newline. No modifier shortcut, so this
-    // stays identical across macOS, Linux, and Windows.
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      submit()
-    }
+    void onSend(editorRef.current?.getMarkdown() ?? '')
+    editorRef.current?.clear()
   }
 
   return (
@@ -48,23 +41,14 @@ export function MessageComposer({
           'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'
         )}
       >
-        {showFormatting && !disabled && (
-          <ComposerFormattingToolbar textareaRef={textareaRef} value={value} onChange={setValue} />
-        )}
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={onKeyDown}
+        <RichChatComposerEditor
+          ref={editorRef}
+          members={NO_MEMBERS}
           disabled={disabled}
-          rows={1}
           placeholder="Write a message…"
-          aria-label="Message"
-          className={cn(
-            'w-full resize-none overflow-y-auto bg-transparent px-3 py-2 text-sm text-foreground',
-            'placeholder:text-muted-foreground outline-none',
-            'disabled:cursor-not-allowed disabled:opacity-50'
-          )}
+          showFormatting={showFormatting}
+          onEmptyChange={setEmpty}
+          onEnterSubmit={submit}
         />
         <ComposerToolbar
           canSend={canSend}

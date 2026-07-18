@@ -1,8 +1,7 @@
-import { useLayoutEffect, useRef, type RefObject } from 'react'
+import type { Editor } from '@tiptap/core'
 import {
   Bold,
   Code,
-  IndentIncrease,
   Italic,
   Link as LinkIcon,
   List,
@@ -11,139 +10,121 @@ import {
   Strikethrough,
   Underline
 } from 'lucide-react'
+import { Toggle } from '@/components/ui/toggle'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { insertText, prefixLines, wrapSelection, type MarkdownEdit } from './composer-markdown-insert'
+import { getShortcutPlatform } from '@/lib/shortcut-platform'
 
 type ComposerFormattingToolbarProps = {
-  textareaRef: RefObject<HTMLTextAreaElement | null>
-  value: string
-  onChange: (value: string) => void
+  editor: Editor | null
 }
 
 // Dependency-free quick set, mirroring ReactionBar's approach (no emoji-mart).
 const QUICK_EMOJIS = ['😀', '😂', '👍', '🎉', '❤️', '🙏', '✅', '🚀']
 
-// Markdown has no underline, so the Underline button emits an inline <u> tag —
-// the one place the composer's plain markdown leans on raw HTML.
+// Platform-aware modifier label so tooltips read ⌘B on macOS, Ctrl+B elsewhere.
+function modLabel(): string {
+  return getShortcutPlatform() === 'darwin' ? '⌘' : 'Ctrl+'
+}
+
+// Live-formatting toolbar: buttons toggle real TipTap marks/nodes so the
+// message renders WYSIWYG. Serialization back to markdown happens on send.
 export function ComposerFormattingToolbar({
-  textareaRef,
-  value,
-  onChange
+  editor
 }: ComposerFormattingToolbarProps): React.JSX.Element {
-  // Selection to restore once the controlled textarea re-renders with the new
-  // value. A layout effect applies it before paint so the caret never flickers.
-  const pendingSelection = useRef<{ start: number; end: number } | null>(null)
+  const mod = modLabel()
 
-  useLayoutEffect(() => {
-    const target = textareaRef.current
-    const selection = pendingSelection.current
-    if (target && selection) {
-      target.focus()
-      target.setSelectionRange(selection.start, selection.end)
-      pendingSelection.current = null
-    }
-  })
-
-  const apply = (edit: (value: string, start: number, end: number) => MarkdownEdit): void => {
-    const target = textareaRef.current
-    if (!target) {
+  const promptForLink = (): void => {
+    if (!editor) {
       return
     }
-    const result = edit(value, target.selectionStart, target.selectionEnd)
-    pendingSelection.current = { start: result.selectionStart, end: result.selectionEnd }
-    onChange(result.value)
-  }
-
-  const wrap = (before: string, after: string): void => {
-    apply((v, start, end) => wrapSelection(v, start, end, before, after))
+    if (editor.isActive('link')) {
+      editor.chain().focus().unsetLink().run()
+      return
+    }
+    const url = globalThis.prompt?.('Link URL')
+    if (!url) {
+      return
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
 
   return (
     <div className="flex items-center gap-0.5 border-b border-border px-2 py-1">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => wrap('**', '**')}
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('bold') ?? false}
+        onPressedChange={() => editor?.chain().focus().toggleBold().run()}
         aria-label="Bold"
+        title={`Bold (${mod}B)`}
       >
         <Bold />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => wrap('*', '*')}
+      </Toggle>
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('italic') ?? false}
+        onPressedChange={() => editor?.chain().focus().toggleItalic().run()}
         aria-label="Italic"
+        title={`Italic (${mod}I)`}
       >
         <Italic />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => wrap('<u>', '</u>')}
+      </Toggle>
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('underline') ?? false}
+        onPressedChange={() => editor?.chain().focus().toggleMark('underline').run()}
         aria-label="Underline"
+        title={`Underline (${mod}U)`}
       >
         <Underline />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => wrap('~~', '~~')}
+      </Toggle>
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('strike') ?? false}
+        onPressedChange={() => editor?.chain().focus().toggleStrike().run()}
         aria-label="Strikethrough"
+        title="Strikethrough"
       >
         <Strikethrough />
-      </Button>
+      </Toggle>
       <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => wrap('[', '](url)')}
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('link') ?? false}
+        onPressedChange={promptForLink}
         aria-label="Link"
+        title="Link"
       >
         <LinkIcon />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => apply((v, start, end) => prefixLines(v, start, end, (index) => `${index + 1}. `))}
+      </Toggle>
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('orderedList') ?? false}
+        onPressedChange={() => editor?.chain().focus().toggleOrderedList().run()}
         aria-label="Ordered list"
+        title="Ordered list"
       >
         <ListOrdered />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => apply((v, start, end) => prefixLines(v, start, end, () => '- '))}
+      </Toggle>
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('bulletList') ?? false}
+        onPressedChange={() => editor?.chain().focus().toggleBulletList().run()}
         aria-label="Unordered list"
+        title="Bulleted list"
       >
         <List />
-      </Button>
+      </Toggle>
       <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => apply((v, start, end) => prefixLines(v, start, end, () => '  '))}
-        aria-label="Indent"
-      >
-        <IndentIncrease />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => wrap('```\n', '\n```')}
+      <Toggle
+        size="sm"
+        pressed={editor?.isActive('codeBlock') ?? false}
+        onPressedChange={() => editor?.chain().focus().toggleCodeBlock().run()}
         aria-label="Code block"
+        title="Code block"
       >
         <Code />
-      </Button>
+      </Toggle>
       <Popover>
         <PopoverTrigger asChild>
           <Button type="button" variant="ghost" size="icon-sm" aria-label="Emoji">
@@ -156,7 +137,7 @@ export function ComposerFormattingToolbar({
               <button
                 key={emoji}
                 type="button"
-                onClick={() => apply((v, start, end) => insertText(v, start, end, emoji))}
+                onClick={() => editor?.chain().focus().insertContent(emoji).run()}
                 aria-label={`Insert ${emoji}`}
                 className="flex size-8 items-center justify-center rounded-md text-base hover:bg-accent"
               >

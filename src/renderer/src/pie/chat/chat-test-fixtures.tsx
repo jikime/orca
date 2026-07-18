@@ -122,22 +122,18 @@ export function makeChatApi(overrides: Partial<PieChatRendererApi> = {}): FakeCh
     unmuteChannel: vi.fn().mockResolvedValue(undefined),
     searchMessages: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     listMembers: vi.fn().mockResolvedValue([]),
-    uploadAttachment: vi
-      .fn()
-      .mockResolvedValue({
-        id: 'att-1',
-        objectId: 'obj-1',
-        uploadUrl: 'https://up',
-        expiresAt: 'x'
-      }),
-    downloadAttachment: vi
-      .fn()
-      .mockResolvedValue({
-        url: 'https://dl',
-        filename: 'f',
-        contentType: 'image/png',
-        expiresAt: 'x'
-      }),
+    uploadAttachment: vi.fn().mockResolvedValue({
+      id: 'att-1',
+      objectId: 'obj-1',
+      uploadUrl: 'https://up',
+      expiresAt: 'x'
+    }),
+    downloadAttachment: vi.fn().mockResolvedValue({
+      url: 'https://dl',
+      filename: 'f',
+      contentType: 'image/png',
+      expiresAt: 'x'
+    }),
     listNotifications: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     markNotificationRead: vi.fn().mockResolvedValue(undefined),
     markAllNotificationsRead: vi.fn().mockResolvedValue(0),
@@ -177,17 +173,24 @@ export function renderScreen(): { root: Root; container: HTMLDivElement } {
   return { root, container }
 }
 
+// The composer is now a TipTap contenteditable, so text is inserted via a paste
+// event (which ProseMirror handles) rather than a textarea value assignment.
 export function typeInto(container: HTMLElement, text: string): void {
-  const textarea = container.querySelector('textarea') as HTMLTextAreaElement
-  const setValue = Object.getOwnPropertyDescriptor(
-    window.HTMLTextAreaElement.prototype,
-    'value'
-  )?.set
-  setValue?.call(textarea, text)
-  textarea.dispatchEvent(new Event('input', { bubbles: true }))
+  const editable = container.querySelector('[contenteditable="true"]') as HTMLElement
+  const clipboardData = new DataTransfer()
+  clipboardData.setData('text/plain', text)
+  editable.dispatchEvent(
+    new ClipboardEvent('paste', {
+      clipboardData,
+      bubbles: true,
+      cancelable: true
+    } as ClipboardEventInit)
+  )
 }
 
 export function pressEnter(container: HTMLElement): void {
-  const textarea = container.querySelector('textarea') as HTMLTextAreaElement
-  textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  const editable = container.querySelector('[contenteditable="true"]') as HTMLElement
+  editable.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+  )
 }

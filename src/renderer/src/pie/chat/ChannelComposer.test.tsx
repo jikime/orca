@@ -34,14 +34,14 @@ beforeEach(() => {
   })
 })
 
-function renderComposer(
+async function renderComposer(
   api: ReturnType<typeof makeChatApi>,
   onSend: (body: string, opts?: unknown) => void | Promise<void> = vi.fn()
-): void {
+): Promise<void> {
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
-  act(() => {
+  await act(async () => {
     root?.render(
       <ChannelComposer
         channelId={CHANNEL}
@@ -52,6 +52,16 @@ function renderComposer(
       />
     )
   })
+  // The rich editor is created in an effect; flush before assertions.
+  await act(async () => {
+    await Promise.resolve()
+  })
+}
+
+function sendButton(): HTMLButtonElement | undefined {
+  return Array.from(container?.querySelectorAll('button') ?? []).find(
+    (button) => button.textContent === 'Send'
+  )
 }
 
 function attachFile(name: string, type: string): void {
@@ -62,65 +72,46 @@ function attachFile(name: string, type: string): void {
 }
 
 describe('ChannelComposer', () => {
-  it('disables Send when the input is empty and there are no attachments', () => {
-    renderComposer(makeChatApi())
-    const sendButton = Array.from(container?.querySelectorAll('button') ?? []).find(
-      (button) => button.textContent === 'Send'
-    )
-    expect(sendButton?.disabled).toBe(true)
+  it('disables Send when the editor is empty and there are no attachments', async () => {
+    await renderComposer(makeChatApi())
+    expect(sendButton()?.disabled).toBe(true)
   })
 
-  it('enables Send once text is typed', () => {
-    renderComposer(makeChatApi())
-    const textarea = container?.querySelector('textarea') as HTMLTextAreaElement
-    const setValue = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      'value'
-    )?.set
-    act(() => {
-      setValue?.call(textarea, 'hello')
-      textarea.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-
-    const sendButton = Array.from(container?.querySelectorAll('button') ?? []).find(
-      (button) => button.textContent === 'Send'
-    )
-    expect(sendButton?.disabled).toBe(false)
+  it('renders the WYSIWYG editor with a formatting toolbar instead of a textarea', async () => {
+    await renderComposer(makeChatApi())
+    expect(container?.querySelector('textarea')).toBeNull()
+    expect(container?.querySelector('[contenteditable="true"]')).not.toBeNull()
+    expect(container?.querySelector('button[aria-label="Bold"]')).not.toBeNull()
   })
 
   it('enables Send once a file is attached, even with empty text', async () => {
-    renderComposer(makeChatApi())
-
+    await renderComposer(makeChatApi())
     await act(async () => {
       attachFile('note.txt', 'text/plain')
     })
     await flush()
-
-    const sendButton = Array.from(container?.querySelectorAll('button') ?? []).find(
-      (button) => button.textContent === 'Send'
-    )
-    expect(sendButton?.disabled).toBe(false)
+    expect(sendButton()?.disabled).toBe(false)
   })
 
-  it('shows an attachment preview above the textarea without removing the textarea', async () => {
-    renderComposer(makeChatApi())
-    expect(container?.querySelector('textarea')).not.toBeNull()
+  it('shows an attachment preview above the editor without removing the editor', async () => {
+    await renderComposer(makeChatApi())
+    expect(container?.querySelector('[contenteditable="true"]')).not.toBeNull()
 
     await act(async () => {
       attachFile('diagram.png', 'image/png')
     })
     await flush()
 
-    // Textarea is still present and the preview renders as a thumbnail, not a
-    // chip sharing its row — the fix for the old push/displacement bug.
-    expect(container?.querySelector('textarea')).not.toBeNull()
+    expect(container?.querySelector('[contenteditable="true"]')).not.toBeNull()
     expect(container?.textContent).toContain('diagram.png')
     const img = container?.querySelector('img')
     expect(img?.getAttribute('src')).toBe('blob:channel-composer-preview')
   })
 
-  it('focuses the textarea when the @ mention button is clicked', () => {
-    renderComposer(makeChatApi())
+  it('opens the mention autocomplete and inserts a member when the @ button is used', async () => {
+    const onSend = vi.fn()
+    await renderComposer(makeChatApi(), onSend)
+
     const mentionButton = container?.querySelector(
       'button[aria-label="Mention someone"]'
     ) as HTMLButtonElement
@@ -128,33 +119,33 @@ describe('ChannelComposer', () => {
       mentionButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const textarea = container?.querySelector('textarea') as HTMLTextAreaElement
-    expect(document.activeElement).toBe(textarea)
-    expect(textarea.value).toBe('@')
+    const option = container?.querySelector('[role="option"]') as HTMLElement
+    expect(option).not.toBeNull()
+    act(() => {
+      option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    })
+
+    // Selecting a member makes the message sendable and carries the user id.
+    expect(sendButton()?.disabled).toBe(false)
+    act(() => {
+      sendButton()?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(onSend).toHaveBeenCalledWith('@Ada', { mentions: ['u-1'] })
   })
 
   it('sends attachmentIds collected from an upload alongside the message', async () => {
     const onSend = vi.fn()
-    renderComposer(makeChatApi(), onSend)
+    await renderComposer(makeChatApi(), onSend)
 
     await act(async () => {
       attachFile('report.pdf', 'application/pdf')
     })
     await flush()
 
-    const textarea = container?.querySelector('textarea') as HTMLTextAreaElement
-    const setValue = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      'value'
-    )?.set
     act(() => {
-      setValue?.call(textarea, 'see attached')
-      textarea.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    act(() => {
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      sendButton()?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onSend).toHaveBeenCalledWith('see attached', { attachmentIds: ['att-1'] })
+    expect(onSend).toHaveBeenCalledWith('', { attachmentIds: ['att-1'] })
   })
 })

@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MentionAutocomplete, filterMembers } from './MentionAutocomplete'
 import { ChannelComposer } from './ChannelComposer'
-import { CHANNEL, makeChatApi, member, typeInto } from './chat-test-fixtures'
+import { CHANNEL, flush, makeChatApi, member, typeInto } from './chat-test-fixtures'
 import type { PieChatMember } from '../../../../shared/pie-chat-contract'
 
 const ALICE = '20000000-0000-4000-8000-0000000000a1'
@@ -71,6 +71,8 @@ describe('MentionAutocomplete', () => {
         onSend={onSend}
       />
     )
+    // The rich editor is created in an effect; flush before inserting text.
+    await flush()
     // Typing '@ali' surfaces the autocomplete; a mousedown on the match inserts it.
     act(() => {
       typeInto(container as HTMLElement, 'hey @ali')
@@ -80,8 +82,8 @@ describe('MentionAutocomplete', () => {
     act(() => {
       option?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
     })
-    const textarea = container?.querySelector('textarea') as HTMLTextAreaElement
-    expect(textarea.value).toContain('@alice')
+    const editable = container?.querySelector('[contenteditable="true"]') as HTMLElement
+    expect(editable.textContent).toContain('@alice')
 
     const sendButton = Array.from(container?.querySelectorAll('button') ?? []).find(
       (element) => element.textContent === 'Send'
@@ -89,6 +91,6 @@ describe('MentionAutocomplete', () => {
     act(() => {
       sendButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
-    expect(onSend).toHaveBeenCalledWith('hey @alice ', { mentions: [ALICE] })
+    expect(onSend).toHaveBeenCalledWith('hey @alice', { mentions: [ALICE] })
   })
 })
