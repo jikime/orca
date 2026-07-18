@@ -479,6 +479,20 @@ export function createRealtimeGateway(options: RealtimeGatewayOptions): Realtime
             cursor: encodeCursor(currentMax),
             heartbeatIntervalMs
           })
+          // Presence backfill: tell the just-connected client who is ALREADY online
+          // so presence doesn't depend on connect order (a later joiner still sees
+          // everyone). Online frames to THIS connection only; ephemeral, best-effort.
+          const backfillAt = new Date(now()).toISOString()
+          for (const onlineUserId of presentUserIds(hello.organizationId)) {
+            send(connection, 'presence.changed', {
+              type: 'presence.changed',
+              schemaVersion: 1,
+              organizationId: hello.organizationId,
+              userId: onlineUserId,
+              state: 'online',
+              at: backfillAt
+            })
+          }
           await catchUp(connection, hello.lastCursor ?? null, currentMax)
           startHeartbeat(connection)
         }

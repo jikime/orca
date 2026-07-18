@@ -251,6 +251,23 @@ describe('ephemeral: presence', () => {
     b.close()
   })
 
+  it('backfills already-online users to a later joiner (order-independent)', async (ctx) => {
+    if (!harness) return ctx.skip()
+    // a connects FIRST; its connect-time online frame fired before b existed. Without
+    // a backfill, b would never learn a is online. b must still see both a and itself.
+    const a = await connect('a')
+    const b = await connect('b')
+    await delay(300)
+    const onlineIds = new Set(
+      b.frames
+        .filter((f) => f.type === 'presence.changed' && f.state === 'online')
+        .map((f) => f.userId)
+    )
+    expect(onlineIds.size).toBeGreaterThanOrEqual(2)
+    a.close()
+    b.close()
+  })
+
   it('keeps a user online while any connection remains (multi-tab)', async (ctx) => {
     if (!harness) return ctx.skip()
     const observer = await connect('b')
