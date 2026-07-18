@@ -30,6 +30,7 @@ export const PIE_CHAT_MESSAGES_CHANGED_CHANNEL = 'pie:chat:messages-changed'
 export const PIE_CHAT_SEND_TYPING_CHANNEL = 'pie:chat:send-typing'
 export const PIE_CHAT_TYPING_CHANGED_CHANNEL = 'pie:chat:typing-changed'
 export const PIE_CHAT_PRESENCE_CHANGED_CHANNEL = 'pie:chat:presence-changed'
+export const PIE_CHAT_GET_PRESENCE_CHANNEL = 'pie:chat:get-presence'
 
 // Type-only re-exports (erased at runtime, so importing this module never pulls
 // the zod contract into the preload bundle).

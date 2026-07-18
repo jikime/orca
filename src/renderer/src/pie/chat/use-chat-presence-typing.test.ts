@@ -14,7 +14,7 @@ const OTHER = '10000000-0000-4000-8000-000000000002'
 const CH = '20000000-0000-4000-8000-0000000000c1'
 const ORG = '30000000-0000-4000-8000-0000000000aa'
 
-function makeApi(): {
+function makeApi(snapshot: string[] = []): {
   api: PieChatRendererApi
   sendTyping: ReturnType<typeof vi.fn>
   pushPresence: (event: PieChatPresenceChanged) => void
@@ -25,6 +25,7 @@ function makeApi(): {
   const sendTyping = vi.fn().mockResolvedValue(undefined)
   const api = {
     sendTyping,
+    getPresenceSnapshot: vi.fn().mockResolvedValue(snapshot),
     onPresenceChanged: (cb: (event: PieChatPresenceChanged) => void) => {
       presenceCb = cb
       return () => {
@@ -65,6 +66,17 @@ const typing = (userId: string): PieChatTypingChanged => ({
 describe('useChatPresenceTyping', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
+
+  it('seeds already-online users from the Main snapshot on mount', async () => {
+    // Presence for OTHER arrived before this renderer subscribed; the snapshot
+    // recovers it (otherwise the roster would show everyone offline until a change).
+    const harness = makeApi([OTHER])
+    const { result } = renderHook(() => useChatPresenceTyping(harness.api, ME))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.onlineUserIds.has(OTHER)).toBe(true)
+  })
 
   it('tracks online users and removes them when they go offline', () => {
     const harness = makeApi()

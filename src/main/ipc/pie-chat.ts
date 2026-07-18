@@ -5,6 +5,7 @@ import {
   PIE_CHAT_EDIT_MESSAGE_CHANNEL,
   PIE_CHAT_LIST_CHANNELS_CHANNEL,
   PIE_CHAT_LIST_MESSAGES_CHANNEL,
+  PIE_CHAT_GET_PRESENCE_CHANNEL,
   PIE_CHAT_MARK_READ_CHANNEL,
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_PRESENCE_CHANGED_CHANNEL,
@@ -76,6 +77,15 @@ export function emitPieChatTypingChanged(input: {
   trustedChatRenderer()?.send(PIE_CHAT_TYPING_CHANGED_CHANNEL, payload)
 }
 
+// The current online set, kept in Main so a renderer that mounts AFTER the initial
+// presence burst (IPC is not buffered per-listener) can seed itself on demand
+// rather than showing everyone offline until the next transition.
+const onlinePresence = new Set<string>()
+
+export function getOnlinePresenceUserIds(): string[] {
+  return [...onlinePresence]
+}
+
 /** Forwards an ephemeral presence change to the trusted renderer only. */
 export function emitPieChatPresenceChanged(input: {
   organizationId: string
@@ -83,6 +93,11 @@ export function emitPieChatPresenceChanged(input: {
   state: 'online' | 'offline'
   at: string
 }): void {
+  if (input.state === 'online') {
+    onlinePresence.add(input.userId)
+  } else {
+    onlinePresence.delete(input.userId)
+  }
   const payload: PieChatPresenceChanged = PieChatPresenceChangedSchema.parse({
     type: 'chat.presence-changed',
     ...input
@@ -193,6 +208,14 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
     const channelId = assertChannelId((input as { channelId?: unknown })?.channelId)
     const { apiBaseUrl, accessToken, organizationId } = resolveAuth(deps)
     await sendTyping(apiBaseUrl, accessToken, organizationId, channelId, fetchImpl)
+  })
+
+  ipcMain.removeHandler(PIE_CHAT_GET_PRESENCE_CHANNEL)
+  ipcMain.handle(PIE_CHAT_GET_PRESENCE_CHANNEL, (event) => {
+    assertTrustedPieMainFrame(event)
+    // Seeds a just-mounted renderer with who is already online (the live
+    // subscription then keeps it current); no server round-trip needed.
+    return getOnlinePresenceUserIds()
   })
 
   registerPieChatActionHandlers(deps)

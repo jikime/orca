@@ -8,6 +8,7 @@ import {
   PIE_CHAT_DELETE_MESSAGE_CHANNEL,
   PIE_CHAT_DOWNLOAD_ATTACHMENT_CHANNEL,
   PIE_CHAT_EDIT_MESSAGE_CHANNEL,
+  PIE_CHAT_GET_PRESENCE_CHANNEL,
   PIE_CHAT_LIST_CHANNELS_CHANNEL,
   PIE_CHAT_LIST_MEMBERS_CHANNEL,
   PIE_CHAT_LIST_MESSAGES_CHANNEL,
@@ -139,6 +140,7 @@ export function createPieChatPreloadApi(ipc: PieChatIpcRenderer): PieChatRendere
     sendTyping: async (channelId) => {
       await ipc.invoke(PIE_CHAT_SEND_TYPING_CHANNEL, { channelId })
     },
+    getPresenceSnapshot: () => ipc.invoke(PIE_CHAT_GET_PRESENCE_CHANNEL) as Promise<string[]>,
     onTypingChanged: (callback) => {
       const listener = (_event: IpcRendererEvent, input: unknown): void => {
         // Trusted boundary: Main emits a validated PieChatTypingChanged payload.

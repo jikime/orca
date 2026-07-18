@@ -29,7 +29,7 @@ export function useChatPresenceTyping(
   const lastSentAt = useRef(0)
 
   useEffect(() => {
-    return api.onPresenceChanged((event) => {
+    const unsubscribe = api.onPresenceChanged((event) => {
       setOnlineUserIds((current) => {
         const next = new Set(current)
         if (event.state === 'online') {
@@ -40,6 +40,21 @@ export function useChatPresenceTyping(
         return next
       })
     })
+    // Seed AFTER subscribing (so a frame arriving in between isn't lost): Main
+    // cached the initial presence burst that this renderer mounted too late to hear.
+    let cancelled = false
+    void api
+      .getPresenceSnapshot()
+      .then((ids) => {
+        if (!cancelled) {
+          setOnlineUserIds((current) => new Set([...current, ...ids]))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [api])
 
   useEffect(() => {

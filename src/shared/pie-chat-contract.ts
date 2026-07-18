@@ -11,6 +11,7 @@ export {
   PIE_CHAT_DELETE_MESSAGE_CHANNEL,
   PIE_CHAT_DOWNLOAD_ATTACHMENT_CHANNEL,
   PIE_CHAT_EDIT_MESSAGE_CHANNEL,
+  PIE_CHAT_GET_PRESENCE_CHANNEL,
   PIE_CHAT_LIST_CHANNELS_CHANNEL,
   PIE_CHAT_LIST_MEMBERS_CHANNEL,
   PIE_CHAT_LIST_MESSAGES_CHANNEL,
@@ -324,6 +325,9 @@ export type PieChatRendererApi = {
   onMessagesChanged: (callback: (event: PieChatMessagesChanged) => void) => () => void
   // Fire-and-forget typing ping; the backend rate-coalesces per user/channel.
   sendTyping: (channelId: string) => Promise<void>
+  // The currently-online user ids, to seed presence when the chat surface mounts
+  // after Main already received the initial presence burst.
+  getPresenceSnapshot: () => Promise<string[]>
   // Live ephemeral collaboration signals (no cursor/version); the payload IS the
   // state, so the renderer applies each directly and self-heals on a TTL.
   onTypingChanged: (callback: (event: PieChatTypingChanged) => void) => () => void

@@ -147,6 +147,7 @@ export function makeChatApi(overrides: Partial<PieChatRendererApi> = {}): FakeCh
       }
     },
     sendTyping: vi.fn().mockResolvedValue(undefined),
+    getPresenceSnapshot: vi.fn().mockResolvedValue([]),
     onTypingChanged: () => () => {},
     onPresenceChanged: () => () => {},
     ...overrides
