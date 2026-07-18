@@ -4,6 +4,7 @@
 @import 'katex/dist/katex.min.css';
 @import './rich-markdown-editor.css';
 @import './markdown-preview.css';
+@import './pie-chat-composer.css';
 @import './terminal.css';
 @import './mobile-page.css';
 

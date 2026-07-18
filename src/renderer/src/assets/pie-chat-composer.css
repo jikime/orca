@@ -1,0 +1,94 @@
+/* Live-formatting styles for the Slack-style Pie chat composer's contenteditable.
+   Tailwind's preflight strips list markers and heading/emphasis styling from the
+   ProseMirror-generated DOM, so the WYSIWYG elements are restyled here with the
+   same tokens ChatMarkdown uses for the sent message body. */
+
+.chat-composer-content p {
+  margin: 0;
+}
+
+.chat-composer-content p + p,
+.chat-composer-content ul,
+.chat-composer-content ol,
+.chat-composer-content pre,
+.chat-composer-content blockquote {
+  margin-top: 0.25rem;
+}
+
+.chat-composer-content strong {
+  font-weight: 600;
+}
+
+.chat-composer-content em {
+  font-style: italic;
+}
+
+.chat-composer-content s {
+  text-decoration: line-through;
+}
+
+.chat-composer-content u {
+  text-decoration: underline;
+}
+
+.chat-composer-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-composer-content ul,
+.chat-composer-content ol {
+  padding-left: 1.25rem;
+}
+
+.chat-composer-content ul {
+  list-style: disc;
+}
+
+.chat-composer-content ol {
+  list-style: decimal;
+}
+
+.chat-composer-content li {
+  margin: 0.125rem 0;
+}
+
+.chat-composer-content code {
+  border-radius: 0.25rem;
+  background: var(--muted);
+  padding: 0.05rem 0.25rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+}
+
+.chat-composer-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 0.25rem;
+  background: var(--muted);
+  padding: 0.5rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
+
+/* Why: code inside a fenced block must not carry the inline pill background. */
+.chat-composer-content pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.chat-composer-content blockquote {
+  border-left: 2px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding-left: 0.5rem;
+  color: var(--muted-foreground);
+}
+
+/* Placeholder shown by @tiptap/extension-placeholder while the doc is empty. */
+.chat-composer-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--muted-foreground);
+}
