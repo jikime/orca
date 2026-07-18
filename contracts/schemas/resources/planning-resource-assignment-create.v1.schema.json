@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-resource-assignment-create.v1.schema.json",
+  "title": "Create planning resource assignment request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["userId", "allocationPct", "startDate", "endDate"],
+  "properties": {
+    "userId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "wbsNodeId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "allocationPct": { "type": ["number", "string"] },
+    "startDate": { "type": "string" },
+    "endDate": { "type": "string" },
+    "plannedEffortHours": { "type": ["number", "string"] },
+    "roleLabel": { "type": "string" }
+  }
+}

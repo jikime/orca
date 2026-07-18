@@ -55,6 +55,10 @@ export type ResourceChangeResourceType =
   | 'wbs_node'
   | 'milestone'
   | 'schedule_baseline'
+  // Planning: resource allocation + actual effort (R6 slice 5). Assignment create/update and
+  // append-only effort-entry logs ride the same outbox → Worker → gateway path unchanged.
+  | 'resource_assignment'
+  | 'effort_entry'
 
 export type ResourceChangeData = {
   eventId: string

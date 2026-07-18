@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-baseline-variance.v1.schema.json",
+  "title": "Planning planned-vs-actual variance against a captured baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["baselineId", "projectId", "hoursPerManMonth", "nodes", "totals"],
+  "properties": {
+    "baselineId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "projectId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "hoursPerManMonth": { "type": "number" },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "wbsNodeId",
+          "wbsCode",
+          "name",
+          "plannedEffortHours",
+          "actualEffortHours",
+          "varianceHours",
+          "variancePct",
+          "plannedManMonths",
+          "actualManMonths"
+        ],
+        "properties": {
+          "wbsNodeId": {
+            "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+          },
+          "wbsCode": { "type": "string" },
+          "name": { "type": "string" },
+          "plannedEffortHours": { "type": ["string", "null"] },
+          "actualEffortHours": { "type": ["string", "null"] },
+          "varianceHours": { "type": "string" },
+          "variancePct": { "type": ["string", "null"] },
+          "plannedManMonths": { "type": ["string", "null"] },
+          "actualManMonths": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plannedEffortHours", "actualEffortHours", "varianceHours", "variancePct"],
+      "properties": {
+        "plannedEffortHours": { "type": ["string", "null"] },
+        "actualEffortHours": { "type": ["string", "null"] },
+        "varianceHours": { "type": "string" },
+        "variancePct": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

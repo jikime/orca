@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-resource-assignment-update.v1.schema.json",
+  "title": "Update planning resource assignment request",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "allocationPct": { "type": ["number", "string"] },
+    "startDate": { "type": "string" },
+    "endDate": { "type": "string" },
+    "wbsNodeId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "plannedEffortHours": { "type": ["number", "string", "null"] },
+    "roleLabel": { "type": ["string", "null"] }
+  }
+}

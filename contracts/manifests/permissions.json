@@ -378,6 +378,18 @@
       "resource": "project_plan",
       "action": "manage",
       "risk": "elevated"
+    },
+    {
+      "id": "project.resource.read",
+      "resource": "project_resource",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "project.resource.manage",
+      "resource": "project_resource",
+      "action": "manage",
+      "risk": "elevated"
     }
   ]
 }

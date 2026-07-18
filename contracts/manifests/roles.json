@@ -69,7 +69,9 @@
         "service.ticket.manage",
         "service.ticket.reply_public",
         "project.plan.read",
-        "project.plan.manage"
+        "project.plan.manage",
+        "project.resource.read",
+        "project.resource.manage"
       ]
     },
     {
@@ -136,7 +138,9 @@
         "service.ticket.manage",
         "service.ticket.reply_public",
         "project.plan.read",
-        "project.plan.manage"
+        "project.plan.manage",
+        "project.resource.read",
+        "project.resource.manage"
       ]
     },
     {
@@ -186,7 +190,9 @@
         "service.ticket.manage",
         "service.ticket.reply_public",
         "project.plan.read",
-        "project.plan.manage"
+        "project.plan.manage",
+        "project.resource.read",
+        "project.resource.manage"
       ]
     },
     {
@@ -223,7 +229,8 @@
         "requirement.read",
         "service.ticket.read",
         "service.ticket.reply_public",
-        "project.plan.read"
+        "project.plan.read",
+        "project.resource.read"
       ]
     },
     {
@@ -247,7 +254,8 @@
         "requirement.read",
         "requirement.accept",
         "service.ticket.read",
-        "project.plan.read"
+        "project.plan.read",
+        "project.resource.read"
       ]
     },
     {

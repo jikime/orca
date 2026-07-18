@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-utilization.v1.schema.json",
+  "title": "Planning project utilization over a window",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["projectId", "from", "to", "hoursPerManMonth", "users"],
+  "properties": {
+    "projectId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "from": { "type": "string" },
+    "to": { "type": "string" },
+    "hoursPerManMonth": { "type": "number" },
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "userId",
+          "assignmentCount",
+          "summedAllocationPct",
+          "overAllocated",
+          "plannedEffortHours",
+          "plannedManMonths",
+          "actualEffortHours",
+          "actualManMonths"
+        ],
+        "properties": {
+          "userId": {
+            "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+          },
+          "assignmentCount": { "type": "integer" },
+          "summedAllocationPct": { "type": "string" },
+          "overAllocated": { "type": "boolean" },
+          "plannedEffortHours": { "type": ["string", "null"] },
+          "plannedManMonths": { "type": ["string", "null"] },
+          "actualEffortHours": { "type": ["string", "null"] },
+          "actualManMonths": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

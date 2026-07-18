@@ -1116,6 +1116,40 @@ export interface BaselineEntriesTable {
   created_at: TimestampColumn
 }
 
+// === R6 s5 planning resource allocation + effort tables (20260823090001) ===
+// project_id / wbs_node_id / work_item_id / user_id are OPAQUE cross-schema links (no FK). Over-
+// allocation is intentionally unrestricted at write; the utilization read surfaces it. version is
+// the OCC counter for :update.
+export interface ResourceAssignmentsTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  wbs_node_id: string | null
+  user_id: string
+  allocation_pct: NumericColumn
+  start_date: string
+  end_date: string
+  planned_effort_hours: NullableNumericColumn
+  role_label: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// Append-only ACTUAL effort log (INSERT + SELECT only in app code); a correction is a new row.
+export interface EffortEntriesTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  wbs_node_id: string | null
+  work_item_id: string | null
+  user_id: string
+  entry_date: string
+  effort_hours: NumericColumn
+  note: string | null
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -1197,4 +1231,6 @@ export interface Database {
   'planning.milestones': MilestonesTable
   'planning.schedule_baselines': ScheduleBaselinesTable
   'planning.baseline_entries': BaselineEntriesTable
+  'planning.resource_assignments': ResourceAssignmentsTable
+  'planning.effort_entries': EffortEntriesTable
 }

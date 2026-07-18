@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-effort-entry-create.v1.schema.json",
+  "title": "Log planning effort entry request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["userId", "entryDate", "effortHours"],
+  "properties": {
+    "userId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "wbsNodeId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "workItemId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "entryDate": { "type": "string" },
+    "effortHours": { "type": ["number", "string"] },
+    "note": { "type": "string" }
+  }
+}
