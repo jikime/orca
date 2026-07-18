@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/knowledge-article-review.v1.schema.json",
+  "title": "Knowledge base article review verdict",
+  "description": "A human reviewer's verdict on an article. Approving an AI-authored article is what unlocks publish (doc 14 §R7): model output does not substitute for approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision"],
+  "properties": {
+    "decision": {
+      "enum": ["approve", "reject"]
+    }
+  }
+}

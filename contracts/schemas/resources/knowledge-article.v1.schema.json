@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/knowledge-article.v1.schema.json",
+  "title": "Knowledge base article",
+  "description": "A knowledge-base document with provenance (source_type/source_id) and a human review record. An AI-authored article must be reviewed and approved before it may be published (doc 14 §R7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "title",
+    "body",
+    "status",
+    "visibility",
+    "sourceType",
+    "sourceId",
+    "reviewStatus",
+    "reviewedBy",
+    "reviewedAt",
+    "authorUserId",
+    "projectId",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "body": {
+      "type": "string"
+    },
+    "status": {
+      "enum": ["draft", "in_review", "published", "archived"]
+    },
+    "visibility": {
+      "enum": ["internal", "customer"]
+    },
+    "sourceType": {
+      "enum": ["manual", "ticket", "remote_session", "ai"]
+    },
+    "sourceId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "reviewStatus": {
+      "enum": ["unreviewed", "approved", "rejected"]
+    },
+    "reviewedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "reviewedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "authorUserId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": {
+      "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "updatedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

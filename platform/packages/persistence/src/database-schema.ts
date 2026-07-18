@@ -1120,6 +1120,32 @@ export interface StatusReportsTable {
   updated_at: TimestampColumn
 }
 
+// === R7 knowledge base + permission-aware search table (20260828090001) ===
+// source_id (the ticket / remote-session an article was distilled from) and project_id (an optional
+// scope) are OPAQUE cross-schema links (no FK). review_status + reviewed_by/reviewed_at is the human
+// review record that gates AI-authored publish. version is OCC.
+export interface KnowledgeArticlesTable {
+  organization_id: string
+  id: Generated<string>
+  title: string
+  body: string
+  status: Generated<string>
+  visibility: Generated<string>
+  source_type: Generated<string>
+  source_id: string | null
+  review_status: Generated<string>
+  reviewed_by: string | null
+  reviewed_at: NullableTimestampColumn
+  author_user_id: string
+  project_id: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+  // STORED generated tsvector (search). Never selected/inserted via the query builder — matched only
+  // through a raw `tsv @@ ...` predicate — so it is typed never-selectable/never-writable.
+  tsv: ColumnType<never, never, never>
+}
+
 // === R6 s3 service ticket + SLA tables (20260821090001) ===
 // account_id / reporter_contact_id / project_id / contract_id / agent_session_id / remote_session_id
 // are OPAQUE cross-schema links (no FK). sla_policy_id is a same-schema nullable ref. version is OCC.
@@ -1394,6 +1420,7 @@ export interface Database {
   'governance.project_risks': ProjectRisksTable
   'governance.project_decisions': ProjectDecisionsTable
   'governance.status_reports': StatusReportsTable
+  'knowledge.articles': KnowledgeArticlesTable
   'planning.wbs_nodes': WbsNodesTable
   'planning.milestones': MilestonesTable
   'planning.schedule_baselines': ScheduleBaselinesTable

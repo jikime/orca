@@ -75,6 +75,9 @@ export type ResourceChangeResourceType =
   | 'project_risk'
   | 'project_decision'
   | 'status_report'
+  // Knowledge base (R7). Article lifecycle (create/update/transition/review) invalidations ride the
+  // same outbox → Worker → gateway path unchanged.
+  | 'knowledge_article'
 
 export type ResourceChangeData = {
   eventId: string

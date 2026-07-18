@@ -432,6 +432,30 @@
       "resource": "project_governance",
       "action": "manage",
       "risk": "elevated"
+    },
+    {
+      "id": "knowledge.read",
+      "resource": "knowledge",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "knowledge.customer_read",
+      "resource": "knowledge",
+      "action": "customer_read",
+      "risk": "standard"
+    },
+    {
+      "id": "knowledge.manage",
+      "resource": "knowledge",
+      "action": "manage",
+      "risk": "elevated"
+    },
+    {
+      "id": "knowledge.review",
+      "resource": "knowledge",
+      "action": "review",
+      "risk": "elevated"
     }
   ]
 }

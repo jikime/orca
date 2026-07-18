@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/knowledge-search-hit.v1.schema.json",
+  "title": "Knowledge base search hit",
+  "description": "A single search result: the article summary (no body) plus its relevance rank.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "title",
+    "status",
+    "visibility",
+    "sourceType",
+    "sourceId",
+    "reviewStatus",
+    "projectId",
+    "rank"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "organizationId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": ["draft", "in_review", "published", "archived"]
+    },
+    "visibility": {
+      "enum": ["internal", "customer"]
+    },
+    "sourceType": {
+      "enum": ["manual", "ticket", "remote_session", "ai"]
+    },
+    "sourceId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "reviewStatus": {
+      "enum": ["unreviewed", "approved", "rejected"]
+    },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "rank": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

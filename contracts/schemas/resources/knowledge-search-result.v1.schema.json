@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/knowledge-search-result.v1.schema.json",
+  "title": "Knowledge base search result page",
+  "description": "Published articles matching a full-text query, ranked by relevance. Permission-aware and evaluated at query time: a customer-visibility article is present only for a caller who may see customer content, so a visibility/permission change is reflected on the next search (doc 14 §R7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/knowledge-search-hit.v1.schema.json"
+      }
+    }
+  }
+}

@@ -61,7 +61,8 @@
         "defect",
         "project_risk",
         "project_decision",
-        "status_report"
+        "status_report",
+        "knowledge_article"
       ]
     },
     "resourceId": {

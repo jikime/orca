@@ -78,7 +78,11 @@
         "project.qa.read",
         "project.qa.manage",
         "project.governance.read",
-        "project.governance.manage"
+        "project.governance.manage",
+        "knowledge.read",
+        "knowledge.customer_read",
+        "knowledge.manage",
+        "knowledge.review"
       ]
     },
     {
@@ -154,7 +158,11 @@
         "project.qa.read",
         "project.qa.manage",
         "project.governance.read",
-        "project.governance.manage"
+        "project.governance.manage",
+        "knowledge.read",
+        "knowledge.customer_read",
+        "knowledge.manage",
+        "knowledge.review"
       ]
     },
     {
@@ -212,7 +220,11 @@
         "project.qa.read",
         "project.qa.manage",
         "project.governance.read",
-        "project.governance.manage"
+        "project.governance.manage",
+        "knowledge.read",
+        "knowledge.customer_read",
+        "knowledge.manage",
+        "knowledge.review"
       ]
     },
     {
@@ -252,7 +264,8 @@
         "project.plan.read",
         "project.resource.read",
         "project.qa.read",
-        "project.governance.read"
+        "project.governance.read",
+        "knowledge.read"
       ]
     },
     {
