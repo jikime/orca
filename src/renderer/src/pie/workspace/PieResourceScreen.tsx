@@ -4,6 +4,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { apiPost, resourceEtag, PieApiError } from '../control-plane/pie-api-client'
 import { usePieResource } from '../control-plane/use-pie-resource'
 import { PieStatusBadge } from './PieStatusBadge'
@@ -12,8 +20,6 @@ import type { PieActionSpec, PieDomainConfig, PieFieldSpec } from './pie-domain-
 type Row = Record<string, unknown> & { id: string; version?: number; status?: string }
 
 const META_LABEL = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'
-const FIELD =
-  'w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-xs transition-[color,box-shadow] focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50'
 
 function FieldInput({
   field,
@@ -26,23 +32,28 @@ function FieldInput({
 }): React.JSX.Element {
   if (field.type === 'textarea') {
     return (
-      <textarea
-        className={cn(FIELD, 'min-h-20 resize-y')}
+      <Textarea
+        className="min-h-20 resize-y"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
     )
   }
   if (field.type === 'select') {
+    // Radix rejects an empty string value; an unset field stays on the placeholder.
     return (
-      <select className={FIELD} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">—</option>
-        {(field.options ?? []).map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
+      <Select value={value || undefined} onValueChange={onChange}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select…" />
+        </SelectTrigger>
+        <SelectContent>
+          {(field.options ?? []).map((opt) => (
+            <SelectItem key={opt} value={opt}>
+              {opt}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     )
   }
   return (
@@ -150,20 +161,24 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
         )}
         <div className="ml-auto flex items-center gap-2">
           {config.scope === 'project' && (
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="h-8 w-60 rounded-md border border-input bg-background px-2 text-xs shadow-xs focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50"
-            >
-              <option value="">
-                {projectOptions.length === 0 ? 'No projects — create one first' : 'Select project…'}
-              </option>
-              {projectOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <Select value={projectId || undefined} onValueChange={setProjectId}>
+              <SelectTrigger size="sm" className="w-60">
+                <SelectValue
+                  placeholder={
+                    projectOptions.length === 0
+                      ? 'No projects — create one first'
+                      : 'Select project…'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {projectOptions.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           {config.createFields && (
             <Button size="sm" onClick={() => setCreating((c) => !c)} disabled={listPath === null}>
