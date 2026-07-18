@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-wbs-node-create.v1.schema.json",
+  "title": "Create planning WBS node request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["wbsCode", "name"],
+  "properties": {
+    "parentId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "wbsCode": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "nodeType": { "enum": ["summary", "task", "deliverable"] },
+    "sortOrder": { "type": "integer" },
+    "plannedStart": { "type": "string" },
+    "plannedEnd": { "type": "string" },
+    "plannedEffortHours": { "type": ["number", "string"] },
+    "workItemId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "status": { "enum": ["planned", "in_progress", "done", "cancelled"] }
+  }
+}

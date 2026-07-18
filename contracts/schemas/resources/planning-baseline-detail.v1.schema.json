@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-baseline-detail.v1.schema.json",
+  "title": "Planning schedule baseline with its immutable entries",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["baseline", "entries"],
+  "properties": {
+    "baseline": {
+      "$ref": "https://schemas.pielab.ai/resources/planning-schedule-baseline.v1.schema.json"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/planning-baseline-entry.v1.schema.json"
+      }
+    }
+  }
+}

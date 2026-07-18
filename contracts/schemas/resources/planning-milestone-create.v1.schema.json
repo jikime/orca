@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-milestone-create.v1.schema.json",
+  "title": "Create planning milestone request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "targetDate"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "targetDate": { "type": "string" },
+    "wbsNodeId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "status": { "enum": ["planned", "met", "missed", "at_risk"] }
+  }
+}

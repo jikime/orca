@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-milestone-transition.v1.schema.json",
+  "title": "Transition planning milestone status request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["toStatus"],
+  "properties": {
+    "toStatus": { "enum": ["planned", "met", "missed", "at_risk"] }
+  }
+}

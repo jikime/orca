@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-wbs-node-move.v1.schema.json",
+  "title": "Move planning WBS node request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["parentId"],
+  "properties": {
+    "parentId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "sortOrder": { "type": "integer" }
+  }
+}

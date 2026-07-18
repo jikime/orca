@@ -838,6 +838,11 @@ export interface AgentEventQuarantineTable {
 
 // pg returns numeric(18,2) as a string; accept string/number on write.
 type NumericColumn = ColumnType<string, string | number | undefined, string | number>
+type NullableNumericColumn = ColumnType<
+  string | null,
+  string | number | null | undefined,
+  string | number | null
+>
 type NullableDateColumn = ColumnType<string | null, string | null | undefined, string | null>
 
 // === R6 CRM / contract tables (20260819090001) ===
@@ -1048,6 +1053,69 @@ export interface RequirementAcceptancesTable {
   created_at: TimestampColumn
 }
 
+// === R6 s4 planning tables (20260822090001) ===
+// project_id / work_item_id / wbs_node_id are OPAQUE cross-schema links (no FK); parent_id is the
+// in-schema tree self-FK (composite). version is the OCC counter.
+export interface WbsNodesTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  parent_id: string | null
+  wbs_code: string
+  name: string
+  node_type: Generated<string>
+  sort_order: Generated<number>
+  planned_start: NullableDateColumn
+  planned_end: NullableDateColumn
+  planned_effort_hours: NullableNumericColumn
+  work_item_id: string | null
+  status: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MilestonesTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  wbs_node_id: string | null
+  name: string
+  target_date: string
+  status: Generated<string>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// Append-only baseline header + immutable per-node snapshot rows (INSERT + SELECT only in app code).
+export interface ScheduleBaselinesTable {
+  organization_id: string
+  id: Generated<string>
+  project_id: string
+  name: string
+  captured_by: string | null
+  entry_count: Generated<number>
+  captured_at: TimestampColumn
+  created_at: TimestampColumn
+}
+
+export interface BaselineEntriesTable {
+  organization_id: string
+  id: Generated<string>
+  baseline_id: string
+  wbs_node_id: string
+  parent_id: string | null
+  wbs_code: string
+  name: string
+  node_type: string
+  sort_order: Generated<number>
+  planned_start: NullableDateColumn
+  planned_end: NullableDateColumn
+  planned_effort_hours: NullableNumericColumn
+  created_at: TimestampColumn
+}
+
 // Schema-qualified keys — Kysely resolves these to `schema.table` in SQL.
 export interface Database {
   'identity.organizations': OrganizationsTable
@@ -1125,4 +1193,8 @@ export interface Database {
   'requirements.requirements': RequirementsTable
   'requirements.requirement_work_items': RequirementWorkItemsTable
   'requirements.requirement_acceptances': RequirementAcceptancesTable
+  'planning.wbs_nodes': WbsNodesTable
+  'planning.milestones': MilestonesTable
+  'planning.schedule_baselines': ScheduleBaselinesTable
+  'planning.baseline_entries': BaselineEntriesTable
 }

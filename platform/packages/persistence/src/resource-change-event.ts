@@ -50,6 +50,11 @@ export type ResourceChangeResourceType =
   // the same outbox → Worker → gateway path unchanged.
   | 'service_ticket'
   | 'service_ticket_reply'
+  // Planning: WBS + milestones + schedule baselines (R6 slice 4). Node move/edit, milestone
+  // transitions, and baseline captures ride the same outbox → Worker → gateway path unchanged.
+  | 'wbs_node'
+  | 'milestone'
+  | 'schedule_baseline'
 
 export type ResourceChangeData = {
   eventId: string

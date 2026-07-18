@@ -366,6 +366,18 @@
       "resource": "service_ticket",
       "action": "reply_public",
       "risk": "standard"
+    },
+    {
+      "id": "project.plan.read",
+      "resource": "project_plan",
+      "action": "read",
+      "risk": "standard"
+    },
+    {
+      "id": "project.plan.manage",
+      "resource": "project_plan",
+      "action": "manage",
+      "risk": "elevated"
     }
   ]
 }

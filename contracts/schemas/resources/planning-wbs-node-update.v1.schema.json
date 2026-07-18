@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-wbs-node-update.v1.schema.json",
+  "title": "Update planning WBS node request",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "nodeType": { "enum": ["summary", "task", "deliverable"] },
+    "plannedStart": { "type": ["string", "null"] },
+    "plannedEnd": { "type": ["string", "null"] },
+    "plannedEffortHours": { "type": ["number", "string", "null"] },
+    "workItemId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "status": { "enum": ["planned", "in_progress", "done", "cancelled"] }
+  }
+}

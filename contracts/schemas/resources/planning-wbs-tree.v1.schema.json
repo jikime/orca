@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-wbs-tree.v1.schema.json",
+  "title": "Planning WBS tree response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/planning-wbs-tree-node.v1.schema.json"
+      }
+    }
+  }
+}

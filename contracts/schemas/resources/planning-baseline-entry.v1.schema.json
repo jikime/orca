@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/planning-baseline-entry.v1.schema.json",
+  "title": "Planning schedule baseline entry (immutable per-node snapshot)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "wbsNodeId",
+    "parentId",
+    "wbsCode",
+    "name",
+    "nodeType",
+    "sortOrder",
+    "plannedStart",
+    "plannedEnd",
+    "plannedEffortHours"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "wbsNodeId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "parentId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "wbsCode": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "nodeType": { "enum": ["summary", "task", "deliverable"] },
+    "sortOrder": { "type": "integer" },
+    "plannedStart": { "type": ["string", "null"] },
+    "plannedEnd": { "type": ["string", "null"] },
+    "plannedEffortHours": { "type": ["string", "null"] }
+  }
+}
