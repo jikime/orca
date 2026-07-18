@@ -177,9 +177,11 @@ export async function sendTyping(
   fetchImpl: typeof fetch = fetch
 ): Promise<void> {
   // Ephemeral fire-and-forget; the server coalesces per user/channel and 204s.
+  // No body — use authHeaders (not jsonHeaders): an application/json content-type
+  // with an empty body makes Fastify's parser 400 before the handler runs.
   const response = await fetchImpl(
     `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/typing`,
-    { method: 'POST', headers: jsonHeaders(accessToken) }
+    { method: 'POST', headers: authHeaders(accessToken) }
   )
   if (!response.ok) {
     throw new PieChatError(`typing signal failed with ${response.status}`, response.status)
