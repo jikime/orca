@@ -13,6 +13,8 @@
     "status",
     "durationSeconds",
     "startedAt",
+    "stoppedAt",
+    "errorCode",
     "version",
     "createdAt",
     "updatedAt"
@@ -41,6 +43,15 @@
     },
     "startedAt": {
       "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "stoppedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "errorCode": {
+      "type": ["string", "null"]
     },
     "version": {
       "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"

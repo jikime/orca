@@ -185,6 +185,7 @@
     "husky": "^9.1.7",
     "katex": "^0.16.45",
     "lint-staged": "^16.4.0",
+    "livekit-client": "2.20.1",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.577.0",
     "marked": "^17.0.1",

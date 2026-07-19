@@ -32,10 +32,13 @@ describe('production renderer CSP', () => {
     expect(BARE_UNSAFE_EVAL.test(csp)).toBe(false)
   })
 
-  it('does not grant remote script or connect origins in production', () => {
+  it('limits meeting signaling to TLS or loopback in production', () => {
     const csp = extractCspContent(productionHtml)
     expect(csp).not.toContain('http://localhost')
-    expect(csp).not.toContain('ws://')
+    expect(csp).toContain('wss:')
+    expect(csp).toContain('ws://127.0.0.1:*')
+    expect(csp).toContain('ws://[::1]:*')
+    expect(csp).not.toContain('ws://localhost')
   })
 })
 

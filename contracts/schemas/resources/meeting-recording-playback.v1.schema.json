@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-recording-playback.v1.schema.json",
+  "title": "Meeting recording playback grant",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["url", "expiresAt"],
+  "properties": {
+    "url": { "type": "string", "format": "uri" },
+    "expiresAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

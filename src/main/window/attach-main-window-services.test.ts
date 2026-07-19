@@ -7,6 +7,7 @@ const {
   removeListenerMock,
   setPermissionRequestHandlerMock,
   setPermissionCheckHandlerMock,
+  setDisplayMediaRequestHandlerMock,
   handleMock,
   removeHandlerMock,
   systemPreferencesAskForMediaAccessMock,
@@ -24,6 +25,7 @@ const {
   removeListenerMock: vi.fn(),
   setPermissionRequestHandlerMock: vi.fn(),
   setPermissionCheckHandlerMock: vi.fn(),
+  setDisplayMediaRequestHandlerMock: vi.fn(),
   handleMock: vi.fn(),
   removeHandlerMock: vi.fn(),
   systemPreferencesAskForMediaAccessMock: vi.fn(),
@@ -51,6 +53,7 @@ vi.mock('electron', () => ({
     removeHandler: removeHandlerMock,
     handle: handleMock
   },
+  desktopCapturer: { getSources: vi.fn(async () => []) },
   powerMonitor: {
     on: vi.fn(),
     off: vi.fn()
@@ -110,7 +113,9 @@ type MainWindowStub = {
     session: {
       setPermissionRequestHandler: MockFn
       setPermissionCheckHandler: MockFn
+      setDisplayMediaRequestHandler: MockFn
     }
+    mainFrame?: object
   }
 }
 
@@ -132,9 +137,11 @@ function createMainWindow(extraWebContents: { on?: MockFn; send?: MockFn } = {})
       isDestroyed: vi.fn(() => false),
       on: vi.fn(),
       reload: vi.fn(),
+      mainFrame: {},
       session: {
         setPermissionRequestHandler: setPermissionRequestHandlerMock,
-        setPermissionCheckHandler: setPermissionCheckHandlerMock
+        setPermissionCheckHandler: setPermissionCheckHandlerMock,
+        setDisplayMediaRequestHandler: setDisplayMediaRequestHandlerMock
       },
       ...extraWebContents
     }
@@ -187,6 +194,7 @@ describe('attachMainWindowServices', () => {
     removeHandlerMock.mockReset()
     setPermissionRequestHandlerMock.mockReset()
     setPermissionCheckHandlerMock.mockReset()
+    setDisplayMediaRequestHandlerMock.mockReset()
     systemPreferencesAskForMediaAccessMock.mockReset()
     systemPreferencesGetMediaAccessStatusMock.mockReset()
     registerRepoHandlersMock.mockReset()

@@ -34,6 +34,7 @@ package-lock.json
 .env
 .env.local
 .env.*.local
+platform/compose/.env.meeting
 
 # IDE
 .vscode/

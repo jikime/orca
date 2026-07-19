@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatScreen } from '../chat/ChatScreen'
+import { MeetingWorkspace } from '../meetings/MeetingWorkspace'
 import { PieResourceScreen } from './PieResourceScreen'
 import { WorkItemBoard } from './WorkItemBoard'
 import {
@@ -193,7 +194,9 @@ export function PieWorkspace(): React.JSX.Element {
         </ScrollArea>
       </nav>
       <div className="min-h-0">
-        {domain ? (
+        {active === 'meetings' ? (
+          <MeetingWorkspace />
+        ) : domain ? (
           <PieResourceScreen key={domain.key} config={domain} />
         ) : active === 'board' ? (
           <WorkItemBoard />

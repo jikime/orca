@@ -73,10 +73,9 @@ export type AddParticipantInput = {
   meetingId: string
   userId: string
   role?: MeetingParticipantRole
-  consentRecording?: boolean
 }
 
-/** Adds a participant to a meeting (joined_at set = they have joined); consent defaults false. */
+/** Adds an invited participant; signed media presence records the actual join time later. */
 export async function addMeetingParticipant(
   db: Kysely<Database>,
   input: AddParticipantInput
@@ -101,8 +100,8 @@ export async function addMeetingParticipant(
         meeting_id: input.meetingId,
         user_id: input.userId,
         role: input.role ?? 'participant',
-        consent_recording: input.consentRecording ?? false,
-        joined_at: sql`now()`
+        consent_recording: false,
+        joined_at: null
       })
       .returningAll()
       .executeTakeFirstOrThrow()
@@ -129,6 +128,7 @@ export async function addMeetingParticipant(
 export type ConsentParticipantResult =
   | { ok: true; participant: MeetingParticipantResource }
   | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'participant_user_mismatch' }
   | { ok: false; reason: 'version_conflict'; currentVersion: number }
 
 export type ConsentParticipantInput = {
@@ -153,6 +153,10 @@ export async function setMeetingParticipantConsent(
       .executeTakeFirst()
     if (!current) {
       return { ok: false, reason: 'not_found' }
+    }
+    if (current.user_id !== input.actorUserId) {
+      // Recording consent is a personal legal choice; meeting managers cannot grant it for others.
+      return { ok: false, reason: 'participant_user_mismatch' }
     }
     const currentVersion = Number(current.version)
     if (currentVersion !== input.expectedVersion) {
@@ -186,6 +190,72 @@ export async function setMeetingParticipantConsent(
       'updated'
     )
     return { ok: true, participant: mapParticipant(updated) }
+  })
+}
+
+export async function getMeetingParticipantForUser(
+  db: Kysely<Database>,
+  organizationId: string,
+  meetingId: string,
+  userId: string
+): Promise<MeetingParticipantResource | null> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const row = await trx
+      .selectFrom('meetings.participants')
+      .selectAll()
+      .where('meeting_id', '=', meetingId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst()
+    return row ? mapParticipant(row) : null
+  })
+}
+
+export async function ensureMeetingHostParticipant(
+  db: Kysely<Database>,
+  input: { organizationId: string; meetingId: string; hostUserId: string }
+): Promise<MeetingParticipantResource> {
+  return withTenantTransaction(db, input.organizationId, async (trx) => {
+    const inserted = await trx
+      .insertInto('meetings.participants')
+      .values({
+        organization_id: input.organizationId,
+        meeting_id: input.meetingId,
+        user_id: input.hostUserId,
+        role: 'host',
+        consent_recording: false,
+        joined_at: null
+      })
+      .onConflict((conflict) =>
+        conflict.columns(['organization_id', 'meeting_id', 'user_id']).doNothing()
+      )
+      .returningAll()
+      .executeTakeFirst()
+    if (inserted) {
+      await auditMeetingEvent(
+        trx,
+        input.organizationId,
+        input.hostUserId,
+        'meeting.participant.added',
+        'meeting_participant',
+        inserted.id
+      )
+      await emitMeetingResourceChange(
+        trx,
+        input.organizationId,
+        'meeting_participant',
+        inserted.id,
+        1,
+        'created'
+      )
+      return mapParticipant(inserted)
+    }
+    const existing = await trx
+      .selectFrom('meetings.participants')
+      .selectAll()
+      .where('meeting_id', '=', input.meetingId)
+      .where('user_id', '=', input.hostUserId)
+      .executeTakeFirstOrThrow()
+    return mapParticipant(existing)
   })
 }
 

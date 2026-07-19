@@ -12,6 +12,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
+    "@pie/object-storage-adapter": "workspace:*",
     "@pie/persistence": "workspace:*",
     "pino": "^9.5.0"
   }

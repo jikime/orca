@@ -20,6 +20,7 @@ import type { PieSessionRendererApi } from '../shared/pie-session-contract'
 import type { PieRuntimeRendererApi } from '../shared/pie-runtime-handshake-contract'
 import type { PieChatRendererApi } from '../shared/pie-chat-contract'
 import type { PieControlPlaneRendererApi } from '../shared/pie-control-plane-ipc'
+import type { MeetingMediaPreloadApi } from '../shared/meeting-display-source'
 import type { AppIdentity } from '../shared/app-identity'
 import type { MobileRelayStatus } from '../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../shared/mobile-pairing-connection-mode'
@@ -912,6 +913,7 @@ export type AppApi = {
 
 export type PreloadApi = {
   app: AppApi
+  meetingMedia?: MeetingMediaPreloadApi
   pie: {
     session: PieSessionRendererApi
     runtime: PieRuntimeRendererApi

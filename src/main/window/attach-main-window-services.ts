@@ -46,6 +46,7 @@ import {
   setWorktreeBaseDirectoryWatcherSyncContext
 } from '../ipc/worktree-base-directory-watcher'
 import { logStartupMilestone } from '../startup/startup-diagnostics'
+import { registerMeetingDisplaySourceService } from './meeting-display-source-service'
 
 const UPDATER_SETUP_FALLBACK_MS = 15_000
 
@@ -136,6 +137,7 @@ export function attachMainWindowServices(
   registerSshHandlers(store, () => mainWindow, runtime)
   registerRemoteWorkspaceHandlers(store, () => mainWindow)
   registerFileDropRelay(mainWindow)
+  registerMeetingDisplaySourceService(mainWindow)
   // Why: setupAutoUpdater's first getAutoUpdater() call synchronously
   // require()s electron-updater in packaged builds — seconds on a cold
   // Windows disk under Defender scanning (part of issue #7225's pre-paint
@@ -186,7 +188,7 @@ export function attachMainWindowServices(
   updaterSetupFallback.unref?.()
   registerRuntimeWindowLifecycle(mainWindow, runtime)
 
-  const allowedPermissions = new Set(['media', 'fullscreen', 'pointerLock'])
+  const allowedPermissions = new Set(['media', 'display-capture', 'fullscreen', 'pointerLock'])
   mainWindow.webContents.session.setPermissionRequestHandler(
     (_webContents, permission, callback, details) => {
       if (permission === 'media') {

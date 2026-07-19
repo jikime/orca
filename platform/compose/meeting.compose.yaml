@@ -1,0 +1,115 @@
+name: pie-meeting
+
+services:
+  meeting-storage:
+    image: chrislusf/seaweedfs:3.80@sha256:1055999e08eed1789b0ae45d235126e4495e23d3fb9d6396293fd42539b1ae6a
+    profiles: [meeting]
+    command: [server, -s3, -dir=/data, -ip.bind=0.0.0.0]
+    volumes:
+      - meeting-storage-data:/data
+    ports:
+      - '${PIE_MEETING_STORAGE_PORT:-8333}:8333/tcp'
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8333/']
+      interval: 3s
+      timeout: 2s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  meeting-redis:
+    image: redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
+    profiles: [meeting]
+    command: [redis-server, --save, '', --appendonly, 'no']
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:v1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3
+    profiles: [meeting]
+    depends_on:
+      meeting-redis:
+        condition: service_healthy
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        logging:
+          level: info
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882
+          use_external_ip: true
+          advertise_internal_ip: true
+          # Docker clients need both published-host and service-network ICE candidates.
+          skip_external_ip_validation: true
+          enable_loopback_candidate: true
+        redis:
+          address: meeting-redis:6379
+        keys:
+          "${PIE_LIVEKIT_API_KEY:?Set PIE_LIVEKIT_API_KEY}": "${PIE_LIVEKIT_API_SECRET:?Set PIE_LIVEKIT_API_SECRET}"
+        webhook:
+          api_key: "${PIE_LIVEKIT_API_KEY:?Set PIE_LIVEKIT_API_KEY}"
+          urls:
+            - "${PIE_LIVEKIT_WEBHOOK_URL:-http://host.docker.internal:8080/v1/media/livekit/webhook}"
+        turn:
+          enabled: true
+          udp_port: 3478
+    ports:
+      - '7880:7880/tcp'
+      - '7881:7881/tcp'
+      - '7882:7882/udp'
+      - '3478:3478/udp'
+    extra_hosts:
+      # Docker Desktop provides this name; host-gateway adds the same route on Linux.
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+
+  meeting-egress:
+    image: livekit/egress:v1.12.0@sha256:30b3389518c851e6c20e964bba9d5ce89d0bd09b8b0fe0d0d36c9546303c8430
+    profiles: [meeting]
+    depends_on:
+      meeting-storage:
+        condition: service_healthy
+      meeting-redis:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    shm_size: 1gb
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: "${PIE_LIVEKIT_API_KEY:?Set PIE_LIVEKIT_API_KEY}"
+        api_secret: "${PIE_LIVEKIT_API_SECRET:?Set PIE_LIVEKIT_API_SECRET}"
+        ws_url: ws://livekit:7880
+        insecure: true
+        redis:
+          address: meeting-redis:6379
+        logging:
+          level: info
+        session_limits:
+          # 16 kbps speech audio stays below the transcription API's 25 MB limit for this window.
+          file_output_max_duration: 3h
+    restart: unless-stopped
+
+  meeting-transcriber:
+    profiles: [meeting]
+    build:
+      context: ../apps/meeting-transcription-agent
+    depends_on:
+      livekit:
+        condition: service_started
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: '${PIE_LIVEKIT_API_KEY:?Set PIE_LIVEKIT_API_KEY}'
+      LIVEKIT_API_SECRET: '${PIE_LIVEKIT_API_SECRET:?Set PIE_LIVEKIT_API_SECRET}'
+      OPENAI_API_KEY: '${OPENAI_API_KEY:?Set OPENAI_API_KEY}'
+      PIE_LIVE_CAPTION_MODEL: '${PIE_LIVE_CAPTION_MODEL:-gpt-4o-mini-transcribe}'
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    restart: unless-stopped
+
+volumes:
+  meeting-storage-data:

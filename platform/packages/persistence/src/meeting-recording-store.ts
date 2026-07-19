@@ -18,12 +18,14 @@ export type MeetingRecordingResource = {
   status: RecordingStatus
   durationSeconds: number | null
   startedAt: string
+  stoppedAt: string | null
+  errorCode: string | null
   version: number
   createdAt: string
   updatedAt: string
 }
 
-type RecordingRow = {
+export type MeetingRecordingRow = {
   id: string
   organization_id: string
   meeting_id: string
@@ -31,12 +33,17 @@ type RecordingRow = {
   status: string
   duration_seconds: number | null
   started_at: Date | string
+  video_egress_id: string | null
+  audio_egress_id: string | null
+  transcription_dispatch_id: string | null
+  stopped_at: Date | string | null
+  error_code: string | null
   version: string | number
   created_at: Date | string
   updated_at: Date | string
 }
 
-function mapRecording(row: RecordingRow): MeetingRecordingResource {
+export function mapMeetingRecordingRow(row: MeetingRecordingRow): MeetingRecordingResource {
   return {
     id: row.id,
     organizationId: row.organization_id,
@@ -45,42 +52,51 @@ function mapRecording(row: RecordingRow): MeetingRecordingResource {
     status: row.status as RecordingStatus,
     durationSeconds: row.duration_seconds === null ? null : Number(row.duration_seconds),
     startedAt: new Date(row.started_at).toISOString(),
+    stoppedAt: row.stopped_at ? new Date(row.stopped_at).toISOString() : null,
+    errorCode: row.error_code,
     version: Number(row.version),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
   }
 }
 
-async function meetingExists(trx: Transaction<Database>, meetingId: string): Promise<boolean> {
-  const row = await trx
-    .selectFrom('meetings.meetings')
-    .select('id')
-    .where('id', '=', meetingId)
-    .executeTakeFirst()
-  return Boolean(row)
-}
-
-// recording-needs-consent: true only when no currently-joined participant (joined_at set, left_at null)
-// is missing consent_recording. Vacuously true if there are no joined participants.
-async function everyJoinedParticipantConsented(
+async function meetingStatus(
   trx: Transaction<Database>,
   meetingId: string
-): Promise<boolean> {
-  const dissenter = await trx
+): Promise<string | null> {
+  const row = await trx
+    .selectFrom('meetings.meetings')
+    .select('status')
+    .where('id', '=', meetingId)
+    .forUpdate()
+    .executeTakeFirst()
+  return row?.status ?? null
+}
+
+async function joinedParticipantConsentState(
+  trx: Transaction<Database>,
+  meetingId: string
+): Promise<'empty' | 'consented' | 'missing_consent'> {
+  const participants = await trx
     .selectFrom('meetings.participants')
-    .select('id')
+    .select(['id', 'consent_recording'])
     .where('meeting_id', '=', meetingId)
     .where('joined_at', 'is not', null)
     .where('left_at', 'is', null)
-    .where('consent_recording', '=', false)
-    .executeTakeFirst()
-  return !dissenter
+    .execute()
+  if (participants.length === 0) return 'empty'
+  return participants.some((participant) => !participant.consent_recording)
+    ? 'missing_consent'
+    : 'consented'
 }
 
 export type StartRecordingResult =
   | { ok: true; recording: MeetingRecordingResource }
   | { ok: false; reason: 'meeting_not_found' }
+  | { ok: false; reason: 'meeting_not_live' }
+  | { ok: false; reason: 'no_joined_participants' }
   | { ok: false; reason: 'consent_required' }
+  | { ok: false; reason: 'active_recording' }
 
 export type StartRecordingInput = {
   organizationId: string
@@ -94,10 +110,23 @@ export async function startMeetingRecording(
   input: StartRecordingInput
 ): Promise<StartRecordingResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
-    if (!(await meetingExists(trx, input.meetingId))) {
+    const status = await meetingStatus(trx, input.meetingId)
+    if (!status) {
       return { ok: false, reason: 'meeting_not_found' }
     }
-    if (!(await everyJoinedParticipantConsented(trx, input.meetingId))) {
+    if (status !== 'live') return { ok: false, reason: 'meeting_not_live' }
+    const active = await trx
+      .selectFrom('meetings.recordings')
+      .select('id')
+      .where('meeting_id', '=', input.meetingId)
+      .where('status', '=', 'pending')
+      .executeTakeFirst()
+    if (active) return { ok: false, reason: 'active_recording' }
+    const consentState = await joinedParticipantConsentState(trx, input.meetingId)
+    if (consentState === 'empty') {
+      return { ok: false, reason: 'no_joined_participants' }
+    }
+    if (consentState === 'missing_consent') {
       // recording-needs-consent: refuse to start and audit the refusal.
       await auditMeetingEvent(
         trx,
@@ -135,7 +164,7 @@ export async function startMeetingRecording(
       1,
       'created'
     )
-    return { ok: true, recording: mapRecording(row) }
+    return { ok: true, recording: mapMeetingRecordingRow(row) }
   })
 }
 
@@ -207,7 +236,7 @@ export async function finalizeMeetingRecording(
       newVersion,
       'updated'
     )
-    return { ok: true, recording: mapRecording(updated) }
+    return { ok: true, recording: mapMeetingRecordingRow(updated) }
   })
 }
 
@@ -222,7 +251,7 @@ export async function getMeetingRecording(
       .selectAll()
       .where('id', '=', recordingId)
       .executeTakeFirst()
-    return row ? mapRecording(row) : null
+    return row ? mapMeetingRecordingRow(row) : null
   })
 }
 
@@ -238,6 +267,6 @@ export async function listMeetingRecordings(
       .where('meeting_id', '=', meetingId)
       .orderBy('id', 'asc')
       .execute()
-    return rows.map(mapRecording)
+    return rows.map(mapMeetingRecordingRow)
   })
 }

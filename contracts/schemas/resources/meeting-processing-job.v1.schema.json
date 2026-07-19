@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-processing-job.v1.schema.json",
+  "title": "Meeting recording processing job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "meetingId",
+    "recordingId",
+    "jobType",
+    "status",
+    "attempts",
+    "lastError",
+    "transcriptId",
+    "minutesId",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "meetingId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "recordingId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "jobType": { "enum": ["transcribe", "summarize"] },
+    "status": { "enum": ["queued", "processing", "completed", "failed"] },
+    "attempts": { "type": "integer", "minimum": 0 },
+    "lastError": { "type": ["string", "null"] },
+    "transcriptId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "minutesId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

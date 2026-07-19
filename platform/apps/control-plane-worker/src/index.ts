@@ -1,8 +1,11 @@
+import { createObjectStorage } from '@pie/object-storage-adapter'
 import { createDatabase, createDatabasePool, pingDatabase } from '@pie/persistence'
 import pino from 'pino'
 import { loadWorkerConfig } from './config'
 import { createOutboxClaimLoop, type OutboxBatchSummary } from './outbox-claim-loop'
 import { startWorker } from './worker-runtime'
+import { createMeetingAiClient } from './meeting-ai-client'
+import { createMeetingProcessingLoop } from './meeting-processing-loop'
 
 async function main(): Promise<void> {
   const config = loadWorkerConfig()
@@ -41,6 +44,38 @@ async function main(): Promise<void> {
     }
   })
   claimLoop.start()
+  const meetingStorage = config.meetingProcessing
+    ? createObjectStorage(config.meetingProcessing.objectStorage)
+    : null
+  await meetingStorage?.ensureBucket()
+  const meetingLoop =
+    config.meetingProcessing && meetingStorage
+      ? createMeetingProcessingLoop({
+          db,
+          objectStorage: meetingStorage,
+          ai: createMeetingAiClient({
+            apiKey: config.meetingProcessing.openAiApiKey,
+            baseUrl: config.meetingProcessing.openAiBaseUrl,
+            transcriptionModel: config.meetingProcessing.transcriptionModel,
+            minutesModel: config.meetingProcessing.minutesModel
+          }),
+          workerId: config.workerId,
+          batchSize: Math.min(config.batchSize, 4),
+          leaseMs: Math.max(config.leaseMs, 600_000),
+          pollIntervalMs: config.pollIntervalMs,
+          maxAttempts: config.maxAttempts,
+          baseBackoffMs: config.baseBackoffMs,
+          maxBackoffMs: config.maxBackoffMs,
+          logger
+        })
+      : null
+  meetingLoop?.start()
+  if (!meetingLoop) {
+    logger.warn(
+      { event: 'meeting.processing.disabled' },
+      'meeting transcription and AI minutes are disabled until storage and OpenAI are configured'
+    )
+  }
 
   const metricsTimer = setInterval(() => {
     logger.info({ metric: 'worker.outbox_totals', ...totals }, 'worker metrics')
@@ -52,6 +87,7 @@ async function main(): Promise<void> {
   const close = async (): Promise<void> => {
     clearInterval(metricsTimer)
     claimLoop.stop()
+    meetingLoop?.stop()
     await runtime.stop()
     // Kysely.destroy() ends the underlying pool, so we do not end it separately.
     await db.destroy()

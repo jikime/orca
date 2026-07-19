@@ -114,6 +114,16 @@ export async function createMeetingMinutes(
       })
       .returningAll()
       .executeTakeFirstOrThrow()
+    await trx
+      .insertInto('meetings.minute_revisions')
+      .values({
+        organization_id: input.organizationId,
+        minutes_id: row.id,
+        revision: 1,
+        summary: row.summary,
+        edited_by: input.actorUserId
+      })
+      .execute()
     await auditMeetingEvent(
       trx,
       input.organizationId,
@@ -131,6 +141,115 @@ export async function createMeetingMinutes(
       'created'
     )
     return { ok: true, minutes: mapMinutes(row) }
+  })
+}
+
+export type UpdateMinutesResult =
+  | { ok: true; minutes: MeetingMinutesResource }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'version_conflict'; currentVersion: number }
+  | { ok: false; reason: 'illegal_transition'; from: MinutesStatus }
+
+export async function updateMeetingMinutesDraft(
+  db: Kysely<Database>,
+  input: {
+    organizationId: string
+    actorUserId: string
+    minutesId: string
+    expectedVersion: number
+    summary: string
+  }
+): Promise<UpdateMinutesResult> {
+  return withTenantTransaction(db, input.organizationId, async (trx) => {
+    const current = await trx
+      .selectFrom('meetings.minutes')
+      .selectAll()
+      .where('id', '=', input.minutesId)
+      .forUpdate()
+      .executeTakeFirst()
+    if (!current) return { ok: false, reason: 'not_found' }
+    const currentVersion = Number(current.version)
+    if (currentVersion !== input.expectedVersion) {
+      return { ok: false, reason: 'version_conflict', currentVersion }
+    }
+    const from = current.status as MinutesStatus
+    if (from !== 'draft') return { ok: false, reason: 'illegal_transition', from }
+    if (current.summary === input.summary) return { ok: true, minutes: mapMinutes(current) }
+
+    const version = currentVersion + 1
+    const updated = await trx
+      .updateTable('meetings.minutes')
+      .set({
+        summary: input.summary,
+        // Editing an approved AI draft invalidates the verdict because the reviewed text changed.
+        ...(current.source_type === 'ai'
+          ? { review_status: 'unreviewed', reviewed_by: null, reviewed_at: null }
+          : {}),
+        version,
+        updated_at: sql`now()`
+      })
+      .where('id', '=', input.minutesId)
+      .returningAll()
+      .executeTakeFirstOrThrow()
+    await trx
+      .insertInto('meetings.minute_revisions')
+      .values({
+        organization_id: input.organizationId,
+        minutes_id: input.minutesId,
+        revision: version,
+        summary: input.summary,
+        edited_by: input.actorUserId
+      })
+      .execute()
+    await auditMeetingEvent(
+      trx,
+      input.organizationId,
+      input.actorUserId,
+      'meeting.minutes.updated',
+      'meeting_minutes',
+      input.minutesId
+    )
+    await emitMeetingResourceChange(
+      trx,
+      input.organizationId,
+      'meeting_minutes',
+      input.minutesId,
+      version,
+      'updated'
+    )
+    return { ok: true, minutes: mapMinutes(updated) }
+  })
+}
+
+export type MeetingMinutesRevision = {
+  id: string
+  minutesId: string
+  revision: number
+  summary: string
+  editedBy: string
+  createdAt: string
+}
+
+export async function listMeetingMinutesRevisions(
+  db: Kysely<Database>,
+  organizationId: string,
+  minutesId: string
+): Promise<MeetingMinutesRevision[]> {
+  return withTenantTransaction(db, organizationId, async (trx) => {
+    const rows = await trx
+      .selectFrom('meetings.minute_revisions')
+      .selectAll()
+      .where('minutes_id', '=', minutesId)
+      .orderBy('revision', 'asc')
+      .execute()
+    return rows.map((row) => ({
+      id: row.id,
+      minutesId: row.minutes_id,
+      revision: Number(row.revision),
+      summary: row.summary,
+      editedBy: row.edited_by,
+      createdAt: new Date(row.created_at).toISOString()
+    }))
   })
 }
 

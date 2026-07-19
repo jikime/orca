@@ -14,6 +14,7 @@ import type { StartupCommandDelivery } from '../shared/codex-startup-delivery'
 import type { SleepingAgentLaunchConfig } from '../shared/agent-session-resume'
 import type { MobileRelayStatus } from '../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../shared/mobile-pairing-connection-mode'
+import type { MeetingMediaPreloadApi } from '../shared/meeting-display-source'
 import type {
   BaseRefSearchResult,
   BaseRefDefaultResult,
@@ -509,6 +510,12 @@ const api = {
     pickFloatingWorkspaceDirectory: (): Promise<string | null> =>
       ipcRenderer.invoke('app:pickFloatingWorkspaceDirectory')
   },
+
+  meetingMedia: {
+    listDisplaySources: () => ipcRenderer.invoke('meeting-media:list-display-sources'),
+    selectDisplaySource: (sourceId: string) =>
+      ipcRenderer.invoke('meeting-media:select-display-source', sourceId)
+  } satisfies MeetingMediaPreloadApi,
 
   pie: {
     session: createPieSessionPreloadApi(ipcRenderer),

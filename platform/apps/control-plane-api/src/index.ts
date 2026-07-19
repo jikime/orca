@@ -14,6 +14,7 @@ import { loadDiscoveryConfig } from './discovery-config'
 import { createGatewayConnectionAuthorizer } from './gateway-connection-authorizer'
 import { createKeycloakTokenVerifier } from './keycloak-token-verifier'
 import { loadObjectStorageFromEnv } from './object-storage-config'
+import { loadMeetingMediaFromEnv } from './meeting-media-config'
 import { createRealtimeGateway } from './realtime-gateway'
 
 async function main(): Promise<void> {
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
     logger: pino({ base: { service: config.serviceName } })
   })
   const objectStorage = loadObjectStorageFromEnv()
+  const meetingMedia = loadMeetingMediaFromEnv()
   if (objectStorage) {
     await objectStorage.ensureBucket()
   }
@@ -53,7 +55,8 @@ async function main(): Promise<void> {
     tokenVerifier,
     // Operator bearer for /internal/*; when unset those routes stay open (dev).
     ...(process.env.PIE_OPERATOR_TOKEN ? { operatorToken: process.env.PIE_OPERATOR_TOKEN } : {}),
-    ...(objectStorage ? { objectStorage } : {})
+    ...(objectStorage ? { objectStorage } : {}),
+    ...(meetingMedia ? { meetingMedia } : {})
   })
 
   const close = async (): Promise<void> => {

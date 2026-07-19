@@ -62,6 +62,9 @@ importers:
       jose:
         specifier: ^5.9.6
         version: 5.10.0
+      livekit-server-sdk:
+        specifier: 2.17.0
+        version: 2.17.0
       pg:
         specifier: ^8.13.0
         version: 8.22.0
@@ -87,6 +90,9 @@ importers:
 
   apps/control-plane-worker:
     dependencies:
+      '@pie/object-storage-adapter':
+        specifier: workspace:*
+        version: link:../../packages/object-storage-adapter
       '@pie/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
@@ -216,6 +222,9 @@ packages:
 
   '@balena/dockerignore@1.0.2':
     resolution: {integrity: sha512-wMue2Sy4GAVTk6Ic4tJVcnfdau+gx2EnG7S+uAEe+TWJFqE4YoWN4/H8MSLj4eYJKxGg26lZwboEniNiNwZQ6Q==}
+
+  '@bufbuild/protobuf@1.10.1':
+    resolution: {integrity: sha512-wJ8ReQbHxsAfXhrf9ixl0aYbZorRuOWpBNzm8pL8ftmSxQx/wnJD5Eg861NwJU/czy2VXFIebCeZnZrI9rktIQ==}
 
   '@esbuild/aix-ppc64@0.28.1':
     resolution: {integrity: sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ==}
@@ -421,6 +430,9 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@livekit/protocol@1.50.0':
+    resolution: {integrity: sha512-xbZ2bXE935HH+95dgdKtcCkRHMJD4Cg9tzOm+iui7s1qCJlXs2ejLl4ieYR1EpcDYbYvtSs+/n4PH++Lh6j//A==}
 
   '@oxlint/darwin-arm64@0.15.15':
     resolution: {integrity: sha512-7GOyGM6D36lUhsOvavAVpF72SycPVG0Enunx0bzv8g0+9TklzOSFN3FJlZjLst14VPdZWujZMLgkQC7tOp+Rwg==}
@@ -1150,6 +1162,10 @@ packages:
 
   light-my-request@6.6.0:
     resolution: {integrity: sha512-CHYbu8RtboSIoVsHZ6Ye4cj4Aw/yg2oAFimlF7mNvfDV192LR7nDiKtSIfCuLT7KokPSTn/9kfVLm5OGN0A28A==}
+
+  livekit-server-sdk@2.17.0:
+    resolution: {integrity: sha512-GWNEQrUD13UwZNrmosyTVFPgeBvSU2lFKGxdA4DaUI5F4sMb1cGeep/PPEE9vvRNELJYpxWS0ImS4gQmovKUDA==}
+    engines: {node: '>=18'}
 
   lodash.camelcase@4.3.0:
     resolution: {integrity: sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==}
@@ -1922,6 +1938,8 @@ snapshots:
 
   '@balena/dockerignore@1.0.2': {}
 
+  '@bufbuild/protobuf@1.10.1': {}
+
   '@esbuild/aix-ppc64@0.28.1':
     optional: true
 
@@ -2065,6 +2083,10 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@js-sdsl/ordered-map@4.4.2': {}
+
+  '@livekit/protocol@1.50.0':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.1
 
   '@oxlint/darwin-arm64@0.15.15':
     optional: true
@@ -2792,6 +2814,12 @@ snapshots:
       cookie: 1.1.1
       process-warning: 4.0.1
       set-cookie-parser: 2.7.2
+
+  livekit-server-sdk@2.17.0:
+    dependencies:
+      '@bufbuild/protobuf': 1.10.1
+      '@livekit/protocol': 1.50.0
+      jose: 5.10.0
 
   lodash.camelcase@4.3.0: {}
 

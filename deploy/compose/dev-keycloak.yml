@@ -12,6 +12,9 @@
 # start-dev runs an in-memory dev database and disables production hardening — it
 # is for local iteration ONLY, never a deployed environment. The admin creds below
 # are DEV-ONLY placeholders (admin/admin); production provisions them out of band.
+# The imported realm also allows HTTP because Docker Desktop can classify host
+# loopback traffic as external; production realms must require HTTPS.
+# Seed users: a@pie.test / b@pie.test (password: Test-Passw0rd!).
 #
 # Usage:
 #   docker compose -f deploy/compose/dev-keycloak.yml up -d --wait

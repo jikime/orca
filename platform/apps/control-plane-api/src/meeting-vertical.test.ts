@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { AddressInfo } from 'node:net'
 import {
+  applyMeetingMediaPresenceEvent,
   createDatabase,
   createDatabasePool,
   runMigrations,
@@ -20,6 +21,11 @@ import {
   type ContractSchemaRegistry
 } from './contract-schema-registry'
 import { createTestTokenVerifier, TEST_ISSUER } from './authorization-test-support'
+import {
+  meetingMediaRoomName,
+  type MeetingMediaService,
+  type MeetingMediaWebhookEvent
+} from './meeting-media-service'
 
 let harness: PostgresHarness | null = null
 let pool: Pool
@@ -30,6 +36,38 @@ let baseUrl = ''
 let orgId = ''
 let otherOrgId = ''
 let ownerId = '' // organization_owner: meeting.read + manage + minutes.review
+let memberId = ''
+const closedMediaRooms: string[] = []
+let lastStartedMediaSession: {
+  videoEgressId: string
+  audioEgressId: string
+  transcriptionDispatchId: string | null
+} | null = null
+
+const fakeMeetingMedia: MeetingMediaService = {
+  serverUrl: 'ws://127.0.0.1:7880',
+  ensureRoom: async () => undefined,
+  closeRoom: async (roomName) => {
+    closedMediaRooms.push(roomName)
+  },
+  startRecording: async () => {
+    lastStartedMediaSession = {
+      videoEgressId: `video-${randomUUID()}`,
+      audioEgressId: `audio-${randomUUID()}`,
+      transcriptionDispatchId: null
+    }
+    return lastStartedMediaSession
+  },
+  stopRecording: async () => undefined,
+  issueParticipantToken: async ({ roomName, userId, role }) => ({
+    token: `test-token.${roomName}.${userId}.${role}`,
+    expiresAt: new Date(Date.now() + 300_000).toISOString()
+  }),
+  receiveWebhook: async (rawBody, authorization) => {
+    if (authorization !== 'signed-webhook') throw new Error('invalid signature')
+    return JSON.parse(rawBody) as MeetingMediaWebhookEvent
+  }
+}
 
 function bearerFetch(token: string, path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${baseUrl}${path}`, {
@@ -67,6 +105,7 @@ type RecordingWire = {
 }
 type MinutesWire = {
   id: string
+  summary: string
   sourceType: string
   reviewStatus: string
   reviewedBy: string | null
@@ -153,7 +192,13 @@ beforeAll(async () => {
   await seedRoleManifest(db)
   await seedEntitlementManifest(db)
   registry = createContractSchemaRegistry()
-  app = buildApp({ ping: async () => true, db, registry, tokenVerifier: createTestTokenVerifier() })
+  app = buildApp({
+    ping: async () => true,
+    db,
+    registry,
+    tokenVerifier: createTestTokenVerifier(),
+    meetingMedia: fakeMeetingMedia
+  })
   await app.ready()
   await app.listen({ host: '127.0.0.1', port: 0 })
   baseUrl = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`
@@ -178,12 +223,14 @@ beforeAll(async () => {
     })
   ).userId
   // 'member' holds meeting.read only (no meeting.manage) — the RBAC-deny caller.
-  await seedMembershipFixture(db, {
-    organizationId: orgId,
-    issuer: TEST_ISSUER,
-    subject: 'member',
-    roleIds: ['member']
-  })
+  memberId = (
+    await seedMembershipFixture(db, {
+      organizationId: orgId,
+      issuer: TEST_ISSUER,
+      subject: 'member',
+      roleIds: ['member']
+    })
+  ).userId
   // 'other' is an owner of a DIFFERENT org — cross-tenant isolation.
   await seedMembershipFixture(db, {
     organizationId: otherOrgId,
@@ -199,14 +246,53 @@ afterAll(async () => {
   await harness?.stop()
 })
 
-describe('meeting vertical (R7 meeting metadata plane — media plane deferred to infra)', () => {
+describe('meeting vertical (R7 meeting control plane + LiveKit boundary)', () => {
   it('(a) CONSENT GATE: recording is refused until every joined participant consents, then finalizes', async (ctx) => {
     if (!harness) return ctx.skip()
     const meeting = await createMeeting('owner', { title: 'standup' })
-    const p1 = await addParticipant('owner', meeting.id, { userId: randomUUID(), role: 'host' })
-    const p2 = await addParticipant('owner', meeting.id, { userId: randomUUID() })
+    const p1 = await addParticipant('owner', meeting.id, { userId: ownerId, role: 'host' })
+    const p2 = await addParticipant('owner', meeting.id, { userId: memberId })
     expect(p1.consentRecording).toBe(false)
     expect(p2.consentRecording).toBe(false)
+    const delegatedConsent = await bearerFetch(
+      'owner',
+      mt(orgId, `/meetings/${meeting.id}/participants`),
+      {
+        method: 'POST',
+        body: JSON.stringify({ userId: randomUUID(), consentRecording: true })
+      }
+    )
+    expect(delegatedConsent.status).toBe(400)
+
+    await transition('owner', meeting.id, 'live', meeting.version)
+
+    // Invitations are not presence: an empty room cannot start a recording.
+    const empty = await startRecording('owner', meeting.id)
+    expect(empty.status).toBe(409)
+    expect((await jsonOf<{ code: string }>(empty)).code).toBe('MEETING_EMPTY')
+
+    const joinedAt = new Date().toISOString()
+    await applyMeetingMediaPresenceEvent(db, {
+      organizationId: orgId,
+      meetingId: meeting.id,
+      eventId: randomUUID(),
+      eventType: 'participant_joined',
+      participantUserId: ownerId,
+      occurredAt: joinedAt
+    })
+    await applyMeetingMediaPresenceEvent(db, {
+      organizationId: orgId,
+      meetingId: meeting.id,
+      eventId: randomUUID(),
+      eventType: 'participant_joined',
+      participantUserId: memberId,
+      occurredAt: joinedAt
+    })
+    const joined = await jsonOf<{ items: ParticipantWire[] }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/participants`))
+    )
+    const joinedOwner = joined.items.find((participant) => participant.userId === ownerId)!
+    const joinedMember = joined.items.find((participant) => participant.userId === memberId)!
 
     // Neither consented → start recording refused with 422 CONSENT_REQUIRED.
     const refused = await startRecording('owner', meeting.id)
@@ -214,34 +300,72 @@ describe('meeting vertical (R7 meeting metadata plane — media plane deferred t
     expect((await jsonOf<{ code: string }>(refused)).code).toBe('CONSENT_REQUIRED')
 
     // Only p1 consents → still refused (p2 has not consented).
-    const c1 = await jsonOf<ParticipantWire>(await consent('owner', p1.id, p1.version))
+    const cannotConsentForMember = await consent('owner', joinedMember.id, joinedMember.version)
+    expect(cannotConsentForMember.status).toBe(403)
+    const c1 = await jsonOf<ParticipantWire>(
+      await consent('owner', joinedOwner.id, joinedOwner.version)
+    )
     expect(c1.consentRecording).toBe(true)
     const stillRefused = await startRecording('owner', meeting.id)
     expect(stillRefused.status).toBe(422)
 
     // p2 consents too → recording starts (pending).
-    await consent('owner', p2.id, p2.version)
+    const c2 = await consent('member', joinedMember.id, joinedMember.version)
+    expect(c2.status).toBe(200)
     const started = await startRecording('owner', meeting.id)
     expect(started.status).toBe(201)
     const recording = await jsonOf<RecordingWire>(started)
     expect(recording.status).toBe('pending')
     expect(recording.objectRef).toBeNull()
 
-    // Finalize attaches the opaque object_ref + duration and marks it available (media upload is infra).
-    const objectRef = randomUUID()
-    const finalized = await bearerFetch(
-      'owner',
-      mt(orgId, `/meeting-recordings/${recording.id}:finalize`),
-      {
+    const mediaSession = lastStartedMediaSession!
+    const webhook = (event: MeetingMediaWebhookEvent): Promise<Response> =>
+      fetch(`${baseUrl}/v1/media/livekit/webhook`, {
         method: 'POST',
-        headers: { 'if-match': `"meeting-recording-${recording.version}"` },
-        body: JSON.stringify({ objectRef, durationSeconds: 742 })
-      }
+        headers: {
+          authorization: 'signed-webhook',
+          'content-type': 'application/webhook+json'
+        },
+        body: JSON.stringify(event)
+      })
+    const occurredAt = new Date().toISOString()
+    const audioEvent: MeetingMediaWebhookEvent = {
+      eventId: randomUUID(),
+      eventType: 'egress_ended',
+      roomName: meetingMediaRoomName(orgId, meeting.id),
+      egressId: mediaSession.audioEgressId,
+      succeeded: true,
+      durationSeconds: 742,
+      errorCode: null,
+      occurredAt
+    }
+    expect((await webhook(audioEvent)).status).toBe(204)
+    expect((await webhook(audioEvent)).status).toBe(204)
+    const processing = await jsonOf<{ items: { jobType: string }[] }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/processing-jobs`))
     )
-    expect(finalized.status).toBe(200)
-    const available = await jsonOf<RecordingWire>(finalized)
+    expect(processing.items.map((job) => job.jobType)).toEqual(['transcribe'])
+
+    expect(
+      (
+        await webhook({
+          eventId: randomUUID(),
+          eventType: 'egress_ended',
+          roomName: meetingMediaRoomName(orgId, meeting.id),
+          egressId: mediaSession.videoEgressId,
+          succeeded: true,
+          durationSeconds: 742,
+          errorCode: null,
+          occurredAt
+        })
+      ).status
+    ).toBe(204)
+    const listed = await jsonOf<{ items: RecordingWire[] }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/recordings`))
+    )
+    const available = listed.items.find((item) => item.id === recording.id)!
     expect(available.status).toBe('available')
-    expect(available.objectRef).toBe(objectRef)
+    expect(available.objectRef).toBe(recording.id)
     expect(available.durationSeconds).toBe(742)
   })
 
@@ -264,6 +388,7 @@ describe('meeting vertical (R7 meeting metadata plane — media plane deferred t
       await transition('owner', meeting.id, 'ended', live.version)
     )
     expect(ended.status).toBe('ended')
+    expect(closedMediaRooms).toContain(meetingMediaRoomName(orgId, meeting.id))
     // Record the result: minutes preserved with the meeting.
     const minutesRes = await createMinutes('owner', meeting.id, {
       summary: '# Decisions\n- shipped',
@@ -364,5 +489,119 @@ describe('meeting vertical (R7 meeting metadata plane — media plane deferred t
     const meeting = await createMeeting('owner', { title: 'tenant-bound' })
     const denied = await bearerFetch('other', mt(orgId, `/meetings/${meeting.id}`))
     expect(denied.status).toBe(403)
+  })
+
+  it('(g) media token is live-only and signed presence updates the invited participant', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'media boundary' })
+    const earlyRecording = await startRecording('owner', meeting.id)
+    expect(earlyRecording.status).toBe(409)
+    expect((await jsonOf<{ code: string }>(earlyRecording)).code).toBe('MEETING_NOT_LIVE')
+    const early = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/media-token`), {
+      method: 'POST'
+    })
+    expect(early.status).toBe(409)
+
+    const live = await jsonOf<MeetingWire>(
+      await transition('owner', meeting.id, 'live', meeting.version)
+    )
+    const issued = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/media-token`), {
+      method: 'POST'
+    })
+    expect(issued.status).toBe(200)
+    const join = await jsonOf<{
+      serverUrl: string
+      roomName: string
+      token: string
+      participant: ParticipantWire
+    }>(issued)
+    expect(join.serverUrl).toBe('ws://127.0.0.1:7880')
+    expect(join.roomName).toBe(meetingMediaRoomName(orgId, meeting.id))
+    expect(join.token).toContain(ownerId)
+    expect(join.participant.userId).toBe(ownerId)
+
+    const webhook = await fetch(`${baseUrl}/v1/media/livekit/webhook`, {
+      method: 'POST',
+      headers: {
+        authorization: 'signed-webhook',
+        'content-type': 'application/webhook+json'
+      },
+      body: JSON.stringify({
+        eventId: randomUUID(),
+        eventType: 'participant_joined',
+        roomName: join.roomName,
+        participantIdentity: ownerId,
+        occurredAt: new Date().toISOString()
+      })
+    })
+    expect(webhook.status).toBe(204)
+    const current = await jsonOf<{ items: Array<ParticipantWire & { joinedAt: string | null }> }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/participants`))
+    )
+    expect(
+      current.items.find((participant) => participant.userId === ownerId)?.joinedAt
+    ).not.toBeNull()
+
+    const uninvited = await bearerFetch(
+      'member',
+      mt(orgId, `/meetings/${meeting.id}/media-token`),
+      { method: 'POST' }
+    )
+    expect(uninvited.status).toBe(403)
+    const rejectedWebhook = await fetch(`${baseUrl}/v1/media/livekit/webhook`, {
+      method: 'POST',
+      headers: {
+        authorization: 'invalid-webhook',
+        'content-type': 'application/webhook+json'
+      },
+      body: '{}'
+    })
+    expect(rejectedWebhook.status).toBe(401)
+    expect(live.status).toBe('live')
+  })
+
+  it('(h) editable minutes keep immutable revisions and finalized minutes are read-only', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'minutes revisions' })
+    const initial = await jsonOf<MinutesWire>(
+      await createMinutes('owner', meeting.id, { summary: 'first draft', sourceType: 'manual' })
+    )
+    const updatedResponse = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-minutes/${initial.id}`),
+      {
+        method: 'PATCH',
+        headers: { 'if-match': `"meeting-minutes-${initial.version}"` },
+        body: JSON.stringify({ summary: 'second draft' })
+      }
+    )
+    expect(updatedResponse.status).toBe(200)
+    const updated = await jsonOf<MinutesWire>(updatedResponse)
+    expect(updated.summary).toBe('second draft')
+    expect(updated.version).toBe(initial.version + 1)
+
+    const revisions = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-minutes/${initial.id}/revisions`)
+    )
+    expect(revisions.status).toBe(200)
+    expect((await jsonOf<{ items: unknown[] }>(revisions)).items).toHaveLength(2)
+
+    const stale = await bearerFetch('owner', mt(orgId, `/meeting-minutes/${initial.id}`), {
+      method: 'PATCH',
+      headers: { 'if-match': `"meeting-minutes-${initial.version}"` },
+      body: JSON.stringify({ summary: 'stale write' })
+    })
+    expect(stale.status).toBe(409)
+
+    const finalized = await jsonOf<MinutesWire>(
+      await finalizeMinutes('owner', updated.id, updated.version)
+    )
+    const immutable = await bearerFetch('owner', mt(orgId, `/meeting-minutes/${initial.id}`), {
+      method: 'PATCH',
+      headers: { 'if-match': `"meeting-minutes-${finalized.version}"` },
+      body: JSON.stringify({ summary: 'changed after finalize' })
+    })
+    expect(immutable.status).toBe(409)
   })
 })

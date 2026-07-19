@@ -13393,6 +13393,96 @@
           "accountid": "账户编号",
           "body": "描述"
         }
+      },
+      "meetings": {
+        "LiveMeetingRoom": {
+          "ready": "Ready to join",
+          "devicesOff": "Your microphone and camera stay off until you enable them.",
+          "joining": "Joining…",
+          "join": "Join meeting",
+          "participantCount": "{{value0}} connected",
+          "consentGranted": "Recording allowed",
+          "consentMissing": "Recording not allowed",
+          "mute": "Mute",
+          "unmute": "Unmute",
+          "cameraOff": "Stop camera",
+          "cameraOn": "Start camera",
+          "revokeConsent": "Revoke consent",
+          "grantConsent": "Allow recording",
+          "leave": "Leave",
+          "screenOff": "Stop sharing",
+          "screenOn": "Share screen"
+        },
+        "MeetingDetail": {
+          "noScope": "Organization meeting",
+          "scope": "{{value0}} · {{value1}}",
+          "recordingReady": "Recording ready",
+          "recordingBlocked": "Waiting for recording consent",
+          "start": "Start meeting",
+          "end": "End meeting",
+          "scheduledTitle": "This meeting has not started",
+          "endedTitle": "This meeting has ended",
+          "scheduledBody": "Invite participants and prepare the minutes before going live.",
+          "endedBody": "The media room is closed. Minutes and participant history remain available."
+        },
+        "MeetingMinutesPanel": {
+          "title": "Meeting minutes",
+          "finalized": "Finalized",
+          "draft": "Draft",
+          "loading": "Loading minutes…",
+          "placeholder": "Capture the discussion, decisions, owners, and next actions…",
+          "revisions": "{{value0}} saved revision(s)",
+          "create": "Create draft",
+          "save": "Save",
+          "finalize": "Finalize",
+          "ai": "AI draft",
+          "manual": "Manual",
+          "approve": "Approve",
+          "reject": "Reject"
+        },
+        "MeetingParticipantTile": {
+          "you": "{{value0}} (you)"
+        },
+        "MeetingParticipantsPanel": {
+          "title": "Participants",
+          "userId": "Organization user ID",
+          "invite": "Invite",
+          "loading": "Loading…",
+          "empty": "The host will be added when they join.",
+          "recordingConsent": "Recording consent",
+          "connected": "Connected",
+          "notConnected": "Not connected"
+        },
+        "MeetingWorkspace": {
+          "title": "Meetings",
+          "new": "New meeting",
+          "meetingTitle": "Meeting title",
+          "scopeNone": "Organization",
+          "scopeProject": "Project",
+          "scopeTicket": "Ticket",
+          "scopeId": "Scope ID",
+          "create": "Create",
+          "cancel": "Cancel",
+          "loading": "Loading meetings…",
+          "empty": "Create a meeting to start a call and capture minutes.",
+          "selectTitle": "Select a meeting",
+          "selectBody": "Open a meeting to manage the call, participants, and minutes."
+        },
+        "MeetingDisplaySourceDialog": {
+          "title": "Share a screen or window",
+          "description": "Only the source you choose will be visible to meeting participants.",
+          "cancel": "Cancel"
+        },
+        "MeetingRecordingPanel": {
+          "title": "Recording & transcript",
+          "finalizing": "Finalizing",
+          "recording": "Recording",
+          "start": "Start recording",
+          "stop": "Stop",
+          "play": "Play latest",
+          "consent": "Every connected participant must allow recording first.",
+          "transcript": "Post-meeting transcript"
+        }
       }
     }
   },

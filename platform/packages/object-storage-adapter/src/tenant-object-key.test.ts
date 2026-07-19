@@ -16,7 +16,7 @@ describe('tenant object key builder', () => {
     const orgB = randomUUID()
     const builderA = createTenantObjectKeyBuilder(orgA)
     // There is no API to target another org; every key stays under orgA.
-    for (const zone of ['artifacts', 'transcripts', 'attachments'] as const) {
+    for (const zone of ['artifacts', 'transcripts', 'attachments', 'recordings'] as const) {
       const { storageKey } = builderA.newKey(zone)
       expect(storageKey.startsWith(`org/${orgA}/`)).toBe(true)
       expect(storageKey.startsWith(`org/${orgB}/`)).toBe(false)
@@ -33,6 +33,7 @@ describe('tenant object key builder', () => {
     expect(builder.keyForObject('artifacts', objectId)).toContain('/artifacts/')
     expect(builder.keyForObject('transcripts', objectId)).toContain('/transcripts/')
     expect(builder.keyForObject('artifacts', objectId)).not.toContain('/transcripts/')
+    expect(builder.keyForObject('recordings', objectId)).toContain('/recordings/')
   })
 
   it('rejects a non-UUID organization', () => {

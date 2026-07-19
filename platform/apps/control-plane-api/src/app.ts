@@ -36,6 +36,12 @@ import { registerGovernanceRoutes } from './governance-routes'
 import { registerKnowledgeRoutes } from './knowledge-routes'
 import { registerAutomationRoutes } from './automation-routes'
 import { registerMeetingRoutes } from './meeting-routes'
+import {
+  registerMeetingMediaTokenRoute,
+  registerMeetingMediaWebhookRoute
+} from './meeting-media-routes'
+import type { MeetingMediaService } from './meeting-media-service'
+import { registerMeetingMinutesEditRoutes } from './meeting-minutes-edit-routes'
 import { registerAiGovernanceRoutes } from './ai-governance-routes'
 import { registerAssetRoutes } from './asset-routes'
 import { registerFinanceRoutes } from './finance-routes'
@@ -70,6 +76,7 @@ export type BuildAppDeps = HealthDeps & {
   registry?: ContractSchemaRegistry
   gateway?: RealtimeGateway
   objectStorage?: ObjectStorage
+  meetingMedia?: MeetingMediaService
   discoveryConfig?: DiscoveryConfig
   // Enables the token-authenticated identity routes (session/memberships/
   // provisioning). Omitted by the dependency-light unit tests.
@@ -109,6 +116,12 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
         done(error as Error, undefined)
       }
     }
+  )
+
+  app.addContentTypeParser(
+    'application/webhook+json',
+    { parseAs: 'string' },
+    (_request, body, done) => done(null, body as string)
   )
 
   app.decorateRequest('traceId', '')
@@ -181,6 +194,9 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       registry: deps.registry,
       operatorToken: deps.operatorToken
     })
+    if (deps.meetingMedia) {
+      registerMeetingMediaWebhookRoute(app, { db: deps.db, media: deps.meetingMedia })
+    }
   }
 
   if (deps.db && deps.registry && deps.tokenVerifier) {
@@ -202,7 +218,20 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerKnowledgeRoutes(app, { db: deps.db, registry: deps.registry })
     registerAutomationRoutes(app, { db: deps.db, registry: deps.registry })
     registerAiGovernanceRoutes(app, { db: deps.db, registry: deps.registry })
-    registerMeetingRoutes(app, { db: deps.db, registry: deps.registry })
+    registerMeetingRoutes(app, {
+      db: deps.db,
+      registry: deps.registry,
+      ...(deps.meetingMedia ? { media: deps.meetingMedia } : {}),
+      ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {})
+    })
+    registerMeetingMinutesEditRoutes(app, { db: deps.db, registry: deps.registry })
+    if (deps.meetingMedia) {
+      registerMeetingMediaTokenRoute(app, {
+        db: deps.db,
+        registry: deps.registry,
+        media: deps.meetingMedia
+      })
+    }
     registerAssetRoutes(app, { db: deps.db, registry: deps.registry })
     registerFinanceRoutes(app, { db: deps.db, registry: deps.registry })
     registerServiceTicketRoutes(app, { db: deps.db, registry: deps.registry })

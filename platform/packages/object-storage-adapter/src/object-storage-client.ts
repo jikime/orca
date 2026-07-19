@@ -39,6 +39,7 @@ export type ObjectStorage = {
   // so a revoked member simply stops being able to obtain one (same property as R2).
   presignGet: (storageKey: string, options?: PresignGetOptions) => Promise<string>
   head: (storageKey: string) => Promise<ObjectHeadResult>
+  getObjectBytes: (storageKey: string) => Promise<Uint8Array>
   ensureBucket: () => Promise<void>
   // Dev/test convenience: production clients upload via the presigned URL.
   putObject: (storageKey: string, body: Uint8Array | string, contentType: string) => Promise<void>
@@ -93,6 +94,13 @@ export function createObjectStorage(config: ObjectStorageConfig): ObjectStorage 
         }
         throw error
       }
+    },
+    getObjectBytes: async (storageKey) => {
+      const result = await client.send(
+        new GetObjectCommand({ Bucket: config.bucket, Key: storageKey })
+      )
+      if (!result.Body) throw new Error(`object body is empty: ${storageKey}`)
+      return result.Body.transformToByteArray()
     },
     ensureBucket: async () => {
       try {

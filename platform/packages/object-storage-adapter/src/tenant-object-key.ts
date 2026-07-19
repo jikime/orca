@@ -3,7 +3,12 @@ import { randomUUID } from 'node:crypto'
 // Isolation zones (ADR-0006): objects of different purposes live under distinct
 // key-prefix zones so lifecycle/retention/policy can differ per zone and one zone
 // can never address another's objects.
-export const OBJECT_STORAGE_ZONES = ['artifacts', 'transcripts', 'attachments'] as const
+export const OBJECT_STORAGE_ZONES = [
+  'artifacts',
+  'transcripts',
+  'attachments',
+  'recordings'
+] as const
 export type ObjectStorageZone = (typeof OBJECT_STORAGE_ZONES)[number]
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

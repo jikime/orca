@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-media-token.v1.schema.json",
+  "title": "Meeting media join token",
+  "description": "A short-lived LiveKit room token. The API secret is never exposed to clients.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["serverUrl", "roomName", "token", "expiresAt", "participant"],
+  "properties": {
+    "serverUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(wss://|ws://127\\.0\\.0\\.1(?::[0-9]+)?(?:/|$)|ws://\\[::1\\](?::[0-9]+)?(?:/|$))"
+    },
+    "roomName": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "token": { "type": "string", "minLength": 1 },
+    "expiresAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "participant": {
+      "$ref": "https://schemas.pielab.ai/resources/meeting-participant.v1.schema.json"
+    }
+  }
+}

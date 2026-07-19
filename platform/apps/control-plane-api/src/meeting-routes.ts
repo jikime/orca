@@ -1,17 +1,24 @@
 import {
   addMeetingParticipant,
+  attachMeetingRecordingMedia,
   createMeeting,
   createMeetingMinutes,
   createMeetingTranscript,
   finalizeMeetingMinutes,
   finalizeMeetingRecording,
+  failMeetingRecordingStart,
+  getMeetingRecording,
+  getMeetingRecordingControlState,
   getMeeting,
   getMeetingMinutes,
   listMeetingMinutes,
   listMeetingParticipants,
+  listMeetingProcessingJobs,
   listMeetingRecordings,
+  listActiveMeetingRecordingControlStates,
   listMeetingTranscripts,
   listMeetings,
+  markMeetingRecordingStopped,
   reviewMeetingMinutes,
   setMeetingParticipantConsent,
   startMeetingRecording,
@@ -23,11 +30,13 @@ import {
   type PieDatabase,
   type TranscriptSource
 } from '@pie/persistence'
+import { createTenantObjectKeyBuilder, type ObjectStorage } from '@pie/object-storage-adapter'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ContractSchemaRegistry } from './contract-schema-registry'
 import { beginIdempotency } from './idempotent-mutation'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
 import { authorizeOrgPermission } from './route-authorization'
+import { meetingMediaRoomName, type MeetingMediaService } from './meeting-media-service'
 
 const SCHEMA = {
   meeting: 'https://schemas.pielab.ai/resources/meeting.v1.schema.json',
@@ -38,10 +47,13 @@ const SCHEMA = {
   participantConsent:
     'https://schemas.pielab.ai/resources/meeting-participant-consent.v1.schema.json',
   recording: 'https://schemas.pielab.ai/resources/meeting-recording.v1.schema.json',
+  recordingPlayback:
+    'https://schemas.pielab.ai/resources/meeting-recording-playback.v1.schema.json',
   recordingFinalize:
     'https://schemas.pielab.ai/resources/meeting-recording-finalize.v1.schema.json',
   transcript: 'https://schemas.pielab.ai/resources/meeting-transcript.v1.schema.json',
   transcriptCreate: 'https://schemas.pielab.ai/resources/meeting-transcript-create.v1.schema.json',
+  processingJob: 'https://schemas.pielab.ai/resources/meeting-processing-job.v1.schema.json',
   minutes: 'https://schemas.pielab.ai/resources/meeting-minutes.v1.schema.json',
   minutesCreate: 'https://schemas.pielab.ai/resources/meeting-minutes-create.v1.schema.json',
   minutesReview: 'https://schemas.pielab.ai/resources/meeting-minutes-review.v1.schema.json'
@@ -55,7 +67,12 @@ const PERM_MINUTES_REVIEW = 'meeting.minutes.review'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export type MeetingRoutesDeps = { db: PieDatabase; registry: ContractSchemaRegistry }
+export type MeetingRoutesDeps = {
+  db: PieDatabase
+  registry: ContractSchemaRegistry
+  media?: MeetingMediaService
+  objectStorage?: ObjectStorage
+}
 
 function problem(
   reply: FastifyReply,
@@ -139,6 +156,7 @@ export function registerMeetingRoutes(app: FastifyInstance, deps: MeetingRoutesD
   registerMeetingCollection(app, deps)
   registerParticipantRoutes(app, deps)
   registerRecordingRoutes(app, deps)
+  registerProcessingJobRoutes(app, deps)
   registerTranscriptRoutes(app, deps)
   registerMinutesRoutes(app, deps)
 }
@@ -295,6 +313,35 @@ async function transitionMeetingHandler(
       `cannot move a meeting from ${result.from} to ${toStatus}`
     )
   }
+  if (deps.media && (toStatus === 'ended' || toStatus === 'cancelled')) {
+    try {
+      const roomName = meetingMediaRoomName(organizationId, meetingId)
+      const recordings = await listActiveMeetingRecordingControlStates(
+        deps.db,
+        organizationId,
+        meetingId
+      )
+      await Promise.allSettled(
+        recordings.map(async (recording) => {
+          await deps.media!.stopRecording({
+            roomName,
+            videoEgressId: recording.videoEgressId,
+            audioEgressId: recording.audioEgressId,
+            transcriptionDispatchId: recording.transcriptionDispatchId
+          })
+          await markMeetingRecordingStopped(deps.db, {
+            organizationId,
+            actorUserId: auth.userId,
+            recordingId: recording.id
+          })
+        })
+      )
+      // Closing happens after stop requests so Egress can flush valid file trailers before ejection.
+      await deps.media.closeRoom(meetingMediaRoomName(organizationId, meetingId))
+    } catch (error) {
+      request.log.error({ err: error }, 'failed to close ended meeting media room')
+    }
+  }
   assertResponse(deps.registry, SCHEMA.meeting, result.meeting)
   void reply.header('etag', etag('meeting', result.meeting.version))
   return result.meeting
@@ -346,15 +393,13 @@ async function addParticipantHandler(
   const body = request.body as {
     userId: string
     role?: 'host' | 'participant'
-    consentRecording?: boolean
   }
   const result = await addMeetingParticipant(deps.db, {
     organizationId,
     actorUserId: auth.userId,
     meetingId,
     userId: body.userId,
-    ...(body.role ? { role: body.role } : {}),
-    ...(body.consentRecording === undefined ? {} : { consentRecording: body.consentRecording })
+    ...(body.role ? { role: body.role } : {})
   })
   if (!result.ok) {
     if (result.reason === 'meeting_not_found')
@@ -379,7 +424,7 @@ async function consentParticipantHandler(
   const { id: participantId, action } = parseTarget(participantTarget)
   if (action !== 'consent')
     return problem(reply, request, 404, 'NOT_FOUND', 'unknown participant action')
-  const auth = await guard(deps, app, request, reply, organizationId, PERM_MANAGE)
+  const auth = await guard(deps, app, request, reply, organizationId, PERM_READ)
   if (!auth) return reply
   if (!UUID_PATTERN.test(participantId))
     return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
@@ -399,6 +444,14 @@ async function consentParticipantHandler(
   if (!result.ok) {
     if (result.reason === 'not_found')
       return problem(reply, request, 404, 'NOT_FOUND', 'participant not found')
+    if (result.reason === 'participant_user_mismatch')
+      return problem(
+        reply,
+        request,
+        403,
+        'FORBIDDEN',
+        'recording consent can only be changed by that participant'
+      )
     return problem(reply, request, 409, 'VERSION_CONFLICT', 'participant modified concurrently')
   }
   assertResponse(deps.registry, SCHEMA.participant, result.participant)
@@ -427,6 +480,10 @@ function registerRecordingRoutes(app: FastifyInstance, deps: MeetingRoutesDeps):
       return { items }
     }
   )
+  app.get(
+    '/v1/organizations/:organizationId/meeting-recordings/:recordingId/playback',
+    (request, reply) => recordingPlaybackHandler(app, deps, request, reply)
+  )
   app.post(
     '/v1/organizations/:organizationId/meeting-recordings/:recordingTarget',
     (request, reply) => finalizeRecordingHandler(app, deps, request, reply)
@@ -445,6 +502,9 @@ async function startRecordingHandler(
   }
   const auth = await guard(deps, app, request, reply, organizationId, PERM_MANAGE)
   if (!auth) return reply
+  if (!deps.media) {
+    return problem(reply, request, 503, 'MEDIA_UNAVAILABLE', 'meeting media is unavailable')
+  }
   if (!UUID_PATTERN.test(meetingId))
     return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
   const result = await startMeetingRecording(deps.db, {
@@ -455,6 +515,24 @@ async function startRecordingHandler(
   if (!result.ok) {
     if (result.reason === 'meeting_not_found')
       return problem(reply, request, 404, 'NOT_FOUND', 'meeting not found')
+    if (result.reason === 'meeting_not_live')
+      return problem(reply, request, 409, 'MEETING_NOT_LIVE', 'meeting is not live')
+    if (result.reason === 'no_joined_participants')
+      return problem(
+        reply,
+        request,
+        409,
+        'MEETING_EMPTY',
+        'recording requires at least one joined participant'
+      )
+    if (result.reason === 'active_recording')
+      return problem(
+        reply,
+        request,
+        409,
+        'RECORDING_ALREADY_ACTIVE',
+        'this meeting already has an active recording'
+      )
     // recording-needs-consent: refuse to start while any joined participant has not consented.
     return problem(
       reply,
@@ -464,9 +542,38 @@ async function startRecordingHandler(
       'every joined participant must grant recording consent before recording may start'
     )
   }
-  assertResponse(deps.registry, SCHEMA.recording, result.recording)
-  void reply.code(201).header('etag', etag('meeting-recording', result.recording.version))
-  return result.recording
+  try {
+    const roomName = meetingMediaRoomName(organizationId, meetingId)
+    const session = await deps.media.startRecording({
+      roomName,
+      organizationId,
+      meetingId,
+      recordingId: result.recording.id
+    })
+    const attached = await attachMeetingRecordingMedia(deps.db, {
+      organizationId,
+      actorUserId: auth.userId,
+      recordingId: result.recording.id,
+      expectedVersion: result.recording.version,
+      ...session
+    })
+    if (!attached) {
+      await deps.media.stopRecording({ roomName, ...session })
+      throw new Error('recording changed before media attachment')
+    }
+    assertResponse(deps.registry, SCHEMA.recording, attached)
+    void reply.code(201).header('etag', etag('meeting-recording', attached.version))
+    return attached
+  } catch (error) {
+    request.log.error({ err: error }, 'failed to start LiveKit recording egress')
+    await failMeetingRecordingStart(deps.db, {
+      organizationId,
+      actorUserId: auth.userId,
+      recordingId: result.recording.id,
+      errorCode: 'MEDIA_EGRESS_START_FAILED'
+    })
+    return problem(reply, request, 503, 'RECORDING_UNAVAILABLE', 'recording is unavailable')
+  }
 }
 
 async function finalizeRecordingHandler(
@@ -480,6 +587,9 @@ async function finalizeRecordingHandler(
     recordingTarget: string
   }
   const { id: recordingId, action } = parseTarget(recordingTarget)
+  if (action === 'stop') {
+    return stopRecordingHandler(app, deps, request, reply, organizationId, recordingId)
+  }
   if (action !== 'finalize')
     return problem(reply, request, 404, 'NOT_FOUND', 'unknown recording action')
   const auth = await guard(deps, app, request, reply, organizationId, PERM_MANAGE)
@@ -517,6 +627,98 @@ async function finalizeRecordingHandler(
   assertResponse(deps.registry, SCHEMA.recording, result.recording)
   void reply.header('etag', etag('meeting-recording', result.recording.version))
   return result.recording
+}
+
+async function stopRecordingHandler(
+  app: FastifyInstance,
+  deps: MeetingRoutesDeps,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  organizationId: string,
+  recordingId: string
+): Promise<unknown> {
+  const auth = await guard(deps, app, request, reply, organizationId, PERM_MANAGE)
+  if (!auth) return reply
+  if (!UUID_PATTERN.test(recordingId))
+    return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+  if (!deps.media)
+    return problem(reply, request, 503, 'MEDIA_UNAVAILABLE', 'meeting media is unavailable')
+  const recording = await getMeetingRecordingControlState(deps.db, organizationId, recordingId)
+  if (!recording) return problem(reply, request, 404, 'NOT_FOUND', 'recording not found')
+  if (recording.status !== 'pending')
+    return problem(reply, request, 409, 'RECORDING_NOT_ACTIVE', 'recording is not active')
+  try {
+    await deps.media.stopRecording({
+      roomName: meetingMediaRoomName(organizationId, recording.meetingId),
+      videoEgressId: recording.videoEgressId,
+      audioEgressId: recording.audioEgressId,
+      transcriptionDispatchId: recording.transcriptionDispatchId
+    })
+  } catch (error) {
+    request.log.error({ err: error }, 'failed to stop LiveKit recording egress')
+    return problem(reply, request, 503, 'RECORDING_UNAVAILABLE', 'recording could not be stopped')
+  }
+  const updated = await markMeetingRecordingStopped(deps.db, {
+    organizationId,
+    actorUserId: auth.userId,
+    recordingId
+  })
+  if (!updated)
+    return problem(reply, request, 409, 'RECORDING_NOT_ACTIVE', 'recording is not active')
+  assertResponse(deps.registry, SCHEMA.recording, updated)
+  void reply.header('etag', etag('meeting-recording', updated.version))
+  return updated
+}
+
+async function recordingPlaybackHandler(
+  app: FastifyInstance,
+  deps: MeetingRoutesDeps,
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<unknown> {
+  const { organizationId, recordingId } = request.params as {
+    organizationId: string
+    recordingId: string
+  }
+  const auth = await guard(deps, app, request, reply, organizationId, PERM_READ)
+  if (!auth) return reply
+  if (!UUID_PATTERN.test(recordingId))
+    return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+  if (!deps.objectStorage)
+    return problem(reply, request, 503, 'STORAGE_UNAVAILABLE', 'recording storage is unavailable')
+  const recording = await getMeetingRecording(deps.db, organizationId, recordingId)
+  if (!recording) return problem(reply, request, 404, 'NOT_FOUND', 'recording not found')
+  if (recording.status !== 'available' || !recording.objectRef)
+    return problem(reply, request, 409, 'RECORDING_NOT_AVAILABLE', 'recording is not available')
+  const key = `${createTenantObjectKeyBuilder(organizationId).keyForObject(
+    'recordings',
+    recording.objectRef
+  )}.mp4`
+  const response = {
+    url: await deps.objectStorage.presignGet(key, { expiresInSeconds: 300 }),
+    expiresAt: new Date(Date.now() + 300_000).toISOString()
+  }
+  assertResponse(deps.registry, SCHEMA.recordingPlayback, response)
+  return response
+}
+
+function registerProcessingJobRoutes(app: FastifyInstance, deps: MeetingRoutesDeps): void {
+  app.get(
+    '/v1/organizations/:organizationId/meetings/:meetingId/processing-jobs',
+    async (request, reply) => {
+      const { organizationId, meetingId } = request.params as {
+        organizationId: string
+        meetingId: string
+      }
+      const auth = await guard(deps, app, request, reply, organizationId, PERM_READ)
+      if (!auth) return reply
+      if (!UUID_PATTERN.test(meetingId))
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      const items = await listMeetingProcessingJobs(deps.db, organizationId, meetingId)
+      for (const item of items) assertResponse(deps.registry, SCHEMA.processingJob, item)
+      return { items }
+    }
+  )
 }
 
 // === transcripts ===

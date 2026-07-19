@@ -37,6 +37,7 @@ describe('object storage presign round-trip', () => {
     if (head.exists) {
       expect(head.sizeBytes).toBe(Buffer.byteLength(body))
     }
+    expect(new TextDecoder().decode(await storage.getObjectBytes(key))).toBe(body)
   })
 
   it('reports a missing object as not existing', async (ctx) => {

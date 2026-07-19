@@ -11,9 +11,6 @@
     },
     "role": {
       "enum": ["host", "participant"]
-    },
-    "consentRecording": {
-      "type": "boolean"
     }
   }
 }

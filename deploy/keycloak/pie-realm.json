@@ -2,7 +2,7 @@
   "realm": "pie",
   "enabled": true,
   "displayName": "Pie",
-  "sslRequired": "external",
+  "sslRequired": "none",
   "registrationAllowed": true,
   "registrationEmailAsUsername": true,
   "verifyEmail": true,
@@ -39,6 +39,42 @@
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "21dbba6d-0046-47c0-a0c4-d8d0a3a56d45",
+      "username": "a@pie.test",
+      "email": "a@pie.test",
+      "firstName": "a",
+      "lastName": "Tester",
+      "emailVerified": true,
+      "enabled": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Test-Passw0rd!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "1919c28b-ac52-43ce-8742-ec2e211ca531",
+      "username": "b@pie.test",
+      "email": "b@pie.test",
+      "firstName": "b",
+      "lastName": "Tester",
+      "emailVerified": true,
+      "enabled": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Test-Passw0rd!",
+          "temporary": false
         }
       ]
     }

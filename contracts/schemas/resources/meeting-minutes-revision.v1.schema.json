@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-minutes-revision.v1.schema.json",
+  "title": "Meeting minutes revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "minutesId", "revision", "summary", "editedBy", "createdAt"],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "minutesId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "summary": { "type": "string" },
+    "editedBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

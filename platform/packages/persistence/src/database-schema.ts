@@ -1231,9 +1231,21 @@ export interface MeetingParticipantsTable {
   consent_recording: Generated<boolean>
   joined_at: NullableTimestampColumn
   left_at: NullableTimestampColumn
+  presence_observed_at: NullableTimestampColumn
   version: DefaultedBigIntColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
+}
+
+// Signed LiveKit delivery ids make participant presence replay-safe and retain the media-plane
+// observation that drove each control-plane update.
+export interface MeetingMediaEventsTable {
+  organization_id: string
+  event_id: string
+  meeting_id: string
+  event_type: string
+  occurred_at: TimestampColumn
+  received_at: TimestampColumn
 }
 
 // A recording reference (the media upload is infra). object_ref is the OPAQUE storage object id set at
@@ -1246,7 +1258,32 @@ export interface MeetingRecordingsTable {
   status: Generated<string>
   duration_seconds: number | null
   started_at: TimestampColumn
+  video_egress_id: string | null
+  audio_egress_id: string | null
+  transcription_dispatch_id: string | null
+  stopped_at: NullableTimestampColumn
+  error_code: string | null
   version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+// Leased post-processing work. The worker claims globally under pie_worker, then re-enters the
+// tenant boundary to persist the transcript and review-gated AI minutes.
+export interface MeetingProcessingJobsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  recording_id: string
+  job_type: string
+  status: Generated<string>
+  attempts: Generated<number>
+  available_at: TimestampColumn
+  leased_until: NullableTimestampColumn
+  worker_id: string | null
+  last_error: string | null
+  transcript_id: string | null
+  minutes_id: string | null
   created_at: TimestampColumn
   updated_at: TimestampColumn
 }
@@ -1283,6 +1320,16 @@ export interface MeetingMinutesTable {
   version: DefaultedBigIntColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
+}
+
+export interface MeetingMinuteRevisionsTable {
+  organization_id: string
+  id: Generated<string>
+  minutes_id: string
+  revision: BigIntColumn
+  summary: string
+  edited_by: string
+  created_at: TimestampColumn
 }
 
 // === R8 asset registry / CMDB (20260901090001) ===
@@ -1737,9 +1784,12 @@ export interface Database {
   'ai.guard_events': AiGuardEventsTable
   'meetings.meetings': MeetingsTable
   'meetings.participants': MeetingParticipantsTable
+  'meetings.media_events': MeetingMediaEventsTable
   'meetings.recordings': MeetingRecordingsTable
+  'meetings.processing_jobs': MeetingProcessingJobsTable
   'meetings.transcripts': MeetingTranscriptsTable
   'meetings.minutes': MeetingMinutesTable
+  'meetings.minute_revisions': MeetingMinuteRevisionsTable
   'assets.assets': AssetsTable
   'assets.asset_links': AssetLinksTable
   'assets.asset_events': AssetEventsTable
