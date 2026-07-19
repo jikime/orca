@@ -5880,7 +5880,8 @@
           "aa1263e881": "保持手机尺寸（默认）",
           "6436e56546": "用于手机配对的二维码",
           "1b1b70279a": "尚未配对任何设备。",
-          "1592afcc7a": "尚未配对任何设备。使用 Orca 手机应用程序扫描二维码。"
+          "1592afcc7a": "尚未配对任何设备。使用 Orca 手机应用程序扫描二维码。",
+          "relayDegradedNotice": "Relay couldn’t be reached — this code only works on your local network. Regenerate to try again."
         },
         "MobileSettingsPane": {
           "9a3c280e49": "GitHub 发布",
@@ -5891,7 +5892,10 @@
           "174f4a3c6d": "通过手机控制终端和智能体。",
           "1de96ec8a6": "显示 Orca 手机端按钮",
           "682293cadf": "在左侧边栏顶部显示 Orca 手机端按钮。",
-          "d4f2b65f30": "在边栏中显示 Orca 手机端 快捷入口。"
+          "d4f2b65f30": "在边栏中显示 Orca 手机端 快捷入口。",
+          "installIntro": "从以下应用商店安装 Orca Mobile",
+          "installOutro": "，然后在下方配对。",
+          "androidApkLabel": "Android APK"
         },
         "NotificationsPane": {
           "906b4afebf": "发送测试通知",
@@ -7982,7 +7986,7 @@
               "6db86f445f": "移动端",
               "707fc78052": "选择关闭应用程序或切换离开后，您在手机设备上查看的终端会发生什么情况。",
               "1e711aca11": "当您离开手机应用程序时",
-              "126afc5dbd": "偏僻的",
+              "126afc5dbd": "远程",
               "70f505f3c3": "局域网",
               "1802188b5d": "无线上网",
               "dd6e671aa9": "地址",
@@ -8015,7 +8019,7 @@
               "8d4ba0ef09": "Beta",
               "6bfa001752": "应用程序",
               "a7eececc1d": "安卓",
-              "7e801801ac": "偏僻的",
+              "7e801801ac": "远程",
               "0b7e585cb9": "扫描",
               "59b1d75fd1": "代码",
               "87816d1c59": "qr",
@@ -8025,7 +8029,9 @@
               "671eb4173c": "通过手机控制终端和智能体。",
               "ffd52a96e4": "移动端",
               "1de96ec8a6": "显示 Orca Mobile 按钮",
-              "682293cadf": "在左侧边栏顶部显示 Orca Mobile 按钮。"
+              "682293cadf": "在左侧边栏顶部显示 Orca Mobile 按钮。",
+              "e4f4daea0e": "中继",
+              "5d5af8e041": "iPhone"
             }
           }
         },
@@ -9169,28 +9175,26 @@
           "available": "可用",
           "reconnecting": "正在重新连接",
           "unavailable": "不可用",
-          "title": "新手机应如何连接？",
-          "anywhere": "使用 Orca Relay 连接",
-          "recommended": "推荐",
-          "automaticDescription": "Orca 会优先使用直接连接，否则使用 Orca Relay。",
-          "signInDescription": "请在此桌面端登录以使用 Orca Relay。",
           "signIn": "登录",
-          "localOnly": "仅限本地网络",
-          "localShort": "局域网或 Tailscale",
-          "localDescription": "使用局域网或 Tailscale，不通过 Orca Relay 连接这部手机。"
+          "localDescription": "手机必须连接此 Wi‑Fi 或您的 Tailscale。无需登录。",
+          "pathGroup": "手机访问此电脑的方式",
+          "anywhereTitle": "Orca Relay",
+          "anywhereDescription": "手机可通过蜂窝网络或任意 Wi‑Fi 连接。需要登录。",
+          "signInRequired": "请登录以使用 Orca Mobile Relay。",
+          "relayUnavailable": "此版本不支持 Orca Relay。请使用本地网络。",
+          "signInAgain": "重新登录",
+          "localTitle": "本地网络"
         },
         "MobilePairingSetupSection": {
           "title": "配对手机",
-          "automaticDescription": "配对码包含直接访问方式和加密的 Orca Relay 备用连接。",
-          "localDescription": "配对码仅通过下方的本地网络地址连接。",
           "regenerate": "重新生成",
           "generate": "生成二维码",
-          "localSettings": "本地连接设置",
-          "localAddressDescription": "选择 Orca Mobile 可用于直接访问此电脑的局域网或专用网络地址。",
           "refresh": "刷新网络接口",
-          "tailnet": "使用自己的 tailnet 连接",
-          "tailnetDescription": "在此电脑和手机上安装 Tailscale，登录同一个 tailnet，然后在上方选择其 100.x.y.z 地址。",
-          "getTailscale": "获取 Tailscale"
+          "overview": "生成二维码，然后在 Orca Mobile 的 Pair Desktop 中扫描。",
+          "step1Title": "连接方式",
+          "step2Title": "此电脑的地址",
+          "step2RelayDescription": "距离较近时用于快速直接连接。Relay 覆盖远程访问。",
+          "step2LocalDescription": "手机必须能通过 Wi‑Fi 或 Tailscale 访问此地址。"
         },
         "MobileRelayBetaAvailability": {
           "about": "关于 Orca Relay 测试版",
@@ -9215,6 +9219,9 @@
           "howToUseDescription": "Ask an agent working a Linear-linked worktree to read context, post updates, move the ticket, or attach the PR.",
           "terminalTitle": "Linear skill setup",
           "terminalAriaLabel": "Linear skill install terminal"
+        },
+        "MobileRelayBetaNotice": {
+          "notice": "Orca Relay is in beta."
         }
       },
       "right": {
@@ -10729,7 +10736,8 @@
             "group": "发布渠道",
             "preview": "预览版",
             "stable": "稳定版"
-          }
+          },
+          "relayDegradedNotice": "Relay couldn’t be reached — this code only works on your local network."
         },
         "MobilePage": {
           "e17393c6a3": "手机预览",

@@ -5917,7 +5917,8 @@
           "aa1263e881": "スマートフォンサイズを維持（デフォルト）",
           "6436e56546": "モバイルペアリング用のQRコード",
           "1b1b70279a": "まだデバイスがペアリングされていません。",
-          "1592afcc7a": "まだデバイスがペアリングされていません。 Orca モバイル アプリで QR コードをスキャンします。"
+          "1592afcc7a": "まだデバイスがペアリングされていません。 Orca モバイル アプリで QR コードをスキャンします。",
+          "relayDegradedNotice": "Relay couldn’t be reached — this code only works on your local network. Regenerate to try again."
         },
         "MobileSettingsPane": {
           "9a3c280e49": "GitHub リリース",
@@ -5928,7 +5929,10 @@
           "174f4a3c6d": "スマートフォンから terminals と agents を操作",
           "1de96ec8a6": "Orca Mobile ボタンを表示",
           "682293cadf": "左サイドバー上部に Orca Mobile ボタンを表示します。",
-          "d4f2b65f30": "サイドバーに Orca Mobile ショートカットを表示します。"
+          "d4f2b65f30": "サイドバーに Orca Mobile ショートカットを表示します。",
+          "installIntro": "Orca Mobile は",
+          "installOutro": "からインストールし、以下でペアリングしてください。",
+          "androidApkLabel": "Android APK"
         },
         "NotificationsPane": {
           "906b4afebf": "テスト通知を送信する",
@@ -8062,7 +8066,9 @@
               "671eb4173c": "スマートフォンから terminals と agents を操作",
               "ffd52a96e4": "モバイル",
               "1de96ec8a6": "Orca Mobile ボタンを表示",
-              "682293cadf": "左サイドバー上部に Orca Mobile ボタンを表示します。"
+              "682293cadf": "左サイドバー上部に Orca Mobile ボタンを表示します。",
+              "e4f4daea0e": "リレー",
+              "5d5af8e041": "iPhone"
             }
           }
         },
@@ -9169,28 +9175,26 @@
           "available": "利用可能",
           "reconnecting": "再接続中",
           "unavailable": "利用不可",
-          "title": "新しいスマートフォンをどのように接続しますか？",
-          "anywhere": "Orca Relay で接続",
-          "recommended": "推奨",
-          "automaticDescription": "利用可能な場合は直接接続し、それ以外ではOrca Relayを使用します。",
-          "signInDescription": "Orca Relayを使用するには、このデスクトップでサインインしてください。",
           "signIn": "サインイン",
-          "localOnly": "ローカルネットワークのみ",
-          "localShort": "LAN または Tailscale",
-          "localDescription": "このスマートフォンをOrca Relayに接続せず、LANまたはTailscaleを使用します。"
+          "localDescription": "スマートフォンがこの Wi‑Fi または Tailscale に接続されている必要があります。サインインは不要です。",
+          "pathGroup": "スマートフォンがこのコンピューターに到達する方法",
+          "anywhereTitle": "Orca Relay",
+          "anywhereDescription": "スマートフォンはモバイル回線または Wi‑Fi から接続できます。サインインが必要です。",
+          "signInRequired": "Orca Mobile Relay を使用するにはサインインしてください。",
+          "relayUnavailable": "このビルドでは Orca Relay を利用できません。ローカルネットワークをご利用ください。",
+          "signInAgain": "再サインイン",
+          "localTitle": "ローカルネットワーク"
         },
         "MobilePairingSetupSection": {
           "title": "スマートフォンをペアリング",
-          "automaticDescription": "ペアリングコードには、直接接続と暗号化されたOrca Relayのフォールバックが含まれます。",
-          "localDescription": "ペアリングコードは、下のローカルネットワークアドレスだけを使用します。",
           "regenerate": "再生成",
           "generate": "QRコードを生成",
-          "localSettings": "ローカル接続設定",
-          "localAddressDescription": "Orca Mobileからこのコンピューターへ直接接続できるLANまたはプライベートネットワークのアドレスを選択します。",
           "refresh": "ネットワークインターフェースを更新",
-          "tailnet": "自分のtailnetで接続",
-          "tailnetDescription": "このコンピューターとスマートフォンにTailscaleをインストールし、同じtailnetにサインインして、上で100.x.y.zアドレスを選択します。",
-          "getTailscale": "Tailscaleを入手"
+          "overview": "QR コードを生成し、Orca Mobile の Pair Desktop でスキャンしてください。",
+          "step1Title": "接続方法",
+          "step2Title": "このコンピューターのアドレス",
+          "step2RelayDescription": "近くでは高速な直接接続に使用されます。Relay はリモートアクセスに対応します。",
+          "step2LocalDescription": "スマートフォンが Wi‑Fi または Tailscale でこのアドレスに到達できる必要があります。"
         },
         "MobileRelayBetaAvailability": {
           "about": "Orca Relay ベータについて",
@@ -9215,6 +9219,9 @@
           "howToUseDescription": "Ask an agent working a Linear-linked worktree to read context, post updates, move the ticket, or attach the PR.",
           "terminalTitle": "Linear skill setup",
           "terminalAriaLabel": "Linear skill install terminal"
+        },
+        "MobileRelayBetaNotice": {
+          "notice": "Orca Relay is in beta."
         }
       },
       "right": {
@@ -10729,7 +10736,8 @@
             "group": "リリースチャンネル",
             "preview": "プレビュー",
             "stable": "安定版"
-          }
+          },
+          "relayDegradedNotice": "Relay couldn’t be reached — this code only works on your local network."
         },
         "MobilePage": {
           "e17393c6a3": "スマートフォンプレビュー",

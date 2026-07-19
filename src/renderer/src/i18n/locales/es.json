@@ -5895,7 +5895,8 @@
           "aa1263e881": "Mantener en tamaño de teléfono (predeterminado)",
           "6436e56546": "Código QR para emparejamiento móvil",
           "1b1b70279a": "Aún no hay dispositivos emparejados.",
-          "1592afcc7a": "Aún no hay dispositivos emparejados. Escanea el código QR con la aplicación móvil de Orca."
+          "1592afcc7a": "Aún no hay dispositivos emparejados. Escanea el código QR con la aplicación móvil de Orca.",
+          "relayDegradedNotice": "Relay couldn’t be reached — this code only works on your local network. Regenerate to try again."
         },
         "MobileSettingsPane": {
           "9a3c280e49": "GitHub Releases",
@@ -5906,7 +5907,10 @@
           "174f4a3c6d": "Controla terminales y agentes desde tu teléfono.",
           "1de96ec8a6": "Mostrar botón de Orca Mobile",
           "682293cadf": "Mostrar el botón de Orca Mobile en la parte superior de la barra lateral izquierda.",
-          "d4f2b65f30": "Mostrar el acceso directo de Orca Mobile en la barra lateral."
+          "d4f2b65f30": "Mostrar el acceso directo de Orca Mobile en la barra lateral.",
+          "installIntro": "Instala Orca Mobile desde la",
+          "installOutro": ", luego empareja a continuación.",
+          "androidApkLabel": "Android APK"
         },
         "NotificationsPane": {
           "906b4afebf": "Enviar notificación de prueba",
@@ -8040,7 +8044,9 @@
               "671eb4173c": "Controla terminales y agentes desde tu teléfono.",
               "ffd52a96e4": "Móvil",
               "1de96ec8a6": "Mostrar botón de Orca Mobile",
-              "682293cadf": "Mostrar el botón de Orca Mobile en la parte superior de la barra lateral izquierda."
+              "682293cadf": "Mostrar el botón de Orca Mobile en la parte superior de la barra lateral izquierda.",
+              "e4f4daea0e": "relé",
+              "5d5af8e041": "iPhone"
             }
           }
         },
@@ -9169,28 +9175,26 @@
           "available": "Disponible",
           "reconnecting": "Reconectando",
           "unavailable": "No disponible",
-          "title": "¿Cómo debe conectarse el teléfono nuevo?",
-          "anywhere": "Conectar con Orca Relay",
-          "recommended": "Recomendado",
-          "automaticDescription": "Orca usa una conexión directa cuando está disponible y Relay en caso contrario.",
-          "signInDescription": "Inicia sesión en este ordenador para usar Orca Relay.",
           "signIn": "Iniciar sesión",
-          "localOnly": "Solo red local",
-          "localShort": "LAN o Tailscale",
-          "localDescription": "Usa LAN o Tailscale sin conectar este teléfono mediante Orca Relay."
+          "localDescription": "El teléfono debe estar en esta Wi‑Fi o en tu Tailscale. No requiere inicio de sesión.",
+          "pathGroup": "Cómo llega el teléfono a este ordenador",
+          "anywhereTitle": "Orca Relay",
+          "anywhereDescription": "El teléfono puede estar en datos móviles o cualquier Wi‑Fi. Se requiere inicio de sesión.",
+          "signInRequired": "Inicia sesión para usar Orca Mobile Relay.",
+          "relayUnavailable": "Orca Relay no está disponible en esta compilación. Usa Red local.",
+          "signInAgain": "Iniciar sesión de nuevo",
+          "localTitle": "Red local"
         },
         "MobilePairingSetupSection": {
           "title": "Vincular un teléfono",
-          "automaticDescription": "El código de vinculación incluye acceso directo y Orca Relay cifrado como respaldo.",
-          "localDescription": "El código de vinculación solo se conecta mediante la dirección de red local indicada abajo.",
           "regenerate": "Regenerar",
           "generate": "Generar código QR",
-          "localSettings": "Configuración de conexión local",
-          "localAddressDescription": "Elige la dirección LAN o de red privada que Orca Mobile puede usar para acceder directamente a este ordenador.",
           "refresh": "Actualizar interfaces de red",
-          "tailnet": "Conectarse con tu propia tailnet",
-          "tailnetDescription": "Instala Tailscale en este ordenador y en tu teléfono, inicia sesión en la misma tailnet y selecciona arriba su dirección 100.x.y.z.",
-          "getTailscale": "Obtener Tailscale"
+          "overview": "Genera un código QR, luego escanéalo en Orca Mobile en Pair Desktop.",
+          "step1Title": "Método de conexión",
+          "step2Title": "Dirección de este ordenador",
+          "step2RelayDescription": "Se usa para una ruta directa más rápida cuando está cerca. Relay cubre el acceso remoto.",
+          "step2LocalDescription": "El teléfono debe poder alcanzar esta dirección por Wi‑Fi o Tailscale."
         },
         "MobileRelayBetaAvailability": {
           "about": "Acerca de la beta de Orca Relay",
@@ -9215,6 +9219,9 @@
           "howToUseDescription": "Ask an agent working a Linear-linked worktree to read context, post updates, move the ticket, or attach the PR.",
           "terminalTitle": "Linear skill setup",
           "terminalAriaLabel": "Linear skill install terminal"
+        },
+        "MobileRelayBetaNotice": {
+          "notice": "Orca Relay is in beta."
         }
       },
       "right": {
@@ -10729,7 +10736,8 @@
             "group": "Canal de versión",
             "preview": "Vista previa",
             "stable": "Estable"
-          }
+          },
+          "relayDegradedNotice": "Relay couldn’t be reached — this code only works on your local network."
         },
         "MobilePage": {
           "e17393c6a3": "Vista previa del teléfono",

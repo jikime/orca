@@ -2966,6 +2966,10 @@ export type GlobalSettings = {
    *  on read into [5_000ms, 60min] to defend against bad config.
    *  See docs/mobile-fit-hold.md. */
   mobileAutoRestoreFitMs: number | null
+  /** Preferred mobile pairing path for new QR codes: Anywhere (Orca Relay +
+   *  local) or same-network only. Missing/undefined defaults to Anywhere.
+   *  An explicit `local-only` means the user already chose that path. */
+  mobilePairingConnectionMode?: 'automatic' | 'local-only'
   /** Experimental: floating animated pet (claude.webp) in the bottom-right
    *  corner. Opt-in because it's a cosmetic joke feature; users who leave it
    *  off never mount the overlay. Toggling takes effect immediately in the
