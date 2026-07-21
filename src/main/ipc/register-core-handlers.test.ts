@@ -512,7 +512,8 @@ describe('registerCoreHandlers', () => {
       expect.objectContaining({
         getAdditionalCodexHomePaths: getAdditionalAiVaultCodexHomePaths,
         getActiveRuntimeAiVaultHostInfos: expect.any(Function),
-        scanRuntimeAiVaultSessions: expect.any(Function)
+        scanRuntimeAiVaultSessions: expect.any(Function),
+        prepareRuntimeSessionResume: expect.any(Function)
       })
     )
     expect(aiVaultOptions.getActiveRuntimeAiVaultHostInfos()).toEqual([])
@@ -561,6 +562,26 @@ describe('registerCoreHandlers', () => {
         executionHostId: 'runtime:env-123'
       },
       3000
+    )
+
+    callRuntimeEnvironmentMock.mockResolvedValueOnce({
+      ok: true,
+      result: { useRealCodexHome: true }
+    })
+    const prepareArgs = {
+      agent: 'codex',
+      filePath: '/managed/sessions/2026/07/20/rollout-a.jsonl',
+      codexHome: '/managed',
+      executionHostId: 'runtime:env-123'
+    }
+    await expect(
+      aiVaultOptions.prepareRuntimeSessionResume('env-123', prepareArgs)
+    ).resolves.toEqual({ useRealCodexHome: true })
+    expect(callRuntimeEnvironmentMock).toHaveBeenLastCalledWith(
+      '/test/user-data',
+      'env-123',
+      'aiVault.prepareSessionResume',
+      prepareArgs
     )
   })
 

@@ -74,8 +74,13 @@ import type { AutomationService } from '../automations/service'
 import type { AgentAwakeService } from '../agent-awake-service'
 import type { CrashReportStore } from '../crash-reporting/crash-report-store'
 import type { KeybindingService } from '../keybindings/keybinding-service'
+import type {
+  AiVaultPrepareSessionResumeArgs,
+  AiVaultPrepareSessionResumeResult
+} from '../../shared/ai-vault-resume-preparation'
 import {
   getSavedRuntimeAiVaultHostInfos,
+  prepareRuntimeAiVaultSessionResume,
   scanRuntimeAiVaultSessions
 } from '../ai-vault/runtime-session-scanner'
 
@@ -86,6 +91,9 @@ type CoreHandlerLifecycleOptions = {
   onOrcaProfileAuthMutation?: () => void
   onBeforeOrcaProfileSignOut?: () => void
   getAdditionalAiVaultCodexHomePaths?: () => readonly string[]
+  prepareAiVaultSessionResume?: (
+    args: AiVaultPrepareSessionResumeArgs
+  ) => Promise<AiVaultPrepareSessionResumeResult>
 }
 
 export function registerCoreHandlers(
@@ -190,10 +198,13 @@ export function registerCoreHandlers(
   registerEphemeralVmHandlers(store)
   registerAiVaultHandlers({
     getAdditionalCodexHomePaths: lifecycleOptions.getAdditionalAiVaultCodexHomePaths,
+    prepareSessionResume: lifecycleOptions.prepareAiVaultSessionResume,
     getActiveRuntimeAiVaultHostInfos: () =>
       getSavedRuntimeAiVaultHostInfos(app.getPath('userData')),
     scanRuntimeAiVaultSessions: async (environmentId, args, options) =>
-      scanRuntimeAiVaultSessions(app.getPath('userData'), environmentId, args, options)
+      scanRuntimeAiVaultSessions(app.getPath('userData'), environmentId, args, options),
+    prepareRuntimeSessionResume: async (environmentId, args) =>
+      prepareRuntimeAiVaultSessionResume(app.getPath('userData'), environmentId, args)
   })
   registerNativeChatHandlers()
   registerClipboardHandlers(store)

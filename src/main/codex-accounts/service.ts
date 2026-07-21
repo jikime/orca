@@ -79,6 +79,10 @@ export type CodexAccountAddTarget = {
   wslDistro?: string | null
 }
 
+export type CodexAccountServiceLifecycle = {
+  onHostSystemDefaultSelected?: () => void
+}
+
 type ManagedHomeLocation = {
   managedHomePath: string
   managedHomeRuntime: 'host' | 'wsl'
@@ -158,7 +162,8 @@ export class CodexAccountService {
   constructor(
     private readonly store: Store,
     private readonly rateLimits: RateLimitService,
-    private readonly runtimeHome: CodexRuntimeHomeService
+    private readonly runtimeHome: CodexRuntimeHomeService,
+    private readonly lifecycle: CodexAccountServiceLifecycle = {}
   ) {
     this.safeSyncCanonicalConfigToManagedHomes()
   }
@@ -324,6 +329,9 @@ export class CodexAccountService {
       activeCodexManagedAccountIdsByRuntime: nextSelection
     })
     this.runtimeHome.syncForCurrentSelection()
+    if (account.managedHomeRuntime === 'host' && nextSelection.host === null) {
+      this.lifecycle.onHostSystemDefaultSelected?.()
+    }
 
     this.safeRemoveManagedHome(account.managedHomePath, account.id)
     // Why: a removed account can no longer appear in the switcher dropdown,
@@ -371,6 +379,12 @@ export class CodexAccountService {
     })
     this.safeSyncCanonicalConfigToManagedHomes()
     this.runtimeHome.syncForCurrentSelection(effectiveTarget)
+    if (
+      accountId === null &&
+      normalizeCodexAccountSelectionTarget(effectiveTarget).runtime === 'host'
+    ) {
+      this.lifecycle.onHostSystemDefaultSelected?.()
+    }
 
     await this.rateLimits.refreshForCodexAccountChange(outgoingAccountId, effectiveTarget)
     return this.getSnapshot()
@@ -520,6 +534,9 @@ export class CodexAccountService {
         activeCodexManagedAccountId: nextSelection.host,
         activeCodexManagedAccountIdsByRuntime: nextSelection
       })
+      if (selection.host !== null && nextSelection.host === null) {
+        this.lifecycle.onHostSystemDefaultSelected?.()
+      }
     }
   }
 

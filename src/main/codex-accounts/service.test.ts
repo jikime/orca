@@ -1756,12 +1756,14 @@ describe('CodexAccountService config sync', () => {
     const store = createStore(settings)
     const rateLimits = createRateLimits()
     const runtimeHome = createRuntimeHome()
+    const onHostSystemDefaultSelected = vi.fn()
 
     const { CodexAccountService } = await import('./service')
     const service = new CodexAccountService(
       store as never,
       rateLimits as never,
-      runtimeHome as never
+      runtimeHome as never,
+      { onHostSystemDefaultSelected }
     )
 
     const result = await service.selectAccount(null)
@@ -1769,6 +1771,7 @@ describe('CodexAccountService config sync', () => {
     expect(result.activeAccountId).toBe(null)
     expect(runtimeHome.syncForCurrentSelection).toHaveBeenCalled()
     expect(rateLimits.refreshForCodexAccountChange).toHaveBeenCalled()
+    expect(onHostSystemDefaultSelected).toHaveBeenCalledOnce()
   })
 
   it('selectAccount immediately rewrites the shared runtime auth for existing terminals', async () => {

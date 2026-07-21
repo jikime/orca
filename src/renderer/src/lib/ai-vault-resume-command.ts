@@ -15,6 +15,11 @@ import {
 import { parseWslUncPath } from '../../../shared/wsl-paths'
 import { resolveWindowsShellStartupFamily } from '../../../shared/windows-terminal-shell'
 import type { AgentStartupShell } from '../../../shared/tui-agent-startup-shell'
+import {
+  clearEnvCommand,
+  commandSeparator,
+  resolveStartupShell
+} from '../../../shared/tui-agent-startup-shell'
 import type { AppState } from '@/store/types'
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
 import { CLIENT_PLATFORM } from '@/lib/new-workspace'
@@ -56,7 +61,16 @@ type AiVaultResumeWorktreeArgs = {
 }
 
 export function buildAiVaultResumeCopyCommandForWorktree(args: AiVaultResumeWorktreeArgs): string {
-  return buildAiVaultResumeForWorktree(args).command
+  const command = buildAiVaultResumeForWorktree(args).command
+  if (args.session.agent !== 'codex' || args.session.codexHome !== null) {
+    return command
+  }
+  const shell = resolveAiVaultResumeShell(args)
+  const separator = commandSeparator(shell)
+  const clearHomes = ['CODEX_HOME', 'ORCA_CODEX_HOME']
+    .map((name) => clearEnvCommand(name, shell))
+    .join(separator)
+  return `${clearHomes}${separator}${command}`
 }
 
 export function buildAiVaultResumeStartupForWorktree(
@@ -70,6 +84,7 @@ function buildAiVaultResumeForWorktree(args: AiVaultResumeWorktreeArgs): AiVault
     args.session.executionHostId &&
     args.session.executionHostId !== LOCAL_EXECUTION_HOST_ID &&
     args.session.resumeCommand &&
+    !(args.session.agent === 'codex' && args.session.codexHome === null) &&
     !args.commandOverride?.trim()
   ) {
     return {
@@ -144,6 +159,22 @@ function buildAiVaultResumeForWorktree(args: AiVaultResumeWorktreeArgs): AiVault
     }),
     ...realHomeCodexResumeEnvDeletion(args.session)
   }
+}
+
+function resolveAiVaultResumeShell(args: AiVaultResumeWorktreeArgs): AgentStartupShell {
+  const platform =
+    args.session.executionHostId &&
+    args.session.executionHostId !== LOCAL_EXECUTION_HOST_ID &&
+    args.session.executionHostPlatform
+      ? args.session.executionHostPlatform
+      : getAiVaultResumePlatform(args.state, args.worktreeId)
+  const isLocalSession =
+    !args.session.executionHostId || args.session.executionHostId === LOCAL_EXECUTION_HOST_ID
+  const shell =
+    platform === 'win32' && isLocalSession
+      ? resolveWindowsShellStartupFamily(args.state.settings?.terminalWindowsShell)
+      : undefined
+  return resolveStartupShell(platform, shell)
 }
 
 function getAiVaultResumeCodexHome(

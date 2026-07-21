@@ -434,6 +434,10 @@ import type {
   AiVaultSubagentListResult
 } from '../shared/ai-vault-types'
 import type {
+  AiVaultPrepareSessionResumeArgs,
+  AiVaultPrepareSessionResumeResult
+} from '../shared/ai-vault-resume-preparation'
+import type {
   AgentType,
   NativeChatMessage,
   NativeChatTurnLifecycle
@@ -822,6 +826,9 @@ export type OpenCodeUsageApi = {
 
 export type AiVaultApi = {
   listSessions: (args?: AiVaultListArgs) => Promise<AiVaultListResult>
+  prepareSessionResume: (
+    args: AiVaultPrepareSessionResumeArgs
+  ) => Promise<AiVaultPrepareSessionResumeResult>
   /** Lists the Task subagent transcripts of one session, on demand. */
   listSubagentSessions: (args: AiVaultSubagentListArgs) => Promise<AiVaultSubagentListResult>
   /** Fires when any app window regains OS focus; returns an unsubscribe. */
