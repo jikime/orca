@@ -21,6 +21,7 @@ import { resolveLocalWindowsAgentStartupShell } from '../../../../shared/windows
 import type { AgentStartupShell } from '../../../../shared/tui-agent-startup-shell'
 import type { PieWorkspaceContext } from '../../../../shared/pie-workspace-context'
 import type { LaunchSource } from '../../../../shared/telemetry-events'
+import type { SessionOptionValue } from '../../../../shared/native-chat-session-options'
 import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import {
   getLinkedItemDisplayName,
@@ -48,6 +49,7 @@ type SubmitFolderWorkspaceCreateParams = {
   agentCmdOverrides: Record<string, string> | undefined
   agentArgs?: string | null
   agentEnv?: Record<string, string>
+  sessionOptions?: Record<string, SessionOptionValue>
   terminalWindowsShell?: string | null
   isRemote?: boolean
   launchSource?: LaunchSource
@@ -74,6 +76,7 @@ export function buildFolderWorkspaceLinkedStartupPlan(args: {
   agentCmdOverrides: Record<string, string> | undefined
   agentArgs?: string | null
   agentEnv?: Record<string, string>
+  sessionOptions?: Record<string, SessionOptionValue>
   platform: NodeJS.Platform
   shell?: AgentStartupShell
   isRemote: boolean
@@ -90,6 +93,7 @@ export function buildFolderWorkspaceLinkedStartupPlan(args: {
         cmdOverrides: args.agentCmdOverrides ?? {},
         agentArgs: args.agentArgs,
         agentEnv: args.agentEnv,
+        sessionOptions: args.sessionOptions,
         platform: args.platform,
         shell: args.shell,
         isRemote: args.isRemote
@@ -102,6 +106,7 @@ export function buildFolderWorkspaceLinkedStartupPlan(args: {
       expectedProcess: draftLaunchPlan.expectedProcess,
       followupPrompt: null,
       launchConfig: draftLaunchPlan.launchConfig,
+      ...(draftLaunchPlan.sessionOptions ? { sessionOptions: draftLaunchPlan.sessionOptions } : {}),
       ...(draftLaunchPlan.startupCommandDelivery
         ? { startupCommandDelivery: draftLaunchPlan.startupCommandDelivery }
         : {}),
@@ -117,6 +122,7 @@ export function buildFolderWorkspaceLinkedStartupPlan(args: {
     cmdOverrides: args.agentCmdOverrides ?? {},
     agentArgs: args.agentArgs,
     agentEnv: args.agentEnv,
+    sessionOptions: args.sessionOptions,
     platform: args.platform,
     shell: args.shell,
     isRemote: args.isRemote,
@@ -162,6 +168,7 @@ export async function submitFolderWorkspaceCreate({
   agentCmdOverrides,
   agentArgs,
   agentEnv,
+  sessionOptions,
   terminalWindowsShell,
   launchSource = 'sidebar',
   runtimeEnvironmentId = null,
@@ -193,6 +200,7 @@ export async function submitFolderWorkspaceCreate({
           agentCmdOverrides,
           agentArgs,
           agentEnv,
+          sessionOptions,
           platform: launchPlatform,
           shell: launchShell,
           isRemote: launchIsRemote
@@ -204,6 +212,7 @@ export async function submitFolderWorkspaceCreate({
             cmdOverrides: agentCmdOverrides ?? {},
             agentArgs,
             agentEnv,
+            sessionOptions,
             platform: launchPlatform,
             shell: launchShell,
             isRemote: launchIsRemote,
@@ -252,6 +261,7 @@ export async function submitFolderWorkspaceCreate({
           launchConfig: startupPlan.launchConfig,
           ...(startupPlan.launchToken ? { launchToken: startupPlan.launchToken } : {}),
           launchAgent: quickAgent,
+          ...(startupPlan.sessionOptions ? { sessionOptions: startupPlan.sessionOptions } : {}),
           ...(startupPlan.draftPrompt ? { draftPrompt: startupPlan.draftPrompt } : {}),
           ...(startupPlan.startupCommandDelivery
             ? { startupCommandDelivery: startupPlan.startupCommandDelivery }
