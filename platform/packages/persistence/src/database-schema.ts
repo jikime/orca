@@ -400,7 +400,11 @@ export interface ChannelsTable {
   scope_id: string | null
   visibility: Generated<string>
   dm_key: string | null
+  topic: Generated<string>
+  description: Generated<string>
+  retention_days: number | null
   version: DefaultedBigIntColumn
+  archived_at: NullableTimestampColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
 }
@@ -501,6 +505,25 @@ export interface ChannelMutesTable {
   channel_id: string
   user_id: string
   created_at: TimestampColumn
+}
+
+export interface NotificationPreferencesTable {
+  organization_id: string
+  user_id: string
+  desktop_enabled: Generated<boolean>
+  dnd_enabled: Generated<boolean>
+  dnd_start_minute: Generated<number>
+  dnd_end_minute: Generated<number>
+  timezone: Generated<string>
+  updated_at: TimestampColumn
+}
+
+export interface ChannelNotificationPreferencesTable {
+  organization_id: string
+  channel_id: string
+  user_id: string
+  level: string
+  updated_at: TimestampColumn
 }
 
 // A pinned message (doc 33 §3). One row per pinned (channel, message); pinned_by is the
@@ -1214,8 +1237,60 @@ export interface MeetingsTable {
   host_user_id: string
   scheduled_start: NullableTimestampColumn
   scheduled_end: NullableTimestampColumn
+  time_zone: Generated<string>
+  recurrence: Generated<string>
+  series_id: string | null
+  occurrence_index: Generated<number>
   status: Generated<string>
   version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MeetingCalendarLinksTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  provider: string
+  calendar_id: string
+  event_id: string | null
+  web_url: string | null
+  sync_status: Generated<string>
+  last_error: string | null
+  last_synced_at: NullableTimestampColumn
+  created_by: string
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MeetingGuestLinksTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  token_hash: string
+  identity_mode: string
+  visibility: string
+  expires_at: TimestampColumn
+  revoked_at: NullableTimestampColumn
+  revoked_by: string | null
+  created_by: string
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MeetingGuestSessionsTable {
+  organization_id: string
+  id: Generated<string>
+  guest_link_id: string
+  meeting_id: string
+  user_id: string
+  display_name: string
+  email: string | null
+  access_token_hash: string
+  expires_at: TimestampColumn
+  revoked_at: NullableTimestampColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
 }
@@ -1228,6 +1303,7 @@ export interface MeetingParticipantsTable {
   meeting_id: string
   user_id: string
   role: Generated<string>
+  access_status: Generated<string>
   consent_recording: Generated<boolean>
   joined_at: NullableTimestampColumn
   left_at: NullableTimestampColumn
@@ -1263,6 +1339,49 @@ export interface MeetingRecordingsTable {
   transcription_dispatch_id: string | null
   stopped_at: NullableTimestampColumn
   error_code: string | null
+  capture_types: ColumnType<string[], string[] | undefined, string[]>
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MeetingGovernanceTable {
+  organization_id: string
+  meeting_id: string
+  policy_version: DefaultedBigIntColumn
+  purpose: Generated<string>
+  retention_days: number | null
+  retention_until: NullableTimestampColumn
+  legal_hold: Generated<boolean>
+  capture_status: Generated<string>
+  active_capture_types: ColumnType<string[], string[] | undefined, string[]>
+  deletion_status: Generated<string>
+  deletion_requested_at: NullableTimestampColumn
+  deletion_requested_by: string | null
+  deletion_reason: string | null
+  deletion_completed_at: NullableTimestampColumn
+  deletion_attempts: Generated<number>
+  deletion_available_at: NullableTimestampColumn
+  deletion_leased_until: NullableTimestampColumn
+  deletion_worker_id: string | null
+  deletion_last_error: string | null
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MeetingCaptureConsentsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  participant_id: string
+  capture_type: string
+  policy_version: BigIntColumn
+  purpose: string
+  status: Generated<string>
+  granted_at: NullableTimestampColumn
+  revoked_at: NullableTimestampColumn
+  expires_at: NullableTimestampColumn
   version: DefaultedBigIntColumn
   created_at: TimestampColumn
   updated_at: TimestampColumn
@@ -1303,6 +1422,82 @@ export interface MeetingTranscriptsTable {
   updated_at: TimestampColumn
 }
 
+export interface MeetingTranscriptSegmentsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  transcript_id: string
+  sequence: number
+  speaker_participant_id: string | null
+  speaker_label: string
+  start_ms: number
+  end_ms: number
+  text: string
+  language: string | null
+  confidence: number | null
+  source: string
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MeetingTranscriptSegmentRevisionsTable {
+  organization_id: string
+  id: Generated<string>
+  segment_id: string
+  revision: BigIntColumn
+  speaker_participant_id: string | null
+  speaker_label: string
+  text: string
+  edited_by: string
+  created_at: TimestampColumn
+}
+
+export interface MeetingDecisionsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  minutes_id: string | null
+  statement: string
+  status: Generated<string>
+  owner_user_id: string | null
+  project_id: string | null
+  ticket_id: string | null
+  evidence_segment_id: string | null
+  created_by: string
+  review_status: Generated<string>
+  reviewed_by: string | null
+  reviewed_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
+export interface MeetingActionItemsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  minutes_id: string | null
+  task: string
+  assignee_user_id: string | null
+  assignee_label: string | null
+  due_at: NullableTimestampColumn
+  due_text: string | null
+  priority: Generated<string>
+  status: Generated<string>
+  project_id: string | null
+  ticket_id: string | null
+  work_item_id: string | null
+  evidence_segment_id: string | null
+  created_by: string
+  review_status: Generated<string>
+  reviewed_by: string | null
+  reviewed_at: NullableTimestampColumn
+  version: DefaultedBigIntColumn
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
+}
+
 // AI/human meeting minutes. meeting_id is OPAQUE (no FK). source_type records provenance; review_status
 // + reviewed_by + reviewed_at is the human review record. AI-authored minutes may not be finalized while
 // unreviewed. status walks draft → finalized. version is OCC.
@@ -1330,6 +1525,19 @@ export interface MeetingMinuteRevisionsTable {
   summary: string
   edited_by: string
   created_at: TimestampColumn
+}
+
+export interface MeetingAgendaItemsTable {
+  organization_id: string
+  id: Generated<string>
+  meeting_id: string
+  source_channel_id: string
+  source_message_id: string
+  body: string
+  status: Generated<string>
+  created_by: string
+  created_at: TimestampColumn
+  updated_at: TimestampColumn
 }
 
 // === R8 asset registry / CMDB (20260901090001) ===
@@ -1724,6 +1932,8 @@ export interface Database {
   'collaboration.message_attachments': MessageAttachmentsTable
   'collaboration.notifications': NotificationsTable
   'collaboration.channel_mutes': ChannelMutesTable
+  'collaboration.notification_preferences': NotificationPreferencesTable
+  'collaboration.channel_notification_preferences': ChannelNotificationPreferencesTable
   'collaboration.message_pins': MessagePinsTable
   'collaboration.message_work_item_links': MessageWorkItemLinksTable
   'agent.objects': ObjectsTable
@@ -1783,13 +1993,23 @@ export interface Database {
   'ai.evaluations': AiEvaluationsTable
   'ai.guard_events': AiGuardEventsTable
   'meetings.meetings': MeetingsTable
+  'meetings.calendar_links': MeetingCalendarLinksTable
+  'meetings.guest_links': MeetingGuestLinksTable
+  'meetings.guest_sessions': MeetingGuestSessionsTable
   'meetings.participants': MeetingParticipantsTable
   'meetings.media_events': MeetingMediaEventsTable
   'meetings.recordings': MeetingRecordingsTable
+  'meetings.governance': MeetingGovernanceTable
+  'meetings.capture_consents': MeetingCaptureConsentsTable
   'meetings.processing_jobs': MeetingProcessingJobsTable
   'meetings.transcripts': MeetingTranscriptsTable
+  'meetings.transcript_segments': MeetingTranscriptSegmentsTable
+  'meetings.transcript_segment_revisions': MeetingTranscriptSegmentRevisionsTable
+  'meetings.decisions': MeetingDecisionsTable
+  'meetings.action_items': MeetingActionItemsTable
   'meetings.minutes': MeetingMinutesTable
   'meetings.minute_revisions': MeetingMinuteRevisionsTable
+  'meetings.agenda_items': MeetingAgendaItemsTable
   'assets.assets': AssetsTable
   'assets.asset_links': AssetLinksTable
   'assets.asset_events': AssetEventsTable

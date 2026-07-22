@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  addChannelMember,
   createChannel,
   createDm,
   createGroupDm,
+  listChannelMembers,
   listMembers,
   muteChannel,
+  removeChannelMember,
+  updateChannel,
   unmuteChannel
 } from './chat-channel-admin-client'
 import { PieChatError } from './chat-control-plane-http'
@@ -26,7 +30,10 @@ function channelFixture(overrides: Partial<PieChannel> = {}): PieChannel {
     scopeType: 'organization',
     scopeId: null,
     visibility: 'internal',
+    topic: '',
+    description: '',
     version: 1,
+    archivedAt: null,
     createdAt: '2026-07-16T00:00:00.000Z',
     updatedAt: '2026-07-16T00:00:00.000Z',
     ...overrides
@@ -105,11 +112,59 @@ describe('chat-channel-admin-client', () => {
     expect(fetchImpl.mock.calls[1][1].method).toBe('DELETE')
   })
 
+  it('adds an organization member to a channel', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    await addChannelMember(API, TOKEN, ORG, CHANNEL, OTHER, fetchImpl)
+
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe(`${API}/organizations/${ORG}/channels/${CHANNEL}/members`)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ userId: OTHER })
+  })
+
+  it('updates channel metadata with OCC and idempotency headers', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(channelFixture({ topic: 'Launch', version: 2 })))
+    const updated = await updateChannel(
+      API,
+      TOKEN,
+      ORG,
+      CHANNEL,
+      { update: { topic: 'Launch' }, expectedVersion: 1, idempotencyKey: 'update-1' },
+      fetchImpl
+    )
+    expect(updated.topic).toBe('Launch')
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe(`${API}/organizations/${ORG}/channels/${CHANNEL}`)
+    expect(init.method).toBe('PATCH')
+    expect(init.headers['if-match']).toBe('"channel-1"')
+    expect(init.headers['idempotency-key']).toBe('update-1')
+  })
+
+  it('lists and removes channel-scoped members', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [{ userId: OTHER, role: 'member', addedAt: '2026-07-16T00:00:00.000Z' }]
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const roster = await listChannelMembers(API, TOKEN, ORG, CHANNEL, fetchImpl)
+    await removeChannelMember(API, TOKEN, ORG, CHANNEL, OTHER, 'remove-1', fetchImpl)
+    expect(roster[0].userId).toBe(OTHER)
+    expect(fetchImpl.mock.calls[1][0]).toBe(
+      `${API}/organizations/${ORG}/channels/${CHANNEL}/members/${OTHER}`
+    )
+    expect(fetchImpl.mock.calls[1][1].headers['idempotency-key']).toBe('remove-1')
+  })
+
   it('lists members from the membership roster, filtering revoked and deriving a label', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse({
         items: [
-          { userId: OTHER, status: 'active' },
+          { userId: OTHER, displayName: 'Grace Hopper', status: 'active' },
           { userId: THIRD, status: 'revoked' }
         ]
       })
@@ -118,7 +173,7 @@ describe('chat-channel-admin-client', () => {
     expect(fetchImpl.mock.calls[0][0]).toBe(`${API}/organizations/${ORG}/memberships`)
     expect(members).toHaveLength(1)
     expect(members[0].userId).toBe(OTHER)
-    expect(members[0].displayName).toBe(OTHER.slice(0, 8))
+    expect(members[0].displayName).toBe('Grace Hopper')
   })
 
   it('throws PieChatError with the status on a non-ok response', async () => {

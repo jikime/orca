@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-guest-link-create.v1.schema.json",
+  "title": "Create meeting guest link",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["identityMode", "visibility", "expiresInHours"],
+  "properties": {
+    "identityMode": { "enum": ["account_required", "limited_guest"] },
+    "visibility": { "enum": ["meeting_only", "meeting_and_recap"] },
+    "expiresInHours": { "type": "integer", "minimum": 1, "maximum": 720 }
+  }
+}

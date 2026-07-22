@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/channel-message-export.v1.schema.json",
+  "title": "Channel message export",
+  "type": "object",
+  "required": ["exportedAt", "truncated", "messages"],
+  "properties": {
+    "exportedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "truncated": { "type": "boolean" },
+    "messages": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "authorId",
+          "body",
+          "threadRootMessageId",
+          "createdAt",
+          "editedAt",
+          "deletedAt",
+          "deletedBy",
+          "deletionReason"
+        ],
+        "properties": {
+          "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+          "authorId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+          "body": { "type": "string", "maxLength": 40000 },
+          "threadRootMessageId": {
+            "oneOf": [
+              { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+              { "type": "null" }
+            ]
+          },
+          "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+          "editedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+          "deletedAt": {
+            "oneOf": [
+              { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+              { "type": "null" }
+            ]
+          },
+          "deletedBy": {
+            "oneOf": [
+              { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+              { "type": "null" }
+            ]
+          },
+          "deletionReason": { "type": ["string", "null"], "maxLength": 500 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-outcome-review.v1.schema.json",
+  "title": "Review a meeting outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision"],
+  "properties": { "decision": { "enum": ["approve", "reject"] } }
+}

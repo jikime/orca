@@ -4,6 +4,7 @@ import {
   authorizeSubjectForOrg,
   convertMessageToWorkItem,
   createChannel,
+  createOrJoinContextChannel,
   createDm,
   createGroupDm,
   deleteMessage,
@@ -29,6 +30,7 @@ import {
   type ChannelKind,
   type ChannelResource,
   type ChannelVisibility,
+  type ContextChannelScope,
   type MessageResource,
   type PieDatabase,
   type ReadCursorResource,
@@ -185,10 +187,10 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       request.body
     )
     if (!gate) return reply
-    const respondChannel = (channel: ChannelResource): ChannelResource => {
+    const respondChannel = (channel: ChannelResource, created = true): ChannelResource => {
       assertResponse(deps.registry, CHANNEL_SCHEMA_ID, channel)
       void reply
-        .code(201)
+        .code(created ? 201 : 200)
         .header('location', `/v1/organizations/${organizationId}/channels/${channel.id}`)
       return channel
     }
@@ -201,7 +203,52 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       )
       if (existing.ok) return respondChannel(existing.channel)
     }
-    const body = request.body as { name: string; visibility?: ChannelVisibility }
+    const body = request.body as {
+      name: string
+      visibility?: ChannelVisibility
+      scopeType?: ContextChannelScope | 'organization'
+      scopeId?: string | null
+    }
+    if (body.scopeType && body.scopeType !== 'organization') {
+      if (!body.scopeId || !authz.userId) {
+        await gate.release()
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid channel context')
+      }
+      const contextPermission = {
+        team: 'team.read',
+        project: 'project.read',
+        customer: 'crm.account.read',
+        ticket: 'service.ticket.read',
+        meeting: 'meeting.read'
+      }[body.scopeType]
+      if (
+        !(await authorizeOrgPermission(
+          deps.db,
+          request,
+          reply,
+          principal,
+          organizationId,
+          contextPermission
+        ))
+      ) {
+        await gate.release()
+        return reply
+      }
+      const result = await createOrJoinContextChannel(deps.db, {
+        organizationId,
+        actorUserId: authz.userId,
+        name: body.name,
+        visibility: body.visibility,
+        scopeType: body.scopeType,
+        scopeId: body.scopeId
+      })
+      if (!result.ok) {
+        await gate.release()
+        return problem(reply, request, 404, 'CONTEXT_NOT_FOUND', 'channel context not found')
+      }
+      await gate.complete(result.channel.id)
+      return respondChannel(result.channel, result.created)
+    }
     const channel = await createChannel(deps.db, {
       organizationId,
       actorUserId: authz.userId ?? organizationId,
@@ -461,6 +508,19 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       if (!authz) return reply
       if (!validates(deps.registry, MESSAGE_CREATE_SCHEMA_ID, request.body))
         return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid message create request')
+      const userId = authz.userId ?? organizationId
+      const writableChannel = await getChannelForMember(deps.db, organizationId, channelId, userId)
+      if (!writableChannel.ok) {
+        if (writableChannel.reason === 'not_found') {
+          return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
+        }
+        return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+      }
+      // Archived channels stay readable for institutional memory, but are immutable
+      // until a channel manager explicitly restores them.
+      if (writableChannel.channel.archivedAt) {
+        return problem(reply, request, 409, 'CHANNEL_ARCHIVED', 'channel is archived')
+      }
       const gate = await beginIdempotency(
         deps.db,
         request,
@@ -484,7 +544,6 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
           )
         return message
       }
-      const userId = authz.userId ?? organizationId
       if (gate.priorResourceId) {
         const existing = await getMessageWithReactions(
           deps.db,
@@ -601,9 +660,23 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         'message.read'
       )
       if (!authz) return reply
-      const query = request.query as { cursor?: string; limit?: string; threadRoot?: string }
+      const query = request.query as {
+        cursor?: string
+        before?: string
+        latest?: string
+        limit?: string
+        threadRoot?: string
+      }
       if (query.cursor !== undefined && !UUID_PATTERN.test(query.cursor))
         return problem(reply, request, 400, 'BAD_REQUEST', 'invalid cursor')
+      if (query.before !== undefined && !UUID_PATTERN.test(query.before))
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid before cursor')
+      if (query.cursor !== undefined && query.before !== undefined)
+        return problem(reply, request, 400, 'BAD_REQUEST', 'cursor and before cannot be combined')
+      if (query.latest !== undefined && query.latest !== 'true' && query.latest !== 'false')
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid latest flag')
+      if (query.cursor !== undefined && query.latest === 'true')
+        return problem(reply, request, 400, 'BAD_REQUEST', 'cursor and latest cannot be combined')
       if (query.threadRoot !== undefined && !UUID_PATTERN.test(query.threadRoot))
         return problem(reply, request, 400, 'BAD_REQUEST', 'invalid threadRoot')
       const result = await listChannelMessages(
@@ -614,6 +687,8 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         {
           ...(query.limit ? { limit: Number(query.limit) } : {}),
           ...(query.cursor ? { afterMessageId: query.cursor } : {}),
+          ...(query.before ? { beforeMessageId: query.before } : {}),
+          ...(query.latest === 'true' ? { latest: true } : {}),
           ...(query.threadRoot ? { threadRootMessageId: query.threadRoot } : {})
         }
       )
@@ -721,6 +796,12 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
       const rawBody = request.body as { reason?: string } | undefined
       if (rawBody && rawBody.reason !== undefined && typeof rawBody.reason !== 'string')
         return problem(reply, request, 400, 'VALIDATION_FAILED', 'reason must be a string')
+      if (
+        typeof rawBody?.reason === 'string' &&
+        (rawBody.reason.trim().length === 0 || rawBody.reason.length > 500)
+      ) {
+        return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid deletion reason')
+      }
       // Moderator-ness = the actor holds channel.manage; a non-grant is not an error here,
       // just "not a moderator" (the store still allows the author to delete their own).
       const manage = await authorizeSubjectForOrg(
@@ -853,6 +934,9 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         if (channel.reason === 'not_found')
           return problem(reply, request, 404, 'NOT_FOUND', 'channel not found')
         return problem(reply, request, 403, 'FORBIDDEN', 'not a member of this channel')
+      }
+      if (channel.channel.archivedAt) {
+        return problem(reply, request, 409, 'CHANNEL_ARCHIVED', 'channel is archived')
       }
       // Coalesce: drop (still 204) if this user pinged this channel within the window.
       const rateKey = `${userId}:${channelId}`
@@ -1189,17 +1273,17 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         request.body
       )
       if (!gate) return reply
-      const respondCreated = (workItem: WorkItemResource): WorkItemResource => {
+      const respondWorkItem = (workItem: WorkItemResource, status: 200 | 201): WorkItemResource => {
         assertResponse(deps.registry, WORK_ITEM_SCHEMA_ID, workItem)
         void reply
-          .code(201)
+          .code(status)
           .header('location', `/v1/organizations/${organizationId}/work-items/${workItem.id}`)
         return workItem
       }
       // Replay: the prior conversion produced this work item — return it, don't convert again.
       if (gate.priorResourceId) {
         const existing = await getWorkItem(deps.db, organizationId, gate.priorResourceId)
-        if (existing) return respondCreated(existing)
+        if (existing) return respondWorkItem(existing, 201)
       }
       const body = request.body as {
         teamId: string
@@ -1235,7 +1319,7 @@ export function registerChannelRoutes(app: FastifyInstance, deps: ChannelRoutesD
         return problem(reply, request, 422, 'INVALID_STATE', 'state is not in the team workflow')
       }
       await gate.complete(result.workItem.id)
-      return respondCreated(result.workItem)
+      return respondWorkItem(result.workItem, result.created ? 201 : 200)
     }
   )
 

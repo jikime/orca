@@ -20,8 +20,10 @@ describe('meeting AI client', () => {
           JSON.stringify({
             output_text: JSON.stringify({
               summary: 'A decision was made.',
-              decisions: ['Proceed.'],
-              actionItems: [{ task: 'Ship', owner: null, due: null }]
+              decisions: [{ statement: 'Proceed.', evidenceQuote: 'Decision made.' }],
+              actionItems: [
+                { task: 'Ship', owner: null, due: null, evidenceQuote: 'Decision made.' }
+              ]
             })
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }

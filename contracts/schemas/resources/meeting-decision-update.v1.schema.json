@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-decision-update.v1.schema.json",
+  "title": "Update meeting decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["statement"],
+  "properties": {
+    "statement": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "ownerUserId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "evidenceSegmentId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

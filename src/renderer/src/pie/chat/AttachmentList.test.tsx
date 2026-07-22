@@ -50,14 +50,12 @@ describe('AttachmentList', () => {
   })
 
   it('resolves a presigned download url on click', async () => {
-    const downloadAttachment = vi
-      .fn()
-      .mockResolvedValue({
-        url: 'https://dl',
-        filename: 'photo.png',
-        contentType: 'image/png',
-        expiresAt: 'x'
-      })
+    const downloadAttachment = vi.fn().mockResolvedValue({
+      url: 'https://dl',
+      filename: 'photo.png',
+      contentType: 'image/png',
+      expiresAt: 'x'
+    })
     const api = makeChatApi({ downloadAttachment })
     window.open = vi.fn()
     renderList(api, [attachment()])

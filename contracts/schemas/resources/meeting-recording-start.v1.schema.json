@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-recording-start.v1.schema.json",
+  "title": "Start meeting recording and processing",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "captureTypes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "contains": { "const": "recording" },
+      "items": { "enum": ["recording", "transcription", "ai_notes"] }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["captureTypes"],
+        "properties": {
+          "captureTypes": { "type": "array", "contains": { "const": "ai_notes" } }
+        }
+      },
+      "then": {
+        "properties": {
+          "captureTypes": { "type": "array", "contains": { "const": "transcription" } }
+        }
+      }
+    }
+  ]
+}

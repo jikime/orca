@@ -6,6 +6,7 @@ import { createOutboxClaimLoop, type OutboxBatchSummary } from './outbox-claim-l
 import { startWorker } from './worker-runtime'
 import { createMeetingAiClient } from './meeting-ai-client'
 import { createMeetingProcessingLoop } from './meeting-processing-loop'
+import { createMeetingRetentionDeletionLoop } from './meeting-retention-deletion-loop'
 
 async function main(): Promise<void> {
   const config = loadWorkerConfig()
@@ -44,9 +45,7 @@ async function main(): Promise<void> {
     }
   })
   claimLoop.start()
-  const meetingStorage = config.meetingProcessing
-    ? createObjectStorage(config.meetingProcessing.objectStorage)
-    : null
+  const meetingStorage = config.meetingStorage ? createObjectStorage(config.meetingStorage) : null
   await meetingStorage?.ensureBucket()
   const meetingLoop =
     config.meetingProcessing && meetingStorage
@@ -70,6 +69,21 @@ async function main(): Promise<void> {
         })
       : null
   meetingLoop?.start()
+  const meetingDeletionLoop = meetingStorage
+    ? createMeetingRetentionDeletionLoop({
+        db,
+        objectStorage: meetingStorage,
+        workerId: config.workerId,
+        batchSize: Math.min(config.batchSize, 8),
+        leaseMs: Math.max(config.leaseMs, 120_000),
+        pollIntervalMs: config.pollIntervalMs,
+        maxAttempts: config.maxAttempts,
+        baseBackoffMs: config.baseBackoffMs,
+        maxBackoffMs: config.maxBackoffMs,
+        logger
+      })
+    : null
+  meetingDeletionLoop?.start()
   if (!meetingLoop) {
     logger.warn(
       { event: 'meeting.processing.disabled' },
@@ -88,6 +102,7 @@ async function main(): Promise<void> {
     clearInterval(metricsTimer)
     claimLoop.stop()
     meetingLoop?.stop()
+    meetingDeletionLoop?.stop()
     await runtime.stop()
     // Kysely.destroy() ends the underlying pool, so we do not end it separately.
     await db.destroy()

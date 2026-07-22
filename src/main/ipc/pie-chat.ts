@@ -4,8 +4,9 @@ import {
   PIE_CHAT_DELETE_MESSAGE_CHANNEL,
   PIE_CHAT_EDIT_MESSAGE_CHANNEL,
   PIE_CHAT_LIST_CHANNELS_CHANNEL,
-  PIE_CHAT_LIST_MESSAGES_CHANNEL,
+  PIE_CHAT_GET_MESSAGE_CHANNEL,
   PIE_CHAT_GET_PRESENCE_CHANNEL,
+  PIE_CHAT_LIST_MESSAGES_CHANNEL,
   PIE_CHAT_MARK_READ_CHANNEL,
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_PRESENCE_CHANGED_CHANNEL,
@@ -23,6 +24,7 @@ import {
 import {
   deleteMessage,
   editMessage,
+  getMessage,
   listChannels,
   listMessages,
   markRead,
@@ -33,6 +35,8 @@ import { assertTrustedPieMainFrame, getTrustedPieRendererWebContentsId } from '.
 import {
   assertBody,
   assertChannelId,
+  assertClientRequestId,
+  assertNonEmptyString,
   resolveAuth,
   resolveChatFetch,
   type PieChatHandlerDeps
@@ -41,6 +45,7 @@ import { registerPieChatActionHandlers } from './pie-chat-actions'
 import { registerPieChatAdminHandlers } from './pie-chat-admin'
 import { registerPieChatNotificationHandlers } from './pie-chat-notifications'
 import { registerPieChatSearchAttachmentHandlers } from './pie-chat-search-attachments'
+import { registerPieChatGovernanceHandlers } from './pie-chat-governance'
 
 export type { PieChatHandlerDeps } from './pie-chat-ipc-shared'
 
@@ -55,12 +60,27 @@ function trustedChatRenderer(): Electron.WebContents | null {
   return !renderer || renderer.isDestroyed() ? null : renderer
 }
 
+const MESSAGE_CHANGE_BATCH_MS = 50
+const pendingMessageChanges = new Map<string, ReturnType<typeof setTimeout>>()
+
 /** Nudges the trusted renderer to refetch the active channel. */
 export function emitPieChatMessagesChanged(organizationId: string): void {
-  trustedChatRenderer()?.send(
-    PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
-    PieChatMessagesChangedSchema.parse({ type: 'chat.messages-changed', organizationId })
-  )
+  if (pendingMessageChanges.has(organizationId)) {
+    return
+  }
+  // Why: reconnect catch-up can replay many chat changes at once; one renderer
+  // nudge per burst avoids a parallel REST request storm without losing state.
+  const timer = setTimeout(() => {
+    pendingMessageChanges.delete(organizationId)
+    trustedChatRenderer()?.send(
+      PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
+      PieChatMessagesChangedSchema.parse({ type: 'chat.messages-changed', organizationId })
+    )
+  }, MESSAGE_CHANGE_BATCH_MS)
+  if (typeof timer === 'object' && 'unref' in timer) {
+    timer.unref()
+  }
+  pendingMessageChanges.set(organizationId, timer)
 }
 
 /** Forwards an ephemeral typing signal to the trusted renderer only. */
@@ -125,22 +145,43 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
     return listMessages(apiBaseUrl, accessToken, organizationId, channelId, opts, fetchImpl)
   })
 
+  ipcMain.removeHandler(PIE_CHAT_GET_MESSAGE_CHANNEL)
+  ipcMain.handle(PIE_CHAT_GET_MESSAGE_CHANNEL, (event, input: unknown) => {
+    assertTrustedPieMainFrame(event)
+    const payload = input as { channelId?: unknown; messageId?: unknown }
+    const channelId = assertChannelId(payload?.channelId)
+    const messageId = assertChannelId(payload?.messageId)
+    const { apiBaseUrl, accessToken, organizationId } = resolveAuth(deps)
+    return getMessage(apiBaseUrl, accessToken, organizationId, channelId, messageId, fetchImpl)
+  })
+
   ipcMain.removeHandler(PIE_CHAT_SEND_MESSAGE_CHANNEL)
   ipcMain.handle(PIE_CHAT_SEND_MESSAGE_CHANNEL, (event, input: unknown) => {
     assertTrustedPieMainFrame(event)
-    const payload = input as { channelId?: unknown; body?: unknown; opts?: unknown }
+    const payload = input as {
+      channelId?: unknown
+      body?: unknown
+      opts?: unknown
+      clientRequestId?: unknown
+    }
     const channelId = assertChannelId(payload?.channelId)
-    const body = assertBody(payload?.body)
     const opts =
       payload?.opts === undefined ? undefined : PieSendMessageOptionsSchema.parse(payload.opts)
+    // Why: the message contract permits an empty caption only when at least one
+    // already-uploaded attachment is linked by the same send.
+    const body = assertBody(payload?.body, (opts?.attachmentIds?.length ?? 0) > 0)
     const { apiBaseUrl, accessToken, organizationId } = resolveAuth(deps)
-    // A fresh Idempotency-Key per send attempt: a network retry cannot duplicate.
+    // Why: the renderer reuses this UUID for an explicit retry after an ambiguous failure.
+    const idempotencyKey =
+      payload.clientRequestId === undefined
+        ? randomUUID()
+        : assertClientRequestId(payload.clientRequestId)
     return sendMessage(
       apiBaseUrl,
       accessToken,
       organizationId,
       channelId,
-      { body, idempotencyKey: randomUUID(), opts },
+      { body, idempotencyKey, opts },
       fetchImpl
     )
   })
@@ -178,11 +219,24 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
   ipcMain.removeHandler(PIE_CHAT_DELETE_MESSAGE_CHANNEL)
   ipcMain.handle(PIE_CHAT_DELETE_MESSAGE_CHANNEL, async (event, input: unknown) => {
     assertTrustedPieMainFrame(event)
-    const payload = input as { channelId?: unknown; messageId?: unknown }
+    const payload = input as { channelId?: unknown; messageId?: unknown; reason?: unknown }
     const channelId = assertChannelId(payload?.channelId)
     const messageId = assertChannelId(payload?.messageId)
+    const reason =
+      payload?.reason === undefined ? undefined : assertNonEmptyString(payload.reason).trim()
+    if (reason !== undefined && (reason.length === 0 || reason.length > 500)) {
+      throw new Error('PIE_CHAT_INVALID_REQUEST')
+    }
     const { apiBaseUrl, accessToken, organizationId } = resolveAuth(deps)
-    await deleteMessage(apiBaseUrl, accessToken, organizationId, channelId, messageId, fetchImpl)
+    await deleteMessage(
+      apiBaseUrl,
+      accessToken,
+      organizationId,
+      channelId,
+      messageId,
+      reason,
+      fetchImpl
+    )
   })
 
   ipcMain.removeHandler(PIE_CHAT_MARK_READ_CHANNEL)
@@ -222,4 +276,5 @@ export function registerPieChatHandlers(deps: PieChatHandlerDeps): void {
   registerPieChatAdminHandlers(deps)
   registerPieChatNotificationHandlers(deps)
   registerPieChatSearchAttachmentHandlers(deps)
+  registerPieChatGovernanceHandlers(deps)
 }

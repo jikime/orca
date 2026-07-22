@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-action-item.v1.schema.json",
+  "title": "Meeting action item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "meetingId",
+    "minutesId",
+    "task",
+    "assigneeUserId",
+    "assigneeLabel",
+    "dueAt",
+    "dueText",
+    "priority",
+    "status",
+    "projectId",
+    "ticketId",
+    "workItemId",
+    "evidenceSegmentId",
+    "createdBy",
+    "reviewStatus",
+    "reviewedBy",
+    "reviewedAt",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "meetingId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "minutesId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "task": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "assigneeUserId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "assigneeLabel": { "type": ["string", "null"], "maxLength": 200 },
+    "dueAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "dueText": { "type": ["string", "null"], "maxLength": 200 },
+    "priority": { "enum": ["none", "urgent", "high", "medium", "low"] },
+    "status": { "enum": ["proposed", "accepted", "in_progress", "completed", "cancelled"] },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "ticketId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "workItemId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "evidenceSegmentId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "createdBy": { "enum": ["ai", "user"] },
+    "reviewStatus": { "enum": ["unreviewed", "approved", "rejected"] },
+    "reviewedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "reviewedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

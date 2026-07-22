@@ -18,11 +18,13 @@ import { createChatComposerExtensions } from './chat-composer-editor-extensions'
 
 // Matches a mention in progress: a trailing '@word' at the caret with no space.
 const TRAILING_MENTION = /(?:^|\s)@([\p{L}\p{N}._-]*)$/u
+const EMPTY_MENTION_USER_IDS: string[] = []
 
 export type RichChatComposerEditorHandle = {
   // Serialize the live rich content to the markdown string sendMessage expects.
   getMarkdown: () => string
   getMentionUserIds: () => string[]
+  setMarkdown: (markdown: string, mentionUserIds?: string[]) => void
   clear: () => void
   focus: () => void
   triggerMention: () => void
@@ -36,6 +38,8 @@ type MentionState = {
 
 type RichChatComposerEditorProps = {
   members: PieChatMember[]
+  initialMarkdown?: string
+  initialMentionUserIds?: string[]
   disabled?: boolean
   placeholder: string
   showFormatting: boolean
@@ -44,6 +48,7 @@ type RichChatComposerEditorProps = {
   // Fired on every content change, so the parent can emit an ephemeral typing ping
   // (the parent/backend throttle it; here it just signals "the user is typing").
   onType?: () => void
+  onContentChange?: (markdown: string, mentionUserIds: string[]) => void
   // Fired on Enter (no Shift, no open mention popup) — the parent runs its send.
   onEnterSubmit: () => void
   // Lifecycle passthrough for autofocus/tests; the editor stays self-owned.
@@ -63,18 +68,21 @@ export const RichChatComposerEditor = forwardRef<
 >(function RichChatComposerEditor(
   {
     members,
+    initialMarkdown = '',
+    initialMentionUserIds = EMPTY_MENTION_USER_IDS,
     disabled = false,
     placeholder,
     showFormatting,
     onEmptyChange,
     onType,
+    onContentChange,
     onEnterSubmit,
     onCreate
   },
   ref
 ): React.JSX.Element {
   const [mention, setMention] = useState<MentionState | null>(null)
-  const mentionUserIds = useRef<string[]>([])
+  const selectedMentions = useRef(new Map<string, string>())
   const editorRef = useRef<Editor | null>(null)
 
   // Refs mirror the values the once-bound ProseMirror keydown handler must read
@@ -82,11 +90,20 @@ export const RichChatComposerEditor = forwardRef<
   const mentionRef = useRef<MentionState | null>(null)
   const onEnterSubmitRef = useRef(onEnterSubmit)
   const onTypeRef = useRef(onType)
+  const onContentChangeRef = useRef(onContentChange)
   const membersRef = useRef(members)
   onEnterSubmitRef.current = onEnterSubmit
   onTypeRef.current = onType
+  onContentChangeRef.current = onContentChange
   membersRef.current = members
   mentionRef.current = mention
+
+  const selectedMentionUserIds = useCallback((activeEditor: Editor): string[] => {
+    const markdown = activeEditor.getMarkdown()
+    return [...selectedMentions.current]
+      .filter(([, displayName]) => markdown.includes(`@${displayName}`))
+      .map(([userId]) => userId)
+  }, [])
 
   const extensions = useMemo(() => createChatComposerExtensions(placeholder), [placeholder])
 
@@ -122,15 +139,13 @@ export const RichChatComposerEditor = forwardRef<
     // Replace the trailing '@query' (query + the '@') with '@displayName '; the
     // full user id is recorded so the backend gets the real mention target.
     const deleteLength = match[1].length + 1
+    selectedMentions.current.set(member.userId, member.displayName)
     editor
       .chain()
       .focus()
       .deleteRange({ from: from - deleteLength, to: from })
       .insertContent({ type: 'text', text: `@${member.displayName} ` })
       .run()
-    if (!mentionUserIds.current.includes(member.userId)) {
-      mentionUserIds.current = [...mentionUserIds.current, member.userId]
-    }
     setMention(null)
   }, [])
 
@@ -192,6 +207,15 @@ export const RichChatComposerEditor = forwardRef<
       }
     },
     onCreate: ({ editor: created }) => {
+      for (const userId of initialMentionUserIds) {
+        const member = membersRef.current.find((candidate) => candidate.userId === userId)
+        if (member) {
+          selectedMentions.current.set(userId, member.displayName)
+        }
+      }
+      if (initialMarkdown) {
+        created.commands.setContent(initialMarkdown, { contentType: 'markdown' })
+      }
       onEmptyChange(created.isEmpty)
       onCreate?.(created)
     },
@@ -202,6 +226,7 @@ export const RichChatComposerEditor = forwardRef<
       if (!empty) {
         onTypeRef.current?.()
       }
+      onContentChangeRef.current?.(updated.getMarkdown().trimEnd(), selectedMentionUserIds(updated))
       syncMention(updated)
     },
     onSelectionUpdate: ({ editor: updated }) => {
@@ -221,10 +246,28 @@ export const RichChatComposerEditor = forwardRef<
     ref,
     () => ({
       getMarkdown: () => editorRef.current?.getMarkdown().trimEnd() ?? '',
-      getMentionUserIds: () => mentionUserIds.current,
+      getMentionUserIds: () => {
+        const active = editorRef.current
+        return active ? selectedMentionUserIds(active) : []
+      },
+      setMarkdown: (markdown, mentionUserIds = []) => {
+        const active = editorRef.current
+        if (!active) {
+          return
+        }
+        selectedMentions.current.clear()
+        for (const userId of mentionUserIds) {
+          const member = membersRef.current.find((candidate) => candidate.userId === userId)
+          if (member) {
+            selectedMentions.current.set(userId, member.displayName)
+          }
+        }
+        active.commands.setContent(markdown, { contentType: 'markdown' })
+        onEmptyChange(active.getText().trim().length === 0)
+      },
       clear: () => {
         editorRef.current?.commands.clearContent()
-        mentionUserIds.current = []
+        selectedMentions.current.clear()
         setMention(null)
         onEmptyChange(true)
       },
@@ -247,7 +290,7 @@ export const RichChatComposerEditor = forwardRef<
           .run()
       }
     }),
-    [onEmptyChange]
+    [onEmptyChange, selectedMentionUserIds]
   )
 
   return (

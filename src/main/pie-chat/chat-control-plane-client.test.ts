@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   deleteMessage,
   editMessage,
+  getMessage,
   listChannels,
   listMessages,
   markRead,
@@ -25,7 +26,10 @@ function channelFixture(): PieChannel {
     scopeType: 'organization',
     scopeId: null,
     visibility: 'internal',
+    topic: '',
+    description: '',
     version: 1,
+    archivedAt: null,
     createdAt: '2026-07-16T00:00:00.000Z',
     updatedAt: '2026-07-16T00:00:00.000Z'
   }
@@ -88,6 +92,33 @@ describe('chat-control-plane-client', () => {
     )
   })
 
+  it('fetches one exact message for notification navigation', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(messageFixture()))
+    const result = await getMessage(API, TOKEN, ORG, CHANNEL, MESSAGE, fetchImpl)
+    expect(result.id).toBe(MESSAGE)
+    expect(fetchImpl.mock.calls[0][0]).toBe(
+      `${API}/organizations/${ORG}/channels/${CHANNEL}/messages/${MESSAGE}`
+    )
+  })
+
+  it('requests the latest page and an older-history cursor', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ items: [messageFixture()], nextCursor: MESSAGE }))
+    await listMessages(
+      API,
+      TOKEN,
+      ORG,
+      CHANNEL,
+      { limit: 50, before: MESSAGE, latest: true },
+      fetchImpl
+    )
+
+    expect(fetchImpl.mock.calls[0][0]).toBe(
+      `${API}/organizations/${ORG}/channels/${CHANNEL}/messages?limit=50&before=${MESSAGE}&latest=true`
+    )
+  })
+
   it('sends a message with a bearer and an Idempotency-Key header', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(messageFixture(), 201))
     await sendMessage(API, TOKEN, ORG, CHANNEL, { body: 'hi', idempotencyKey: 'key-1' }, fetchImpl)
@@ -123,10 +154,19 @@ describe('chat-control-plane-client', () => {
 
   it('soft-deletes a message', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
-    await deleteMessage(API, TOKEN, ORG, CHANNEL, MESSAGE, fetchImpl)
+    await deleteMessage(API, TOKEN, ORG, CHANNEL, MESSAGE, undefined, fetchImpl)
 
     const init = fetchImpl.mock.calls[0][1]
     expect(init.method).toBe('DELETE')
+  })
+
+  it('includes a moderator reason when deleting another user message', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    await deleteMessage(API, TOKEN, ORG, CHANNEL, MESSAGE, 'policy violation', fetchImpl)
+
+    const init = fetchImpl.mock.calls[0][1]
+    expect(init.headers).toMatchObject({ 'content-type': 'application/json' })
+    expect(init.body).toBe(JSON.stringify({ reason: 'policy violation' }))
   })
 
   it('marks a channel read with an Idempotency-Key', async () => {

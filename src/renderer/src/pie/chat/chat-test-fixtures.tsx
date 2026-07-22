@@ -12,6 +12,9 @@ import type {
   PiePinnedMessage
 } from '../../../../shared/pie-chat-contract'
 import type { PieSessionState } from '../../../../shared/pie-session-contract'
+import { TooltipProvider } from '@/components/ui/tooltip'
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 // Shared fixtures + a fully-stubbed chat API for the renderer suites. Every
 // PieChatRendererApi method resolves to a benign default; specific tests override
@@ -31,7 +34,10 @@ export function channel(overrides: Partial<PieChannel> = {}): PieChannel {
     scopeType: 'organization',
     scopeId: null,
     visibility: 'internal',
+    topic: '',
+    description: '',
     version: 1,
+    archivedAt: null,
     createdAt: '2026-07-16T00:00:00.000Z',
     updatedAt: '2026-07-16T00:00:00.000Z',
     ...overrides
@@ -106,6 +112,7 @@ export function makeChatApi(overrides: Partial<PieChatRendererApi> = {}): FakeCh
     changedCallbacks,
     listChannels: vi.fn().mockResolvedValue([channel()]),
     listMessages: vi.fn().mockResolvedValue({ items: [message()], nextCursor: null }),
+    getMessage: vi.fn().mockResolvedValue(message()),
     sendMessage: vi.fn().mockResolvedValue(message({ authorId: USER })),
     editMessage: vi.fn(),
     deleteMessage: vi.fn().mockResolvedValue(undefined),
@@ -118,6 +125,17 @@ export function makeChatApi(overrides: Partial<PieChatRendererApi> = {}): FakeCh
     createChannel: vi.fn().mockResolvedValue(channel()),
     createDm: vi.fn().mockResolvedValue(channel({ kind: 'dm' })),
     createGroupDm: vi.fn().mockResolvedValue(channel({ kind: 'dm' })),
+    addChannelMember: vi.fn().mockResolvedValue(undefined),
+    updateChannel: vi.fn().mockResolvedValue(channel()),
+    listChannelMembers: vi.fn().mockResolvedValue([]),
+    removeChannelMember: vi.fn().mockResolvedValue(undefined),
+    listChannelAudit: vi.fn().mockResolvedValue([]),
+    exportChannel: vi.fn().mockResolvedValue({
+      exportedAt: '2026-07-16T00:00:00.000Z',
+      truncated: false,
+      messages: []
+    }),
+    applyChannelRetention: vi.fn().mockResolvedValue(0),
     muteChannel: vi.fn().mockResolvedValue(undefined),
     unmuteChannel: vi.fn().mockResolvedValue(undefined),
     searchMessages: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
@@ -137,6 +155,17 @@ export function makeChatApi(overrides: Partial<PieChatRendererApi> = {}): FakeCh
     listNotifications: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     markNotificationRead: vi.fn().mockResolvedValue(undefined),
     markAllNotificationsRead: vi.fn().mockResolvedValue(0),
+    getNotificationPreferences: vi.fn().mockResolvedValue({
+      desktopEnabled: true,
+      dndEnabled: false,
+      dndStartMinute: 1320,
+      dndEndMinute: 480,
+      timezone: 'UTC',
+      channelLevels: []
+    }),
+    updateNotificationPreferences: vi.fn(),
+    setChannelNotificationLevel: vi.fn().mockResolvedValue(undefined),
+    onNotificationClicked: () => () => {},
     onMessagesChanged: (callback) => {
       changedCallbacks.push(callback)
       return () => {
@@ -172,7 +201,11 @@ export function renderScreen(): { root: Root; container: HTMLDivElement } {
   document.body.appendChild(container)
   const root = createRoot(container)
   act(() => {
-    root.render(<ChatScreen getSessionState={() => Promise.resolve(signedInSession)} />)
+    root.render(
+      <TooltipProvider>
+        <ChatScreen getSessionState={() => Promise.resolve(signedInSession)} />
+      </TooltipProvider>
+    )
   })
   return { root, container }
 }

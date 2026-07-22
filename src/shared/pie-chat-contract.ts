@@ -1,9 +1,32 @@
 import { z } from 'zod'
 
+export {
+  PieChannelNotificationLevelSchema,
+  PieChatNotificationClickedSchema,
+  PieNotificationListResponseSchema,
+  PieNotificationPreferencesSchema,
+  PieNotificationPreferencesUpdateSchema,
+  PieNotificationsReadAllResponseSchema,
+  PieNotificationSchema
+} from './pie-chat-notification-contract'
+export type {
+  PieChannelNotificationLevel,
+  PieChatNotificationClicked,
+  PieNotification,
+  PieNotificationListResponse,
+  PieNotificationPreferences,
+  PieNotificationPreferencesUpdate
+} from './pie-chat-notification-contract'
+
 // IPC channel names live in a zod-free module so the sandboxed preload can import
 // them without pulling zod. Re-exported here for existing Main-side importers.
 export {
   PIE_CHAT_ADD_REACTION_CHANNEL,
+  PIE_CHAT_ADD_CHANNEL_MEMBER_CHANNEL,
+  PIE_CHAT_UPDATE_CHANNEL_CHANNEL,
+  PIE_CHAT_LIST_CHANNEL_MEMBERS_CHANNEL,
+  PIE_CHAT_REMOVE_CHANNEL_MEMBER_CHANNEL,
+  PIE_CHAT_GET_MESSAGE_CHANNEL,
   PIE_CHAT_CREATE_ATTACHMENT_INTENT_CHANNEL,
   PIE_CHAT_CREATE_CHANNEL_CHANNEL,
   PIE_CHAT_CREATE_DM_CHANNEL,
@@ -19,6 +42,10 @@ export {
   PIE_CHAT_LIST_PINS_CHANNEL,
   PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL,
   PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL,
+  PIE_CHAT_GET_NOTIFICATION_PREFERENCES_CHANNEL,
+  PIE_CHAT_UPDATE_NOTIFICATION_PREFERENCES_CHANNEL,
+  PIE_CHAT_SET_CHANNEL_NOTIFICATION_LEVEL_CHANNEL,
+  PIE_CHAT_NOTIFICATION_CLICKED_CHANNEL,
   PIE_CHAT_MARK_READ_CHANNEL,
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
   PIE_CHAT_MUTE_CHANNEL_CHANNEL,
@@ -60,11 +87,16 @@ export const PieChannelSchema = z
     scopeType: z.string(),
     scopeId: z.string().nullable(),
     visibility: ChannelVisibilitySchema,
+    topic: z.string().max(250),
+    description: z.string().max(2000),
+    retentionDays: z.number().int().min(1).max(3650).nullable().optional(),
     version: z.number().int(),
+    archivedAt: z.string().nullable(),
     createdAt: z.string(),
     updatedAt: z.string(),
     // Unread messages for the requesting user; present only on the channel list.
-    unreadCount: z.number().int().optional()
+    unreadCount: z.number().int().optional(),
+    lastReadMessageId: opaqueIdSchema.nullable().optional()
   })
   .passthrough()
 
@@ -159,9 +191,19 @@ export const PieChatListMessagesOptionsSchema = z
   .object({
     limit: z.number().int().min(1).max(200).optional(),
     cursor: opaqueIdSchema.optional(),
+    // `before` pages toward older history. `latest` opens the newest page instead
+    // of the legacy oldest-first page used by forward cursor consumers.
+    before: opaqueIdSchema.optional(),
+    latest: z.boolean().optional(),
     threadRoot: opaqueIdSchema.optional()
   })
   .strict()
+  .refine((options) => !(options.cursor && options.before), {
+    message: 'cursor and before cannot be combined'
+  })
+  .refine((options) => !(options.cursor && options.latest), {
+    message: 'cursor and latest cannot be combined'
+  })
 
 // Extra POST-message fields. Body stays plain text; mention targets ride
 // out-of-band as user ids (backend resolves + drops non-members), and
@@ -203,6 +245,25 @@ export const PieChatMemberSchema = z
   })
   .passthrough()
 
+export const PieChannelMemberSchema = z
+  .object({
+    userId: opaqueIdSchema,
+    role: z.enum(['owner', 'member']),
+    addedAt: z.string()
+  })
+  .passthrough()
+
+export const PieChannelUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    topic: z.string().max(250).optional(),
+    description: z.string().max(2000).optional(),
+    retentionDays: z.number().int().min(1).max(3650).nullable().optional(),
+    archived: z.boolean().optional()
+  })
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, { message: 'channel update is empty' })
+
 export const PieAttachmentIntentSchema = z
   .object({
     id: z.string(),
@@ -221,36 +282,38 @@ export const PieAttachmentDownloadSchema = z
   })
   .passthrough()
 
-// One durable per-user notification (currently only type 'mention'). Mirrors
-// NotificationResource from @pie/persistence. `type` stays a plain string so a
-// future notification kind does not fail client validation. channelId/messageId
-// reference the mention's location; the actor + message body are NOT on this
-// resource (backend only stores the reference), so the inbox shows type +
-// channel + relative time, not an author line or the message text.
-export const PieNotificationSchema = z
+export const PieChannelAuditEntrySchema = z
   .object({
     id: opaqueIdSchema,
-    organizationId: opaqueIdSchema,
-    userId: opaqueIdSchema,
-    type: z.string(),
-    channelId: z.string().nullable(),
-    messageId: z.string().nullable(),
-    seen: z.boolean(),
-    read: z.boolean(),
-    createdAt: z.string()
+    actorId: opaqueIdSchema.nullable(),
+    action: z.string(),
+    targetType: z.string(),
+    targetId: opaqueIdSchema.nullable(),
+    reason: z.string().nullable(),
+    occurredAt: z.string()
   })
   .passthrough()
 
-export const PieNotificationListResponseSchema = z
+export const PieChannelExportSchema = z
   .object({
-    items: z.array(PieNotificationSchema),
-    nextCursor: z.string().nullable()
+    exportedAt: z.string(),
+    truncated: z.boolean(),
+    messages: z.array(
+      z
+        .object({
+          id: opaqueIdSchema,
+          authorId: opaqueIdSchema,
+          body: z.string(),
+          threadRootMessageId: opaqueIdSchema.nullable(),
+          createdAt: z.string(),
+          editedAt: z.string(),
+          deletedAt: z.string().nullable(),
+          deletedBy: opaqueIdSchema.nullable(),
+          deletionReason: z.string().nullable()
+        })
+        .passthrough()
+    )
   })
-  .passthrough()
-
-// The read-all route returns the count of rows it flipped to read.
-export const PieNotificationsReadAllResponseSchema = z
-  .object({ updated: z.number().int() })
   .passthrough()
 
 export type ChannelVisibility = z.infer<typeof ChannelVisibilitySchema>
@@ -270,66 +333,10 @@ export type PiePinnedMessage = z.infer<typeof PiePinnedMessageSchema>
 export type PiePinListResponse = z.infer<typeof PiePinListResponseSchema>
 export type PieMessageSearchResponse = z.infer<typeof PieMessageSearchResponseSchema>
 export type PieChatMember = z.infer<typeof PieChatMemberSchema>
+export type PieChannelMember = z.infer<typeof PieChannelMemberSchema>
+export type PieChannelUpdate = z.infer<typeof PieChannelUpdateSchema>
 export type PieAttachmentIntent = z.infer<typeof PieAttachmentIntentSchema>
 export type PieAttachmentDownload = z.infer<typeof PieAttachmentDownloadSchema>
-export type PieNotification = z.infer<typeof PieNotificationSchema>
-export type PieNotificationListResponse = z.infer<typeof PieNotificationListResponseSchema>
-
-// Renderer-facing bridge. It never carries tokens or the org/user ids the renderer
-// should not hold — Main resolves those from the auth lifecycle + session broker.
-export type PieChatRendererApi = {
-  listChannels: () => Promise<PieChannel[]>
-  listMessages: (
-    channelId: string,
-    opts?: PieChatListMessagesOptions
-  ) => Promise<PieMessageListResponse>
-  sendMessage: (
-    channelId: string,
-    body: string,
-    opts?: PieSendMessageOptions
-  ) => Promise<PieMessage>
-  editMessage: (
-    channelId: string,
-    messageId: string,
-    body: string,
-    expectedVersion: number
-  ) => Promise<PieMessage>
-  deleteMessage: (channelId: string, messageId: string) => Promise<void>
-  markRead: (channelId: string, lastReadMessageId: string) => Promise<void>
-  addReaction: (channelId: string, messageId: string, emoji: string) => Promise<PieMessage>
-  removeReaction: (channelId: string, messageId: string, emoji: string) => Promise<void>
-  pinMessage: (channelId: string, messageId: string) => Promise<void>
-  unpinMessage: (channelId: string, messageId: string) => Promise<void>
-  listPins: (channelId: string) => Promise<PiePinnedMessage[]>
-  createChannel: (name: string, visibility?: ChannelVisibility) => Promise<PieChannel>
-  createDm: (otherUserId: string) => Promise<PieChannel>
-  createGroupDm: (participantUserIds: string[]) => Promise<PieChannel>
-  muteChannel: (channelId: string) => Promise<void>
-  unmuteChannel: (channelId: string) => Promise<void>
-  searchMessages: (query: string, cursor?: string) => Promise<PieMessageSearchResponse>
-  listMembers: () => Promise<PieChatMember[]>
-  // Uploads bytes and returns the attachment intent whose id links the file to a
-  // subsequent sendMessage via opts.attachmentIds. Both the intent and the
-  // presigned PUT happen in Main.
-  uploadAttachment: (
-    channelId: string,
-    meta: { filename: string; contentType: string; byteSize: number },
-    file: ArrayBuffer
-  ) => Promise<PieAttachmentIntent>
-  downloadAttachment: (channelId: string, attachmentId: string) => Promise<PieAttachmentDownload>
-  // The caller's own durable notification feed (mentions). markAll returns the
-  // count flipped to read so the renderer can zero its unread badge optimistically.
-  listNotifications: () => Promise<PieNotificationListResponse>
-  markNotificationRead: (notificationId: string) => Promise<PieNotification>
-  markAllNotificationsRead: () => Promise<number>
-  onMessagesChanged: (callback: (event: PieChatMessagesChanged) => void) => () => void
-  // Fire-and-forget typing ping; the backend rate-coalesces per user/channel.
-  sendTyping: (channelId: string) => Promise<void>
-  // The currently-online user ids, to seed presence when the chat surface mounts
-  // after Main already received the initial presence burst.
-  getPresenceSnapshot: () => Promise<string[]>
-  // Live ephemeral collaboration signals (no cursor/version); the payload IS the
-  // state, so the renderer applies each directly and self-heals on a TTL.
-  onTypingChanged: (callback: (event: PieChatTypingChanged) => void) => () => void
-  onPresenceChanged: (callback: (event: PieChatPresenceChanged) => void) => () => void
-}
+export type PieChannelAuditEntry = z.infer<typeof PieChannelAuditEntrySchema>
+export type PieChannelExport = z.infer<typeof PieChannelExportSchema>
+export type { PieChatRendererApi } from './pie-chat-renderer-api'

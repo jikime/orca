@@ -22,4 +22,28 @@ describe('worktree RPC schemas', () => {
 
     expect(parsed.success).toBe(false)
   })
+
+  it('validates Pie workspace context at the runtime boundary', () => {
+    const context = {
+      schemaVersion: 1,
+      authority: 'pie',
+      organizationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      projectId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      workItemId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      workItemIdentifier: 'APP-142',
+      workItemTitle: 'Fix login error'
+    }
+
+    expect(
+      WorktreeCreate.safeParse({ repo: 'repo-1', name: 'pie-work', pieWorkspaceContext: context })
+        .success
+    ).toBe(true)
+    expect(
+      WorktreeCreate.safeParse({
+        repo: 'repo-1',
+        name: 'pie-work',
+        pieWorkspaceContext: { ...context, organizationId: 'another-tenant' }
+      }).success
+    ).toBe(false)
+  })
 })

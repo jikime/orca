@@ -2,8 +2,11 @@ import { z } from 'zod'
 import {
   PieChannelSchema,
   PieChatMemberSchema,
+  PieChannelMemberSchema,
   type ChannelVisibility,
   type PieChannel,
+  type PieChannelMember,
+  type PieChannelUpdate,
   type PieChatMember
 } from '../../shared/pie-chat-contract'
 import {
@@ -87,6 +90,98 @@ export async function createGroupDm(
   return parsed.data
 }
 
+export async function addChannelMember(
+  apiBaseUrl: string,
+  accessToken: string,
+  organizationId: string,
+  channelId: string,
+  userId: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<void> {
+  const response = await fetchImpl(
+    `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/members`,
+    {
+      method: 'POST',
+      headers: jsonHeaders(accessToken),
+      body: JSON.stringify({ userId })
+    }
+  )
+  if (!response.ok) {
+    throw new PieChatError(`add channel member failed with ${response.status}`, response.status)
+  }
+}
+
+export async function updateChannel(
+  apiBaseUrl: string,
+  accessToken: string,
+  organizationId: string,
+  channelId: string,
+  input: { update: PieChannelUpdate; expectedVersion: number; idempotencyKey: string },
+  fetchImpl: typeof fetch = fetch
+): Promise<PieChannel> {
+  const response = await fetchImpl(`${channelsBase(apiBaseUrl, organizationId)}/${channelId}`, {
+    method: 'PATCH',
+    headers: {
+      ...jsonHeaders(accessToken),
+      'if-match': `"channel-${input.expectedVersion}"`,
+      'idempotency-key': input.idempotencyKey
+    },
+    body: JSON.stringify(input.update)
+  })
+  if (!response.ok) {
+    throw new PieChatError(`update channel failed with ${response.status}`, response.status)
+  }
+  const parsed = PieChannelSchema.safeParse(await response.json())
+  if (!parsed.success) {
+    throw new PieChatError('updated channel response failed schema validation')
+  }
+  return parsed.data
+}
+
+const ChannelMemberListSchema = z.object({ items: z.array(PieChannelMemberSchema) }).passthrough()
+
+export async function listChannelMembers(
+  apiBaseUrl: string,
+  accessToken: string,
+  organizationId: string,
+  channelId: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<PieChannelMember[]> {
+  const response = await fetchImpl(
+    `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/members`,
+    { headers: authHeaders(accessToken) }
+  )
+  if (!response.ok) {
+    throw new PieChatError(`list channel members failed with ${response.status}`, response.status)
+  }
+  const parsed = ChannelMemberListSchema.safeParse(await response.json())
+  if (!parsed.success) {
+    throw new PieChatError('channel members response failed schema validation')
+  }
+  return parsed.data.items
+}
+
+export async function removeChannelMember(
+  apiBaseUrl: string,
+  accessToken: string,
+  organizationId: string,
+  channelId: string,
+  userId: string,
+  idempotencyKey: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<void> {
+  const response = await fetchImpl(
+    `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/members/${userId}`,
+    {
+      method: 'DELETE',
+      headers: { ...authHeaders(accessToken), 'idempotency-key': idempotencyKey }
+    }
+  )
+  if (!response.ok) {
+    throw new PieChatError(`remove channel member failed with ${response.status}`, response.status)
+  }
+}
+
 export async function muteChannel(
   apiBaseUrl: string,
   accessToken: string,
@@ -126,7 +221,11 @@ export async function unmuteChannel(
 }
 
 const MembershipListSchema = z
-  .object({ items: z.array(z.object({ userId: z.string() }).passthrough()) })
+  .object({
+    items: z.array(
+      z.object({ userId: z.string(), displayName: z.string().optional() }).passthrough()
+    )
+  })
   .passthrough()
 
 export async function listMembers(
@@ -145,12 +244,15 @@ export async function listMembers(
   if (!parsed.success) {
     throw new PieChatError('members response failed schema validation')
   }
-  // The membership resource carries no display name, so the short id is the label
-  // (matches how the timeline renders authors). Filter out non-active members.
+  // Older control planes may omit displayName, so mixed-version desktops retain
+  // the short-id fallback while newer servers expose the identity profile name.
   return parsed.data.items
     .filter((item) => (item as { status?: string }).status !== 'revoked')
     .map(
       (item): PieChatMember =>
-        PieChatMemberSchema.parse({ userId: item.userId, displayName: item.userId.slice(0, 8) })
+        PieChatMemberSchema.parse({
+          userId: item.userId,
+          displayName: item.displayName ?? item.userId.slice(0, 8)
+        })
     )
 }

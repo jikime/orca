@@ -41,7 +41,7 @@ function renderSearch(
   document.body.appendChild(container)
   root = createRoot(container)
   act(() => {
-    root?.render(<MessageSearch api={api} onSelect={onSelect} />)
+    root?.render(<MessageSearch api={api} members={[]} onSelect={onSelect} />)
   })
 }
 

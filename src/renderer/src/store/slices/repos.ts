@@ -1439,6 +1439,7 @@ export type RepoSlice = {
       folderPath?: string | null
       connectionId?: string | null
       linkedTask?: FolderWorkspace['linkedTask']
+      pieWorkspaceContext?: FolderWorkspace['pieWorkspaceContext']
       createdWithAgent?: FolderWorkspace['createdWithAgent']
       pendingFirstAgentMessageRename?: boolean
     },
@@ -1464,6 +1465,7 @@ export type RepoSlice = {
         | 'name'
         | 'folderPath'
         | 'linkedTask'
+        | 'pieWorkspaceContext'
         | 'comment'
         | 'isArchived'
         | 'isUnread'

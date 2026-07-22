@@ -2608,7 +2608,9 @@ function createNotificationsApi(): NonNullable<Partial<PreloadApi>['notification
     getPermissionStatus: () =>
       Promise.resolve({ supported: false, platform: getBrowserPlatform(), requested: false }),
     probeDelivery: () => Promise.resolve({ state: 'unsupported' as const, authoritative: false }),
-    playSound: () => Promise.resolve({ played: false, reason: 'missing-path' })
+    playSound: () => Promise.resolve({ played: false, reason: 'missing-path' }),
+    // Meeting notification clicks are a native desktop event; web callers still need safe cleanup.
+    onMeetingClicked: () => () => undefined
   }
 }
 

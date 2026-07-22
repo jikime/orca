@@ -1,5 +1,6 @@
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -40,6 +41,7 @@ export type ObjectStorage = {
   presignGet: (storageKey: string, options?: PresignGetOptions) => Promise<string>
   head: (storageKey: string) => Promise<ObjectHeadResult>
   getObjectBytes: (storageKey: string) => Promise<Uint8Array>
+  deleteObject: (storageKey: string) => Promise<void>
   ensureBucket: () => Promise<void>
   // Dev/test convenience: production clients upload via the presigned URL.
   putObject: (storageKey: string, body: Uint8Array | string, contentType: string) => Promise<void>
@@ -101,6 +103,9 @@ export function createObjectStorage(config: ObjectStorageConfig): ObjectStorage 
       )
       if (!result.Body) throw new Error(`object body is empty: ${storageKey}`)
       return result.Body.transformToByteArray()
+    },
+    deleteObject: async (storageKey) => {
+      await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }))
     },
     ensureBucket: async () => {
       try {

@@ -1,0 +1,5 @@
+{
+  "purpose": "Create a searchable recap and follow-up actions.",
+  "retentionDays": 90,
+  "legalHold": false
+}

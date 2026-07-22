@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-action-work-item-conversion.v1.schema.json",
+  "title": "Convert a meeting action item to a work item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["teamId"],
+  "properties": {
+    "teamId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "projectId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

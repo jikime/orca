@@ -9,6 +9,8 @@ import {
   createDatabasePool,
   createMeeting,
   listMeetingMinutes,
+  listMeetingDecisions,
+  listMeetingActionItems,
   listMeetingParticipants,
   listMeetingProcessingJobs,
   listMeetingTranscripts,
@@ -128,18 +130,29 @@ describe('meeting recording processing loop', () => {
       head: async () => ({ exists: true, sizeBytes: 3, contentType: 'audio/mpeg' }),
       ensureBucket: async () => undefined,
       putObject: async () => undefined,
-      getObjectBytes: async () => new Uint8Array([1, 2, 3])
+      getObjectBytes: async () => new Uint8Array([1, 2, 3]),
+      deleteObject: async () => undefined
     }
     const ai: MeetingAiClient = {
       transcribe: async () => ({
         text: 'We decided to ship. Mina owns the release.',
-        segments: [{ speaker: 'A', start: 0, end: 2, text: 'We decided to ship.' }],
+        segments: [
+          { speaker: 'A', start: 0, end: 2, text: 'We decided to ship.' },
+          { speaker: 'A', start: 2, end: 4, text: 'Mina owns the release.' }
+        ],
         language: 'en'
       }),
       draftMinutes: async () => ({
         summary: 'The team agreed to ship.',
-        decisions: ['Ship the release.'],
-        actionItems: [{ task: 'Prepare the release', owner: 'Mina', due: null }]
+        decisions: [{ statement: 'Ship the release.', evidenceQuote: 'We decided to ship.' }],
+        actionItems: [
+          {
+            task: 'Prepare the release',
+            owner: 'Mina',
+            due: null,
+            evidenceQuote: 'Mina owns the release.'
+          }
+        ]
       })
     }
     const loop = createMeetingProcessingLoop({
@@ -170,5 +183,22 @@ describe('meeting recording processing loop', () => {
     expect(minutes[0]).toMatchObject({ sourceType: 'ai', reviewStatus: 'unreviewed' })
     expect(minutes[0]?.summary).toContain('## 결정 사항')
     expect(minutes[0]?.summary).toContain('Mina')
+    const decisions = await listMeetingDecisions(db, organizationId, meeting.id)
+    expect(decisions).toEqual([
+      expect.objectContaining({
+        statement: 'Ship the release.',
+        reviewStatus: 'unreviewed',
+        evidenceSegmentId: expect.any(String)
+      })
+    ])
+    const actionItems = await listMeetingActionItems(db, organizationId, meeting.id)
+    expect(actionItems).toEqual([
+      expect.objectContaining({
+        task: 'Prepare the release',
+        assigneeLabel: 'Mina',
+        reviewStatus: 'unreviewed',
+        evidenceSegmentId: expect.any(String)
+      })
+    ])
   })
 })

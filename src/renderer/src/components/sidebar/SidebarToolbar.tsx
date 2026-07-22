@@ -16,12 +16,14 @@ type SidebarToolbarProps = {
   workspaceBoardOpen: boolean
   workspaceBoardDragPreviewOpen?: boolean
   onWorkspaceBoardToggle: () => void
+  showWorkspaceControls?: boolean
 }
 
 const SidebarToolbar = React.memo(function SidebarToolbar({
   workspaceBoardOpen,
   workspaceBoardDragPreviewOpen = false,
-  onWorkspaceBoardToggle
+  onWorkspaceBoardToggle,
+  showWorkspaceControls = true
 }: SidebarToolbarProps) {
   const [workspaceBoardMovedHintOpen, setWorkspaceBoardMovedHintOpen] = React.useState(false)
   const movedHintEligibleRef = React.useRef<boolean | null>(null)
@@ -31,7 +33,8 @@ const SidebarToolbar = React.memo(function SidebarToolbar({
   )
 
   React.useEffect(() => {
-    if (!persistedUIReady) {
+    if (!showWorkspaceControls || !persistedUIReady) {
+      setWorkspaceBoardMovedHintOpen(false)
       return
     }
     // Why: only users who had already opened the old board location should
@@ -56,7 +59,7 @@ const SidebarToolbar = React.memo(function SidebarToolbar({
       setWorkspaceBoardMovedHintOpen(false)
     }, WORKSPACE_BOARD_MOVED_HINT_DURATION_MS)
     return () => window.clearTimeout(timeoutId)
-  }, [hasUsedWorkspaceBoard, persistedUIReady])
+  }, [hasUsedWorkspaceBoard, persistedUIReady, showWorkspaceControls])
 
   const handleWorkspaceBoardClick = (): void => {
     setWorkspaceBoardMovedHintOpen(false)
@@ -70,49 +73,51 @@ const SidebarToolbar = React.memo(function SidebarToolbar({
           <OrcaProfileSwitcher placement="sidebar" />
           <SidebarSettingsHelpMenu />
         </div>
-        <div className="flex items-center gap-1">
-          <ScrollToCurrentWorkspaceToolbarButton />
-          <Tooltip open={workspaceBoardMovedHintOpen ? true : undefined}>
-            <TooltipTrigger asChild>
-              <Button
-                // Why: previewing the board from a card drag lights up the
-                // trigger so it's clear the drag is another way to open it.
-                variant={
-                  workspaceBoardOpen || workspaceBoardDragPreviewOpen ? 'secondary' : 'ghost'
-                }
-                size="icon-xs"
-                type="button"
-                aria-label={translate(
-                  'auto.components.sidebar.SidebarToolbar.49f62c5665',
-                  'Workspace board'
-                )}
-                aria-pressed={workspaceBoardOpen}
-                data-workspace-board-trigger=""
-                data-workspace-board-preview={workspaceBoardDragPreviewOpen ? 'true' : undefined}
-                onClick={handleWorkspaceBoardClick}
-                className="text-muted-foreground"
-              >
-                <Kanban className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" sideOffset={4}>
-              {workspaceBoardMovedHintOpen
-                ? translate(
-                    'auto.components.sidebar.SidebarToolbar.87d0064026',
-                    'Workspace board moved to the bottom bar'
-                  )
-                : workspaceBoardOpen
+        {showWorkspaceControls ? (
+          <div className="flex items-center gap-1">
+            <ScrollToCurrentWorkspaceToolbarButton />
+            <Tooltip open={workspaceBoardMovedHintOpen ? true : undefined}>
+              <TooltipTrigger asChild>
+                <Button
+                  // Why: previewing the board from a card drag lights up the
+                  // trigger so it's clear the drag is another way to open it.
+                  variant={
+                    workspaceBoardOpen || workspaceBoardDragPreviewOpen ? 'secondary' : 'ghost'
+                  }
+                  size="icon-xs"
+                  type="button"
+                  aria-label={translate(
+                    'auto.components.sidebar.SidebarToolbar.49f62c5665',
+                    'Workspace board'
+                  )}
+                  aria-pressed={workspaceBoardOpen}
+                  data-workspace-board-trigger=""
+                  data-workspace-board-preview={workspaceBoardDragPreviewOpen ? 'true' : undefined}
+                  onClick={handleWorkspaceBoardClick}
+                  className="text-muted-foreground"
+                >
+                  <Kanban className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={4}>
+                {workspaceBoardMovedHintOpen
                   ? translate(
-                      'auto.components.sidebar.SidebarToolbar.a30e34eb5c',
-                      'Close workspace board'
+                      'auto.components.sidebar.SidebarToolbar.87d0064026',
+                      'Workspace board moved to the bottom bar'
                     )
-                  : translate(
-                      'auto.components.sidebar.SidebarToolbar.49f62c5665',
-                      'Workspace board'
-                    )}
-            </TooltipContent>
-          </Tooltip>
-        </div>
+                  : workspaceBoardOpen
+                    ? translate(
+                        'auto.components.sidebar.SidebarToolbar.a30e34eb5c',
+                        'Close workspace board'
+                      )
+                    : translate(
+                        'auto.components.sidebar.SidebarToolbar.49f62c5665',
+                        'Workspace board'
+                      )}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        ) : null}
       </div>
     </div>
   )

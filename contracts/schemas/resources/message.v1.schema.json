@@ -90,7 +90,7 @@
     },
     "deletionReason": {
       "type": ["string", "null"],
-      "maxLength": 1000
+      "maxLength": 500
     },
     "pinned": {
       "description": "True when this message is currently pinned in its channel (doc 33 §3).",

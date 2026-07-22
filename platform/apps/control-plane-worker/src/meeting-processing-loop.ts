@@ -65,7 +65,9 @@ export function createMeetingProcessingLoop(options: {
       organizationId: job.organizationId,
       jobId: job.id,
       workerId: job.workerId,
-      summary: renderMeetingMinutes(draft)
+      summary: renderMeetingMinutes(draft),
+      decisions: draft.decisions,
+      actionItems: draft.actionItems
     })
     if (!completed) throw new Error('summarization job lease was lost')
   }

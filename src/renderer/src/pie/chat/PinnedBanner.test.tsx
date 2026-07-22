@@ -27,7 +27,7 @@ function renderBanner(api: ReturnType<typeof makeChatApi>): void {
   document.body.appendChild(container)
   root = createRoot(container)
   act(() => {
-    root?.render(<PinnedBanner channelId={CHANNEL} api={api} />)
+    root?.render(<PinnedBanner channelId={CHANNEL} api={api} members={[]} />)
   })
 }
 

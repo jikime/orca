@@ -7,12 +7,14 @@ export function createOptimisticMessage(
   channelId: string,
   authorId: string,
   body: string,
-  opts?: PieSendMessageOptions
+  opts?: PieSendMessageOptions,
+  clientRequestId: string = globalThis.crypto.randomUUID()
 ): TimelineMessage {
-  const optimisticId = globalThis.crypto.randomUUID()
+  const optimisticId = clientRequestId
   return {
     optimisticId,
     pending: true,
+    retryPayload: { body, ...(opts ? { opts } : {}) },
     id: optimisticId,
     organizationId: '',
     channelId,

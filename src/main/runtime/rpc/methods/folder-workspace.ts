@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { defineMethod, type RpcMethod } from '../core'
 import { OptionalFiniteNumber, OptionalString, requiredString } from '../schemas'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
+import { PieWorkspaceContextSchema } from '../../../../shared/pie-workspace-context'
 
 const FolderWorkspaceLinkedTask = z
   .object({
@@ -22,6 +23,7 @@ const FolderWorkspaceCreate = z.object({
   folderPath: OptionalString.nullable().optional(),
   connectionId: OptionalString.nullable().optional(),
   linkedTask: FolderWorkspaceLinkedTask.optional(),
+  pieWorkspaceContext: PieWorkspaceContextSchema.optional(),
   createdWithAgent: z.string().refine(isTuiAgent).optional(),
   pendingFirstAgentMessageRename: z.boolean().optional()
 })
@@ -32,6 +34,7 @@ const FolderWorkspaceUpdate = z.object({
     name: OptionalString,
     folderPath: OptionalString,
     linkedTask: FolderWorkspaceLinkedTask.optional(),
+    pieWorkspaceContext: PieWorkspaceContextSchema.optional(),
     comment: z.string().optional(),
     isArchived: z.boolean().optional(),
     isUnread: z.boolean().optional(),

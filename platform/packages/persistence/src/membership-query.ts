@@ -9,6 +9,7 @@ export type MembershipResource = {
   id: string
   organizationId: string
   userId: string
+  displayName: string
   status: string
   roleIds: string[]
   version: number
@@ -31,7 +32,8 @@ export type ListMembershipsResult =
 export async function listMembershipsForMember(
   db: Kysely<Database>,
   principal: SessionPrincipal,
-  organizationId: string
+  organizationId: string,
+  options: { query?: string; limit?: number } = {}
 ): Promise<ListMembershipsResult> {
   const isMember = await withoutTenantContext(db, async (trx) => {
     const account = await findUserAccountBySubject(trx, principal.issuer, principal.subject)
@@ -52,11 +54,26 @@ export async function listMembershipsForMember(
   }
 
   const items = await withTenantTransaction(db, organizationId, async (trx) => {
-    const rows = await trx.selectFrom('identity.memberships').selectAll().execute()
+    let query = trx
+      .selectFrom('identity.memberships as membership')
+      .innerJoin('identity.user_accounts as account', 'account.id', 'membership.user_id')
+      .selectAll('membership')
+      .select('account.display_name')
+      .where('membership.status', '=', 'active')
+      .orderBy('account.display_name', 'asc')
+      .limit(Math.min(Math.max(options.limit ?? 50, 1), 100))
+    const search = options.query?.trim()
+    if (search) {
+      // Why: member search is display-name based; opaque ids remain selectable but are not exposed
+      // through wildcard casts that can bypass a future identity index.
+      query = query.where('account.display_name', 'ilike', `%${search.replaceAll('%', '\\%')}%`)
+    }
+    const rows = await query.execute()
     return rows.map((row) => ({
       id: row.id,
       organizationId: row.organization_id,
       userId: row.user_id,
+      displayName: row.display_name,
       status: row.status,
       roleIds: row.role_ids,
       version: Number(row.version),

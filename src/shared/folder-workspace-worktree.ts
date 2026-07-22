@@ -13,6 +13,9 @@ export function folderWorkspaceToWorktree(folderWorkspace: FolderWorkspace): Wor
     linkedPR: null,
     linkedLinearIssue:
       linkedTask?.provider === 'linear' ? (linkedTask.linearIdentifier ?? null) : null,
+    ...(folderWorkspace.pieWorkspaceContext
+      ? { pieWorkspaceContext: folderWorkspace.pieWorkspaceContext }
+      : {}),
     linkedGitLabMR: null,
     linkedGitLabIssue:
       linkedTask?.provider === 'gitlab' && linkedTask.type === 'issue' ? linkedTask.number : null,

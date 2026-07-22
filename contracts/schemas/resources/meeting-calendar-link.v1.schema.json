@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-calendar-link.v1.schema.json",
+  "title": "Meeting calendar link",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "meetingId",
+    "provider",
+    "calendarId",
+    "eventId",
+    "webUrl",
+    "syncStatus",
+    "lastError",
+    "lastSyncedAt",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "meetingId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "provider": { "enum": ["google_workspace", "microsoft_365"] },
+    "calendarId": { "type": "string", "minLength": 1 },
+    "eventId": { "type": ["string", "null"] },
+    "webUrl": { "type": ["string", "null"], "format": "uri" },
+    "syncStatus": { "enum": ["pending", "synced", "failed"] },
+    "lastError": { "type": ["string", "null"] },
+    "lastSyncedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

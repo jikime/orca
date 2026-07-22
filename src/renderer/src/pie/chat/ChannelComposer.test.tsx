@@ -4,7 +4,8 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChannelComposer } from './ChannelComposer'
-import { CHANNEL, member, makeChatApi, flush } from './chat-test-fixtures'
+import { CHANNEL, member, makeChatApi, flush, typeInto } from './chat-test-fixtures'
+import { chatComposerDraftKey, readChatComposerDraft } from './chat-composer-draft-store'
 
 let root: Root | null = null
 let container: HTMLDivElement | null = null
@@ -26,6 +27,7 @@ afterEach(() => {
 })
 
 beforeEach(() => {
+  window.localStorage.clear()
   Element.prototype.scrollIntoView = vi.fn()
   originalCreateObjectURL = URL.createObjectURL
   Object.defineProperty(URL, 'createObjectURL', {
@@ -45,6 +47,7 @@ async function renderComposer(
     root?.render(
       <ChannelComposer
         channelId={CHANNEL}
+        draftOwnerId="u-1"
         members={[member('u-1', 'Ada'), member('u-2', 'Grace')]}
         sending={false}
         api={api}
@@ -130,7 +133,7 @@ describe('ChannelComposer', () => {
     act(() => {
       sendButton()?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
-    expect(onSend).toHaveBeenCalledWith('@Ada', { mentions: ['u-1'] })
+    expect(onSend).toHaveBeenCalledWith('@Ada', { mentions: ['u-1'] }, expect.any(String))
   })
 
   it('sends attachmentIds collected from an upload alongside the message', async () => {
@@ -146,6 +149,77 @@ describe('ChannelComposer', () => {
       sendButton()?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onSend).toHaveBeenCalledWith('', { attachmentIds: ['att-1'] })
+    expect(onSend).toHaveBeenCalledWith('', { attachmentIds: ['att-1'] }, expect.any(String))
+  })
+
+  it('sends group mentions as structured notification options', async () => {
+    const onSend = vi.fn()
+    await renderComposer(makeChatApi(), onSend)
+
+    await act(async () => typeInto(container as HTMLElement, 'Heads up @channel and @here'))
+    act(() => sendButton()?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+
+    expect(onSend).toHaveBeenCalledWith(
+      'Heads up @channel and @here',
+      {
+        mentionChannel: true,
+        mentionHere: true
+      },
+      expect.any(String)
+    )
+  })
+
+  it('restores a channel draft after the composer remounts', async () => {
+    const api = makeChatApi()
+    await renderComposer(api)
+    await act(async () => typeInto(container as HTMLElement, '**keep me**'))
+    expect(readChatComposerDraft(chatComposerDraftKey('u-1', CHANNEL))?.body).toBe('**keep me**')
+
+    act(() => root?.unmount())
+    root = null
+    expect(readChatComposerDraft(chatComposerDraftKey('u-1', CHANNEL))?.body).toBe('**keep me**')
+    container?.remove()
+    container = null
+    await renderComposer(api)
+
+    expect(readChatComposerDraft(chatComposerDraftKey('u-1', CHANNEL))?.body).toBe('**keep me**')
+    expect(document.querySelector('[contenteditable="true"]')?.textContent).toBe('keep me')
+  })
+
+  it('keeps the draft when sending fails and clears it after a successful retry', async () => {
+    const onSend = vi
+      .fn<(body: string, opts?: unknown, clientRequestId?: string) => Promise<void>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined)
+    await renderComposer(makeChatApi(), onSend)
+    await act(async () => typeInto(container as HTMLElement, 'retry me'))
+
+    act(() => sendButton()?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    await flush()
+    expect(container?.querySelector('[contenteditable="true"]')?.textContent).toContain('retry me')
+
+    act(() => sendButton()?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    await flush()
+    expect(container?.querySelector('[contenteditable="true"]')?.textContent).toBe('')
+    expect(onSend.mock.calls[1]?.[2]).toBe(onSend.mock.calls[0]?.[2])
+  })
+
+  it('retries the same file after an attachment upload failure', async () => {
+    const uploadAttachment = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ id: 'att-1' })
+    await renderComposer(makeChatApi({ uploadAttachment }))
+    await act(async () => attachFile('report.pdf', 'application/pdf'))
+    await flush()
+
+    const retry = Array.from(container?.querySelectorAll('button') ?? []).find(
+      (button) => button.textContent === 'Retry'
+    )
+    act(() => retry?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    await flush()
+
+    expect(uploadAttachment).toHaveBeenCalledTimes(2)
+    expect(container?.textContent).toContain('report.pdf')
   })
 })

@@ -6,7 +6,37 @@
   "required": ["name"],
   "properties": {
     "name": { "type": "string", "minLength": 1, "maxLength": 120 },
-    "visibility": { "enum": ["internal", "project", "customer"] }
+    "visibility": { "enum": ["internal", "project", "customer"] },
+    "scopeType": { "enum": ["organization", "team", "project", "customer", "ticket", "meeting"] },
+    "scopeId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["scopeType"],
+        "properties": {
+          "scopeType": { "enum": ["team", "project", "customer", "ticket", "meeting"] }
+        }
+      },
+      "then": {
+        "required": ["scopeId"],
+        "properties": {
+          "scopeId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "scopeType": { "const": "organization" } },
+        "required": ["scopeType"]
+      },
+      "then": { "properties": { "scopeId": { "type": "null" } } }
+    }
+  ],
   "additionalProperties": false
 }

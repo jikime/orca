@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/channel-member.v1.schema.json",
+  "title": "Channel member",
+  "type": "object",
+  "required": ["userId", "role", "addedAt"],
+  "properties": {
+    "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "role": { "enum": ["owner", "member"] },
+    "addedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

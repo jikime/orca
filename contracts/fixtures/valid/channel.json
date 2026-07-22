@@ -5,7 +5,11 @@
   "scopeType": "organization",
   "scopeId": null,
   "visibility": "internal",
+  "topic": "",
+  "description": "",
+  "retentionDays": null,
   "version": 1,
+  "archivedAt": null,
   "createdAt": "2026-07-17T09:00:00Z",
   "updatedAt": "2026-07-17T09:00:00Z",
   "kind": "channel"

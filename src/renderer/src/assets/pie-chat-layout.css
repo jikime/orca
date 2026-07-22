@@ -1,0 +1,42 @@
+@media (min-width: 80rem) {
+  .pie-chat-thread-panel {
+    /* Why: the thread must occupy its grid column instead of covering the conversation. */
+    position: static;
+    z-index: auto;
+    width: auto;
+    box-shadow: none;
+  }
+}
+
+/* Why: only one Radix surface may be interactive at a time; explicit rules keep
+   the desktop popover and compact sheet mutually exclusive after Vite HMR. */
+.pie-chat-header-popover-control {
+  display: none;
+}
+
+.pie-chat-header-sheet-control {
+  display: block;
+}
+
+@media (min-width: 48rem) {
+  .pie-chat-header-popover-control {
+    display: block;
+  }
+
+  .pie-chat-header-sheet-control {
+    display: none;
+  }
+}
+
+/* Why: Electron can throttle a background window mid-Radix animation. State
+   must still decide whether a portaled panel can be seen or receive input. */
+.pie-chat-header-floating-panel[data-state='open'] {
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+
+.pie-chat-header-floating-panel[data-state='closed'],
+.pie-chat-header-sheet-overlay[data-state='closed'] {
+  opacity: 0 !important;
+  pointer-events: none;
+}

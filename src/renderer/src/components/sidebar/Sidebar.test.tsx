@@ -32,6 +32,14 @@ vi.mock('./SidebarNav', () => ({
   default: () => <div data-testid="sidebar-nav" />
 }))
 
+vi.mock('./SidebarModeTabs', () => ({
+  SidebarModeTabs: () => <div data-testid="sidebar-mode-tabs" />
+}))
+
+vi.mock('./PieSidebarNav', () => ({
+  PieSidebarNav: () => <div data-testid="pie-sidebar-nav" />
+}))
+
 vi.mock('./SetupScriptPromptCard', () => ({
   default: () => <div data-testid="setup-script-prompt-card" />
 }))
@@ -86,8 +94,13 @@ vi.mock('./useWorkspaceBoardPanel', () => ({
 
 import Sidebar from './index'
 
-function setSidebarState(settings: GlobalSettings, statusBarVisible = true): void {
+function setSidebarState(
+  settings: GlobalSettings,
+  statusBarVisible = true,
+  activeView: 'terminal' | 'pie' = 'terminal'
+): void {
   mocks.state = {
+    activeView,
     activeModal: null,
     fetchAllWorktrees: vi.fn(),
     repos: [],
@@ -131,5 +144,17 @@ describe('Sidebar', () => {
 
     expect(markup).toContain('data-testid="workspace-kanban-drawer"')
     expect(markup).toContain('data-status-bar-visible="false"')
+  })
+
+  it('replaces workspace controls with Pie navigation in the Pie tab', () => {
+    setSidebarState(getDefaultSettings('/tmp'), true, 'pie')
+
+    const markup = renderSidebar()
+
+    expect(markup).toContain('data-testid="sidebar-mode-tabs"')
+    expect(markup).toContain('data-testid="pie-sidebar-nav"')
+    expect(markup).not.toContain('data-testid="sidebar-nav"')
+    expect(markup).not.toContain('data-testid="worktree-list"')
+    expect(markup).not.toContain('data-testid="workspace-kanban-drawer"')
   })
 })

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-agenda-item.v1.schema.json",
+  "title": "Meeting agenda item",
+  "description": "An agenda item promoted from a message in the meeting's canonical conversation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "meetingId",
+    "sourceChannelId",
+    "sourceMessageId",
+    "body",
+    "status",
+    "createdBy",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "meetingId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sourceChannelId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sourceMessageId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "body": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "status": { "enum": ["planned", "discussed", "dropped"] },
+    "createdBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

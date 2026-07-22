@@ -36,7 +36,56 @@ export const RESOURCE_CHANGE_RESOURCE_TYPES = [
   'channel_member',
   'message',
   'read_cursor',
-  'notification'
+  'notification',
+  'remote_session',
+  'agent_event',
+  'agent_turn',
+  'agent_provenance',
+  'agent_session_intake',
+  'crm_account',
+  'crm_opportunity',
+  'crm_contract',
+  'crm_change_order',
+  'requirement',
+  'requirement_acceptance',
+  'service_ticket',
+  'service_ticket_reply',
+  'wbs_node',
+  'milestone',
+  'schedule_baseline',
+  'resource_assignment',
+  'effort_entry',
+  'import_run',
+  'change_request',
+  'deliverable',
+  'test_case',
+  'defect',
+  'project_risk',
+  'project_decision',
+  'status_report',
+  'knowledge_article',
+  'runbook',
+  'runbook_execution',
+  'work_queue_item',
+  'ai_entitlement',
+  'ai_evaluation',
+  'ai_guard_event',
+  'meeting',
+  'meeting_participant',
+  'meeting_recording',
+  'meeting_transcript',
+  'meeting_minutes',
+  'meeting_agenda_item',
+  'meeting_decision',
+  'meeting_action_item',
+  'meeting_capture_consent',
+  'meeting_governance',
+  'asset',
+  'asset_link',
+  'asset_event',
+  'invoice',
+  'invoice_line_item',
+  'payment'
 ] as const
 export const RESOURCE_CHANGE_KINDS = ['created', 'updated', 'archived', 'deleted'] as const
 
@@ -151,6 +200,33 @@ export const PieRealtimePresenceChangedSchema = z
   })
   .passthrough()
 
+export const PieRealtimeRemotePresenceChangedSchema = z
+  .object({
+    type: z.literal('remote_presence.changed'),
+    schemaVersion: z.literal(1),
+    organizationId: opaqueIdSchema,
+    sessionId: opaqueIdSchema,
+    participantId: opaqueIdSchema,
+    userId: opaqueIdSchema,
+    state: z.enum(['online', 'offline']),
+    role: z.string().min(1).max(64),
+    at: timestampSchema
+  })
+  .passthrough()
+
+export const PieRealtimeRemoteCursorChangedSchema = z
+  .object({
+    type: z.literal('remote_cursor.changed'),
+    schemaVersion: z.literal(1),
+    organizationId: opaqueIdSchema,
+    sessionId: opaqueIdSchema,
+    participantId: opaqueIdSchema,
+    row: z.number().min(0),
+    col: z.number().min(0),
+    at: timestampSchema
+  })
+  .passthrough()
+
 // Every inbound frame the client may receive, discriminated by `type`.
 export const PieRealtimeServerMessageSchema = z.discriminatedUnion('type', [
   PieRealtimeServerWelcomeSchema,
@@ -160,7 +236,9 @@ export const PieRealtimeServerMessageSchema = z.discriminatedUnion('type', [
   PieRealtimeHeartbeatSchema,
   PieRealtimeConnectionClosingSchema,
   PieRealtimeTypingChangedSchema,
-  PieRealtimePresenceChangedSchema
+  PieRealtimePresenceChangedSchema,
+  PieRealtimeRemotePresenceChangedSchema,
+  PieRealtimeRemoteCursorChangedSchema
 ])
 
 // Recovery feed page (contracts/schemas/resources/change-page.v1) fetched during
@@ -182,6 +260,10 @@ export type PieRealtimeResyncRequired = z.infer<typeof PieRealtimeResyncRequired
 export type PieRealtimeConnectionClosing = z.infer<typeof PieRealtimeConnectionClosingSchema>
 export type PieRealtimeTypingChanged = z.infer<typeof PieRealtimeTypingChangedSchema>
 export type PieRealtimePresenceChanged = z.infer<typeof PieRealtimePresenceChangedSchema>
+export type PieRealtimeRemotePresenceChanged = z.infer<
+  typeof PieRealtimeRemotePresenceChangedSchema
+>
+export type PieRealtimeRemoteCursorChanged = z.infer<typeof PieRealtimeRemoteCursorChangedSchema>
 // Non-durable collaboration frames (no cursor/version — the payload IS the state).
 export type PieRealtimeEphemeral = PieRealtimeTypingChanged | PieRealtimePresenceChanged
 export type PieRealtimeServerMessage = z.infer<typeof PieRealtimeServerMessageSchema>

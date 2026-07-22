@@ -3,50 +3,20 @@ import type {
   PieChannel,
   PieChatMember,
   PieChatRendererApi,
-  PieMessage,
-  PieNotification,
-  PieSendMessageOptions
+  PieMessage
 } from '../../../../shared/pie-chat-contract'
-import { createOptimisticMessage } from './optimistic-message'
 import { isReactedByMe, toggleReactionLocally } from './apply-optimistic-reaction'
 import { useChatPresenceTyping } from './use-chat-presence-typing'
+import { mergeChatTimeline } from './merge-chat-timeline'
+import { useChatNotifications } from './use-chat-notifications'
+import type { PieChatController, TimelineMessage } from './pie-chat-controller'
+import { useChatMessageDelivery } from './use-chat-message-delivery'
+import { useChatReadTracking } from './use-chat-read-tracking'
 
-// A message in the timeline: a server message, optionally an optimistic local
-// echo that has not yet been confirmed (pending) or has failed to send.
-export type TimelineMessage = PieMessage & {
-  optimisticId?: string
-  pending?: boolean
-  failed?: boolean
-}
+export type { PieChatController, TimelineMessage } from './pie-chat-controller'
 
-export type PieChatController = {
-  api: PieChatRendererApi
-  currentUserId: string
-  channels: PieChannel[]
-  members: PieChatMember[]
-  selectedChannelId: string | null
-  messages: TimelineMessage[]
-  notifications: PieNotification[]
-  unreadNotificationCount: number
-  // Org-wide online users + who is typing per channel (ephemeral realtime state).
-  onlineUserIds: ReadonlySet<string>
-  typingUserIdsByChannel: ReadonlyMap<string, string[]>
-  notifyTyping: (channelId: string) => void
-  loadingChannels: boolean
-  loadingMessages: boolean
-  sending: boolean
-  error: string | null
-  selectChannel: (channelId: string) => void
-  selectChannelObject: (channel: PieChannel) => void
-  sendMessage: (body: string, opts?: PieSendMessageOptions) => Promise<void>
-  toggleReaction: (messageId: string, emoji: string) => Promise<void>
-  markNotificationRead: (notificationId: string) => Promise<void>
-  markAllNotificationsRead: () => Promise<void>
-  refresh: () => void
-}
-
-// Refetch the active channel on this cadence as a live-update fallback while the
-// realtime resource-change union does not yet carry a message resourceType.
+// Refetch on a slow cadence as a recovery path for a push missed during
+// reconnect; normal message updates arrive through onMessagesChanged.
 const POLL_INTERVAL_MS = 15000
 
 function errorMessage(error: unknown): string {
@@ -61,33 +31,56 @@ export function usePieChat(
   const [members, setMembers] = useState<PieChatMember[]>([])
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [messages, setMessages] = useState<TimelineMessage[]>([])
-  const [notifications, setNotifications] = useState<PieNotification[]>([])
   const [loadingChannels, setLoadingChannels] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
-  const [sending, setSending] = useState(false)
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false)
+  const [hasOlderMessages, setHasOlderMessages] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
+  const channelsRef = useRef(channels)
+  channelsRef.current = channels
+  const {
+    notifications,
+    unreadNotificationCount,
+    loadNotifications,
+    markNotificationRead,
+    markAllNotificationsRead
+  } = useChatNotifications(api, channels)
 
   // Track the active channel in a ref so subscriptions/pollers read the latest
   // value without re-subscribing on every selection change.
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selectedChannelId
+  const { sending, sendMessage, retryMessage, dismissFailedMessage } = useChatMessageDelivery({
+    api,
+    currentUserId,
+    selectedChannelIdRef: selectedRef,
+    messagesRef,
+    setMessages,
+    setError
+  })
+  const { unreadBoundaryMessageId, captureUnreadBoundary, markReadThrough, resetUnreadBoundary } =
+    useChatReadTracking(api, setChannels)
 
   const loadMessages = useCallback(
-    async (channelId: string): Promise<void> => {
+    async (channelId: string, trackOlderPage = false): Promise<void> => {
       setLoadingMessages(true)
       try {
-        const response = await api.listMessages(channelId)
+        const response = await api.listMessages(channelId, { latest: true })
         // Ignore a response for a channel the user already navigated away from.
         if (selectedRef.current !== channelId) {
           return
         }
-        setMessages(response.items)
-        setError(null)
-        // Viewing a channel marks it read (its unread badge clears on next list).
-        const last = response.items.at(-1)
-        if (last) {
-          void api.markRead(channelId, last.id).catch(() => {})
+        setMessages((current) => mergeChatTimeline(current, response.items))
+        if (trackOlderPage) {
+          setHasOlderMessages(response.nextCursor !== null)
+          captureUnreadBoundary(
+            channelsRef.current.find((channel) => channel.id === channelId),
+            response.items
+          )
         }
+        setError(null)
       } catch (caught) {
         if (selectedRef.current === channelId) {
           setError(errorMessage(caught))
@@ -98,7 +91,7 @@ export function usePieChat(
         }
       }
     },
-    [api]
+    [api, captureUnreadBoundary]
   )
 
   const loadChannels = useCallback(async (): Promise<void> => {
@@ -116,38 +109,26 @@ export function usePieChat(
     }
   }, [api])
 
-  // The durable per-user notification feed. A failure is non-fatal (the inbox
-  // just stays empty) so it does not surface a blocking error to the timeline.
-  const loadNotifications = useCallback(async (): Promise<void> => {
-    try {
-      const response = await api.listNotifications()
-      setNotifications(response.items)
-    } catch {
-      setNotifications([])
-    }
-  }, [api])
-
   useEffect(() => {
     void loadChannels()
-    void loadNotifications()
     // Members feed @-mention autocomplete and DM targeting; a failure here is
     // non-fatal (autocomplete just stays empty) so it does not surface an error.
     void api
       .listMembers()
       .then(setMembers)
       .catch(() => setMembers([]))
-  }, [api, loadChannels, loadNotifications])
+  }, [api, loadChannels])
 
   useEffect(() => {
     if (selectedChannelId) {
-      void loadMessages(selectedChannelId)
+      void loadMessages(selectedChannelId, true)
     }
   }, [selectedChannelId, loadMessages])
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async (): Promise<void> => {
     const channelId = selectedRef.current
     if (channelId) {
-      void loadMessages(channelId)
+      await loadMessages(channelId)
     }
   }, [loadMessages])
 
@@ -155,7 +136,7 @@ export function usePieChat(
   // A mention creates a notification, so every nudge also refreshes the inbox.
   useEffect(() => {
     const tick = (): void => {
-      refresh()
+      void refresh()
       void loadNotifications()
       // Refresh the channel list so unread badges reflect messages in other channels.
       void loadChannels()
@@ -170,62 +151,73 @@ export function usePieChat(
     }
   }, [api, refresh, loadNotifications, loadChannels])
 
-  const selectChannel = useCallback((channelId: string) => {
-    setSelectedChannelId(channelId)
-    setMessages([])
-  }, [])
-
-  const selectChannelObject = useCallback((channel: PieChannel) => {
-    // Newly created channels/DMs are not in the loaded list yet — add and select.
-    setChannels((current) =>
-      current.some((existing) => existing.id === channel.id) ? current : [...current, channel]
-    )
-    setSelectedChannelId(channel.id)
-    setMessages([])
-  }, [])
-
-  const sendMessage = useCallback(
-    async (body: string, opts?: PieSendMessageOptions): Promise<void> => {
-      const channelId = selectedRef.current
-      const trimmed = body.trim()
-      if (!channelId || trimmed.length === 0) {
-        return
-      }
-      const optimistic = createOptimisticMessage(channelId, currentUserId, trimmed, opts)
-      // A threaded reply is not shown in the main timeline; the thread panel
-      // refetches itself. Only echo top-level messages here.
-      const echo = opts?.threadRootMessageId === undefined
-      if (echo) {
-        setMessages((current) => [...current, optimistic])
-      }
-      setSending(true)
-      try {
-        const sent = await api.sendMessage(channelId, trimmed, opts)
-        if (echo) {
-          setMessages((current) =>
-            current.map((message) =>
-              message.optimisticId === optimistic.optimisticId ? sent : message
-            )
-          )
-        }
-        setError(null)
-      } catch (caught) {
-        if (echo) {
-          setMessages((current) =>
-            current.map((message) =>
-              message.optimisticId === optimistic.optimisticId
-                ? { ...message, pending: false, failed: true }
-                : message
-            )
-          )
-        }
-        setError(errorMessage(caught))
-      } finally {
-        setSending(false)
-      }
+  const selectChannel = useCallback(
+    (channelId: string) => {
+      setSelectedChannelId(channelId)
+      setMessages([])
+      setHasOlderMessages(false)
+      resetUnreadBoundary()
     },
-    [api, currentUserId]
+    [resetUnreadBoundary]
   )
+
+  const selectChannelObject = useCallback(
+    (channel: PieChannel) => {
+      // Newly created channels/DMs are not in the loaded list yet — add and select.
+      setChannels((current) =>
+        current.some((existing) => existing.id === channel.id) ? current : [...current, channel]
+      )
+      setSelectedChannelId(channel.id)
+      setMessages([])
+      setHasOlderMessages(false)
+      resetUnreadBoundary()
+    },
+    [resetUnreadBoundary]
+  )
+
+  const replaceChannel = useCallback((channel: PieChannel): void => {
+    setChannels((current) =>
+      current.map((existing) => (existing.id === channel.id ? channel : existing))
+    )
+  }, [])
+
+  const focusMessage = useCallback((message: PieMessage): void => {
+    const changingChannel = selectedRef.current !== message.channelId
+    setSelectedChannelId(message.channelId)
+    setMessages((current) =>
+      changingChannel
+        ? [message]
+        : current.some((item) => item.id === message.id)
+          ? current
+          : mergeChatTimeline(current, [message])
+    )
+    if (changingChannel) {
+      setHasOlderMessages(true)
+    }
+  }, [])
+
+  const loadOlderMessages = useCallback(async (): Promise<void> => {
+    const channelId = selectedRef.current
+    const oldest = messages.find((message) => !message.optimisticId)
+    if (!channelId || !oldest || loadingOlderMessages || !hasOlderMessages) {
+      return
+    }
+    setLoadingOlderMessages(true)
+    try {
+      const response = await api.listMessages(channelId, { before: oldest.id })
+      if (selectedRef.current === channelId) {
+        setMessages((current) => mergeChatTimeline(current, response.items))
+        setHasOlderMessages(response.nextCursor !== null)
+        setError(null)
+      }
+    } catch (caught) {
+      if (selectedRef.current === channelId) {
+        setError(errorMessage(caught))
+      }
+    } finally {
+      setLoadingOlderMessages(false)
+    }
+  }, [api, hasOlderMessages, loadingOlderMessages, messages])
 
   const toggleReaction = useCallback(
     async (messageId: string, emoji: string): Promise<void> => {
@@ -266,35 +258,6 @@ export function usePieChat(
     [api, messages]
   )
 
-  const markNotificationRead = useCallback(
-    async (notificationId: string): Promise<void> => {
-      // Optimistically flip the row read; the server call is idempotent, so a
-      // failed request simply reverts to the next feed refresh.
-      setNotifications((current) =>
-        current.map((item) =>
-          item.id === notificationId ? { ...item, read: true, seen: true } : item
-        )
-      )
-      try {
-        await api.markNotificationRead(notificationId)
-      } catch {
-        void loadNotifications()
-      }
-    },
-    [api, loadNotifications]
-  )
-
-  const markAllNotificationsRead = useCallback(async (): Promise<void> => {
-    setNotifications((current) => current.map((item) => ({ ...item, read: true, seen: true })))
-    try {
-      await api.markAllNotificationsRead()
-    } catch {
-      void loadNotifications()
-    }
-  }, [api, loadNotifications])
-
-  const unreadNotificationCount = notifications.filter((item) => !item.read).length
-
   const { onlineUserIds, typingUserIdsByChannel, notifyTyping } = useChatPresenceTyping(
     api,
     currentUserId
@@ -315,6 +278,7 @@ export function usePieChat(
     members,
     selectedChannelId,
     messages,
+    unreadBoundaryMessageId,
     notifications,
     unreadNotificationCount,
     onlineUserIds,
@@ -322,14 +286,22 @@ export function usePieChat(
     notifyTyping,
     loadingChannels,
     loadingMessages,
+    loadingOlderMessages,
+    hasOlderMessages,
     sending,
     error,
     selectChannel,
     selectChannelObject,
+    replaceChannel,
+    focusMessage,
     sendMessage,
+    retryMessage,
+    dismissFailedMessage,
+    markReadThrough,
     toggleReaction,
     markNotificationRead,
     markAllNotificationsRead,
-    refresh
+    refresh,
+    loadOlderMessages
   }
 }

@@ -1,5 +1,6 @@
 import type { FolderWorkspace, FolderWorkspaceLinkedTask, ProjectGroup } from './types'
 import { isTuiAgent } from './tui-agent-config'
+import { parsePieWorkspaceContext } from './pie-workspace-context'
 
 export function normalizeFolderWorkspaceName(
   name: string | null | undefined,
@@ -94,6 +95,7 @@ export function normalizeFolderWorkspaces(
       continue
     }
     const now = Date.now()
+    const pieWorkspaceContext = parsePieWorkspaceContext(raw.pieWorkspaceContext)
     seen.add(raw.id)
     workspaces.push({
       id: raw.id,
@@ -107,6 +109,7 @@ export function normalizeFolderWorkspaces(
             ? null
             : (group?.connectionId ?? null),
       linkedTask: normalizeFolderWorkspaceLinkedTask(raw.linkedTask),
+      ...(pieWorkspaceContext ? { pieWorkspaceContext } : {}),
       comment: typeof raw.comment === 'string' ? raw.comment : '',
       isArchived: raw.isArchived === true,
       isUnread: raw.isUnread === true,

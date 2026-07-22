@@ -97,6 +97,22 @@ describe('folderWorkspaceToWorktree', () => {
     })
   })
 
+  it('projects Pie work-item identity into the shared worktree view', () => {
+    const pieWorkspaceContext = {
+      schemaVersion: 1 as const,
+      authority: 'pie' as const,
+      organizationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      projectId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      workItemId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      workItemIdentifier: 'APP-142',
+      workItemTitle: 'Fix login error'
+    }
+
+    expect(folderWorkspaceToWorktree(makeFolderWorkspace({ pieWorkspaceContext }))).toMatchObject({
+      pieWorkspaceContext
+    })
+  })
+
   it('keeps review-style tasks attached only to the folder workspace record', () => {
     const githubPr = folderWorkspaceToWorktree(
       makeFolderWorkspace({

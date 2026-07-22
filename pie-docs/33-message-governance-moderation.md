@@ -7,6 +7,9 @@
 
 이 에픽은 **얇은 impl 슬라이스가 아니라 설계 선행이 필요한 클러스터**여서 별도 문서로 청사진을 고정한다.
 
+2026-07-21 기준 s1~s4의 서버·Desktop 수직이 구현됐다. 이 문서에서 `연기`로 남는 범위는 AI 요약,
+legal hold, eDiscovery와 조건별 자동 보존이다.
+
 ## 범위 판정 — 지금 buildable vs 연기
 
 | 항목 | 근거 | 판정 |
@@ -16,7 +19,7 @@
 | **고정 메시지** | doc 08:26 | **지금** |
 | **메시지→WorkItem 전환** | doc 08:30 "메시지에서 작업·티켓·결정 생성"; doc 27 IntakeItem·WorkItem(R4 `delivery.work_items` 존재) | **지금** (R4+R7 위) |
 | **AI 요약·액션 아이템** | doc 08:31, doc 09 knowledge-automation | **연기** → R5 AI workspace/모델 접근 인프라 의존. 전환이 만든 링크 위에 얹는다. |
-| 메시지 **보존 기간** | doc 08:29 | **연기** → 조직 정책·리텐션 잡 설계(별도). 삭제의 body-retention 정책과 접점. |
+| 메시지 **보존 기간** | doc 08:29 | **기본 구현** → 채널별 1~3650일·무기한, 관리자 즉시 적용. legal hold와 조건별 정책은 별도. |
 | **회의(화상)** | doc 08:36~49 | **연기** → 전용 SFU/LiveKit `meeting` 프로파일(ADR-0011). 이 에픽과 무관. |
 
 ## 불변식(모든 슬라이스 공통)
@@ -81,7 +84,8 @@ message_work_item_links
 - **s2 · 고정 메시지** — message_pins + pin/unpin/list. (s1 무관, 병렬 가능하나 순차)
 - **s3 · 메시지→WorkItem 전환** — message_work_item_links + 전환 라우트. collaboration↔delivery 경계. (R4 delivery 필요, 존재함)
 - **(연기) AI 요약·액션아이템** — R5 AI 인프라 위, s3 링크 재사용.
-- **(연기) 보존 기간** — 리텐션 잡·정책. s1 body-retention 훅과 접점.
+- **s4 · 기본 보존·내보내기·감사 조회** — 채널별 기간, 멱등 적용, 10,000건 JSON 내보내기와 관리자 감사 화면.
+- **(연기) legal hold·eDiscovery** — 삭제 정지, 조건별 정책, 대규모 자동 실행과 증거 보존.
 
 ## 보안 요점
 
@@ -91,4 +95,5 @@ message_work_item_links
 
 ## 진행 방식
 
-기존 파이프라인 동일: Fable 슬라이스 브리핑 → Opus subagent 구현 → Fable 실 인프라(PG+KC+S3+WS) 라이브 검증 → main 머지. s1부터 착수.
+s1~s4의 구현과 검증 기준은 [채팅 핵심 제품 로드맵](./36-chat-core-roadmap.md)과
+[채팅 릴리스 검증 기록](./37-chat-release-evidence.md)이 소유한다.

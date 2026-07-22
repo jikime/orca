@@ -19,6 +19,7 @@ import type { FolderWorkspace, ProjectGroup, TuiAgent } from '../../../../shared
 import { isWslUncPath } from '../../../../shared/wsl-paths'
 import { resolveLocalWindowsAgentStartupShell } from '../../../../shared/windows-terminal-shell'
 import type { AgentStartupShell } from '../../../../shared/tui-agent-startup-shell'
+import type { PieWorkspaceContext } from '../../../../shared/pie-workspace-context'
 import type { LaunchSource } from '../../../../shared/telemetry-events'
 import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import {
@@ -31,6 +32,7 @@ type FolderWorkspaceCreateInput = {
   name: string
   connectionId?: string | null
   linkedTask: FolderWorkspace['linkedTask']
+  pieWorkspaceContext?: PieWorkspaceContext
   createdWithAgent?: TuiAgent
   pendingFirstAgentMessageRename?: boolean
 }
@@ -50,6 +52,7 @@ type SubmitFolderWorkspaceCreateParams = {
   isRemote?: boolean
   launchSource?: LaunchSource
   runtimeEnvironmentId?: string | null
+  pieWorkspaceContext?: PieWorkspaceContext
   createFolderWorkspace: (input: FolderWorkspaceCreateInput) => Promise<FolderWorkspace | null>
   onOpenChange: (open: boolean) => void
 }
@@ -162,6 +165,7 @@ export async function submitFolderWorkspaceCreate({
   terminalWindowsShell,
   launchSource = 'sidebar',
   runtimeEnvironmentId = null,
+  pieWorkspaceContext,
   createFolderWorkspace,
   onOpenChange
 }: SubmitFolderWorkspaceCreateParams): Promise<boolean> {
@@ -222,6 +226,7 @@ export async function submitFolderWorkspaceCreate({
     // focused runtime is local or another host.
     connectionId: projectGroup.connectionId ?? null,
     linkedTask: toFolderWorkspaceLinkedTask(linkedWorkItem),
+    ...(pieWorkspaceContext ? { pieWorkspaceContext } : {}),
     ...(quickAgent ? { createdWithAgent: quickAgent } : {}),
     ...(pendingFirstAgentMessageRename ? { pendingFirstAgentMessageRename: true } : {})
   })

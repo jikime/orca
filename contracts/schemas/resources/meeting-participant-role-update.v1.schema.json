@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-participant-role-update.v1.schema.json",
+  "title": "Update meeting participant role",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["role"],
+  "properties": {
+    "role": {
+      "enum": ["co_host", "presenter", "participant"]
+    }
+  }
+}

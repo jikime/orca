@@ -26,6 +26,7 @@ import {
   GitPullRequest,
   GitPullRequestDraft,
   List,
+  ListChecks,
   LoaderCircle,
   Lock,
   Minus,
@@ -335,6 +336,7 @@ import {
   type JiraPrioritiesBySite
 } from './jira-issue-sorter'
 import { TaskPageJiraSortControls } from './task-page-jira-sort-controls'
+import PieTaskPage from './PieTaskPage'
 import {
   normalizeVisibleTaskProviders,
   restoreAvailableDefaultTaskProvider,
@@ -3054,7 +3056,7 @@ const hasUpstreamCandidateDivergence = (
   !!s.sources.upstreamCandidate &&
   !sameGitHubOwnerRepo(s.sources.originCandidate, s.sources.upstreamCandidate)
 
-export default function TaskPage(): React.JSX.Element {
+function ProviderTaskPage(): React.JSX.Element {
   useTranslation()
   const settings = useAppStore((s) => s.settings)
   const persistedUIReady = useAppStore((s) => s.persistedUIReady)
@@ -8200,6 +8202,31 @@ export default function TaskPage(): React.JSX.Element {
                       </TooltipContent>
                     </Tooltip>
                     <div className="mx-1 h-5 w-px bg-border/50" aria-hidden />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openTaskPage(
+                              { internalTaskSource: 'pie' },
+                              { recordTasksInteraction: false }
+                            )
+                          }
+                          data-task-source="pie"
+                          aria-label={translate(
+                            'auto.components.PieTaskPage.source',
+                            'Pie · My Work'
+                          )}
+                          aria-pressed={false}
+                          className="flex h-8 w-8 items-center justify-center rounded-md border border-border/40 bg-transparent text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+                        >
+                          <ListChecks className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={6}>
+                        {translate('auto.components.PieTaskPage.source', 'Pie · My Work')}
+                      </TooltipContent>
+                    </Tooltip>
                     {visibleSourceOptions.map((source) => {
                       const active = taskSource === source.id
                       const sourceAvailabilityNotice =
@@ -12838,4 +12865,11 @@ export default function TaskPage(): React.JSX.Element {
       </Dialog>
     </div>
   )
+}
+
+export default function TaskPage(): React.JSX.Element {
+  const internalTaskSource = useAppStore((state) => state.taskPageData.internalTaskSource)
+  // Why: the internal Pie source must not mount provider effects or require a
+  // repository merely to query the signed-in user's assigned WorkItems.
+  return internalTaskSource === 'pie' ? <PieTaskPage /> : <ProviderTaskPage />
 }

@@ -130,6 +130,18 @@ describe('createRealtimeConnection', () => {
     expect(connection!.getStatus().state).toBe('connected')
   })
 
+  it('keeps the connection open for resource types added by other product verticals', async () => {
+    server = await startMockServer((_socket, send) => {
+      send(welcome())
+      send({ ...change(1), resourceType: 'meeting' })
+    })
+    const { changes } = connect()
+    await waitUntil(() => changes.length === 1)
+    await delay(80)
+    expect(server.connectionCount()).toBe(1)
+    expect(connection!.getStatus().state).toBe('connected')
+  })
+
   it('answers a heartbeat ping with a pong', async () => {
     server = await startMockServer((_socket, send) => {
       send(welcome())
@@ -229,6 +241,16 @@ describe('createRealtimeConnection', () => {
     const { changes } = connect()
     await waitUntil(() => server!.connectionCount() >= 2)
     expect(changes).toHaveLength(0)
+  })
+
+  it('backs off when the same post-welcome protocol failure repeats', async () => {
+    server = await startMockServer((_socket, send) => {
+      send(welcome())
+      send({ type: 'unknown.future-frame', schemaVersion: 1 })
+    })
+    connect({ reconnect: { baseMs: 10, maxMs: 40, jitterRatio: 0 } })
+    await delay(85)
+    expect(server.connectionCount()).toBeLessThanOrEqual(4)
   })
 
   it('does not connect when the subsystem is disabled (safe mode)', async () => {

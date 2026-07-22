@@ -10,6 +10,8 @@ import {
   EncodingOptions,
   RoomServiceClient,
   S3Upload,
+  TrackSource,
+  TrackType,
   WebhookReceiver
 } from 'livekit-server-sdk'
 import type { MeetingMediaConfig } from './meeting-media-config'
@@ -35,6 +37,12 @@ export class LiveKitMeetingMediaService implements MeetingMediaService {
     this.egress = new EgressClient(config.apiUrl, config.apiKey, config.apiSecret)
     this.dispatches = new AgentDispatchClient(config.apiUrl, config.apiKey, config.apiSecret)
     this.webhooks = new WebhookReceiver(config.apiKey, config.apiSecret)
+  }
+
+  async diagnoseConnectivity(): Promise<{ reachable: boolean; latencyMs: number }> {
+    const startedAt = performance.now()
+    await this.rooms.listRooms([])
+    return { reachable: true, latencyMs: Math.round(performance.now() - startedAt) }
   }
 
   async ensureRoom(input: {
@@ -67,7 +75,7 @@ export class LiveKitMeetingMediaService implements MeetingMediaService {
   async issueParticipantToken(input: {
     roomName: string
     userId: string
-    role: 'host' | 'participant'
+    role: 'host' | 'co_host' | 'presenter' | 'participant'
   }): Promise<MeetingMediaToken> {
     const issuedAt = Date.now()
     const accessToken = new AccessToken(this.config.apiKey, this.config.apiSecret, {
@@ -75,11 +83,17 @@ export class LiveKitMeetingMediaService implements MeetingMediaService {
       ttl: this.config.tokenTtlSeconds,
       metadata: JSON.stringify({ role: input.role })
     })
+    const canShareScreen = input.role !== 'participant'
     accessToken.addGrant({
       roomJoin: true,
       room: input.roomName,
-      roomAdmin: input.role === 'host',
+      roomAdmin: input.role === 'host' || input.role === 'co_host',
       canPublish: true,
+      canPublishSources: [
+        TrackSource.MICROPHONE,
+        TrackSource.CAMERA,
+        ...(canShareScreen ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : [])
+      ],
       canSubscribe: true,
       // Chat remains in Pie's durable channel domain instead of ephemeral media data packets.
       canPublishData: false
@@ -95,6 +109,28 @@ export class LiveKitMeetingMediaService implements MeetingMediaService {
     if (existing.length > 0) {
       await this.rooms.deleteRoom(roomName)
     }
+  }
+
+  async muteParticipantMicrophone(input: { roomName: string; userId: string }): Promise<boolean> {
+    const participant = await this.rooms.getParticipant(input.roomName, input.userId)
+    const microphones = participant.tracks.filter(
+      (track) => track.type === TrackType.AUDIO && track.source === TrackSource.MICROPHONE
+    )
+    await Promise.all(
+      microphones
+        .filter((track) => !track.muted)
+        .map((track) =>
+          this.rooms.mutePublishedTrack(input.roomName, input.userId, track.sid, true)
+        )
+    )
+    return microphones.length > 0
+  }
+
+  async removeParticipant(input: { roomName: string; userId: string }): Promise<void> {
+    // Revoking tokens prevents an ejected client from reconnecting with the same short-lived token.
+    await this.rooms.removeParticipant(input.roomName, input.userId, {
+      revokeTokenTs: BigInt(Math.floor(Date.now() / 1_000))
+    })
   }
 
   private recordingOutput(filepath: string, fileType: EncodedFileType): EncodedFileOutput {
@@ -122,6 +158,7 @@ export class LiveKitMeetingMediaService implements MeetingMediaService {
     organizationId: string
     meetingId: string
     recordingId: string
+    captureTypes: readonly ('recording' | 'transcription' | 'ai_notes')[]
   }): Promise<MeetingMediaRecordingSession> {
     const keys = createTenantObjectKeyBuilder(input.organizationId)
     let videoEgressId: string | null = null
@@ -137,24 +174,26 @@ export class LiveKitMeetingMediaService implements MeetingMediaService {
         { layout: 'grid' }
       )
       videoEgressId = video.egressId
-      const audio = await this.egress.startRoomCompositeEgress(
-        input.roomName,
-        this.recordingOutput(
-          `${keys.keyForObject('transcripts', input.recordingId)}.mp3`,
-          EncodedFileType.MP3
-        ),
-        {
-          audioOnly: true,
-          // A compact mono-quality MP3 keeps normal meetings below the transcription upload limit.
-          encodingOptions: new EncodingOptions({
-            audioCodec: AudioCodec.AC_MP3,
-            audioBitrate: 16,
-            audioFrequency: 16_000
-          })
-        }
-      )
-      audioEgressId = audio.egressId
-      if (this.config.transcriptionAgentName) {
+      if (input.captureTypes.includes('transcription')) {
+        const audio = await this.egress.startRoomCompositeEgress(
+          input.roomName,
+          this.recordingOutput(
+            `${keys.keyForObject('transcripts', input.recordingId)}.mp3`,
+            EncodedFileType.MP3
+          ),
+          {
+            audioOnly: true,
+            // A compact mono-quality MP3 keeps normal meetings below the transcription upload limit.
+            encodingOptions: new EncodingOptions({
+              audioCodec: AudioCodec.AC_MP3,
+              audioBitrate: 16,
+              audioFrequency: 16_000
+            })
+          }
+        )
+        audioEgressId = audio.egressId
+      }
+      if (input.captureTypes.includes('transcription') && this.config.transcriptionAgentName) {
         const dispatch = await this.dispatches.createDispatch(
           input.roomName,
           this.config.transcriptionAgentName,

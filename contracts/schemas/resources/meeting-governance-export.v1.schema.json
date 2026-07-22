@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-governance-export.v1.schema.json",
+  "title": "Meeting governance export",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "exportedAt",
+    "meeting",
+    "governance",
+    "participants",
+    "consents",
+    "recordings",
+    "transcripts",
+    "transcriptSegments",
+    "minutes",
+    "decisions",
+    "actionItems",
+    "agendaItems"
+  ],
+  "properties": {
+    "exportedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "meeting": { "$ref": "https://schemas.pielab.ai/resources/meeting.v1.schema.json" },
+    "governance": {
+      "$ref": "https://schemas.pielab.ai/resources/meeting-governance.v1.schema.json"
+    },
+    "participants": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/meeting-participant.v1.schema.json" }
+    },
+    "consents": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/meeting-capture-consent.v1.schema.json"
+      }
+    },
+    "recordings": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/meeting-recording.v1.schema.json" }
+    },
+    "transcripts": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/meeting-transcript.v1.schema.json" }
+    },
+    "transcriptSegments": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.pielab.ai/resources/meeting-transcript-segment.v1.schema.json"
+      }
+    },
+    "minutes": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/meeting-minutes.v1.schema.json" }
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/meeting-decision.v1.schema.json" }
+    },
+    "actionItems": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/meeting-action-item.v1.schema.json" }
+    },
+    "agendaItems": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.pielab.ai/resources/meeting-agenda-item.v1.schema.json" }
+    }
+  }
+}

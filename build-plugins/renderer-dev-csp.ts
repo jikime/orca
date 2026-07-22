@@ -16,10 +16,10 @@ const DEV_CSP = [
   "style-src 'self' 'unsafe-inline' http://localhost:* https://localhost:*",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "media-src 'self' blob: data:",
+  "media-src 'self' blob: data: https: http://127.0.0.1:* http://[::1]:*",
   "worker-src 'self' blob:",
-  // Vite HMR client connects back over ws://; also allow http fetches to the dev server.
-  "connect-src 'self' ws://localhost:* wss://localhost:* http://localhost:* https://localhost:*",
+  // Vite uses localhost; local meeting signaling and validation use loopback IPs.
+  "connect-src 'self' wss: https: ws://localhost:* wss://localhost:* http://localhost:* https://localhost:* ws://127.0.0.1:* ws://[::1]:* http://127.0.0.1:* http://[::1]:*",
   "object-src 'none'",
   "base-uri 'none'"
 ].join('; ')

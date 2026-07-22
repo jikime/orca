@@ -15,6 +15,7 @@ import { createGatewayConnectionAuthorizer } from './gateway-connection-authoriz
 import { createKeycloakTokenVerifier } from './keycloak-token-verifier'
 import { loadObjectStorageFromEnv } from './object-storage-config'
 import { loadMeetingMediaFromEnv } from './meeting-media-config'
+import { loadMeetingCalendarFromEnv } from './meeting-calendar-config'
 import { createRealtimeGateway } from './realtime-gateway'
 
 async function main(): Promise<void> {
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
   })
   const objectStorage = loadObjectStorageFromEnv()
   const meetingMedia = loadMeetingMediaFromEnv()
+  const meetingCalendar = loadMeetingCalendarFromEnv()
   if (objectStorage) {
     await objectStorage.ensureBucket()
   }
@@ -56,7 +58,8 @@ async function main(): Promise<void> {
     // Operator bearer for /internal/*; when unset those routes stay open (dev).
     ...(process.env.PIE_OPERATOR_TOKEN ? { operatorToken: process.env.PIE_OPERATOR_TOKEN } : {}),
     ...(objectStorage ? { objectStorage } : {}),
-    ...(meetingMedia ? { meetingMedia } : {})
+    ...(meetingMedia ? { meetingMedia } : {}),
+    ...(meetingCalendar ? { meetingCalendar } : {})
   })
 
   const close = async (): Promise<void> => {

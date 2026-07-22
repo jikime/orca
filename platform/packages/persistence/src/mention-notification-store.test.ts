@@ -16,6 +16,11 @@ import { seedMembershipFixture, seedOrganizationFixture } from './organization-s
 import { seedRoleManifest } from './role-manifest-seed'
 import { startPostgresHarness, type PostgresHarness } from './postgres-test-harness'
 import { withTenantTransaction } from './tenant-transaction'
+import {
+  getNotificationPreferences,
+  setChannelNotificationLevel,
+  updateNotificationPreferences
+} from './notification-preference-store'
 
 let harness: PostgresHarness | null = null
 let pool: Pool
@@ -98,6 +103,58 @@ describe('collaboration: mentions', () => {
       channelId,
       read: false
     })
+  })
+})
+
+describe('collaboration: notification preferences', () => {
+  it('persists desktop and DND settings for one user', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const { orgId, mentioned } = await freshChannel()
+    await updateNotificationPreferences(db, {
+      organizationId: orgId,
+      userId: mentioned,
+      desktopEnabled: false,
+      dndEnabled: true,
+      timezone: 'Asia/Seoul'
+    })
+    await expect(getNotificationPreferences(db, orgId, mentioned)).resolves.toMatchObject({
+      desktopEnabled: false,
+      dndEnabled: true,
+      timezone: 'Asia/Seoul'
+    })
+  })
+
+  it('creates all-message alerts and lets none suppress a direct mention', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const { orgId, poster, mentioned, channelId } = await freshChannel()
+    await setChannelNotificationLevel(db, {
+      organizationId: orgId,
+      channelId,
+      userId: mentioned,
+      level: 'all'
+    })
+    await postMessage(db, {
+      organizationId: orgId,
+      channelId,
+      authorUserId: poster,
+      body: 'ordinary update'
+    })
+    expect((await listNotifications(db, orgId, mentioned)).items[0]?.type).toBe('message')
+    await markAllNotificationsRead(db, orgId, mentioned)
+    await setChannelNotificationLevel(db, {
+      organizationId: orgId,
+      channelId,
+      userId: mentioned,
+      level: 'none'
+    })
+    await postMessage(db, {
+      organizationId: orgId,
+      channelId,
+      authorUserId: poster,
+      body: 'direct mention',
+      mentions: [mentioned]
+    })
+    expect((await listNotifications(db, orgId, mentioned, { unreadOnly: true })).items).toEqual([])
   })
 })
 

@@ -25,6 +25,9 @@ async function verifyS3Works(
 async function startSeaweed(): Promise<ObjectStorageHarness> {
   const container: StartedTestContainer = await new GenericContainer('chrislusf/seaweedfs:3.80')
     .withCommand(['server', '-s3', '-ip.bind=0.0.0.0'])
+    // The harness stores only tiny fixtures; tmpfs avoids orphaning the image's
+    // anonymous /data volume and keeps low-disk developer machines reliable.
+    .withTmpFs({ '/data': 'rw,size=128m' })
     .withExposedPorts(8333)
     .withWaitStrategy(Wait.forListeningPorts())
     .withStartupTimeout(60_000)
@@ -48,6 +51,7 @@ async function startSeaweed(): Promise<ObjectStorageHarness> {
 async function startMinio(): Promise<ObjectStorageHarness> {
   const container: StartedTestContainer = await new GenericContainer('minio/minio:latest')
     .withCommand(['server', '/data'])
+    .withTmpFs({ '/data': 'rw,size=128m' })
     .withEnvironment({ MINIO_ROOT_USER: 'pie', MINIO_ROOT_PASSWORD: 'pie-secret' })
     .withExposedPorts(9000)
     .withWaitStrategy(Wait.forHttp('/minio/health/ready', 9000))

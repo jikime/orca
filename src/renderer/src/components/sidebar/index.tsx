@@ -16,6 +16,8 @@ import { useWorkspaceBoardPanel } from './useWorkspaceBoardPanel'
 import { resolveLeftSidebarStyleVariables } from '@/lib/left-sidebar-appearance'
 import { useSystemPrefersDark } from '@/components/terminal-pane/use-system-prefers-dark'
 import { lazyWithRetry } from '@/lib/lazy-with-retry'
+import { SidebarModeTabs } from './SidebarModeTabs'
+import { PieSidebarNav } from './PieSidebarNav'
 
 const WorktreeMetaDialog = lazyWithRetry(() => import('./WorktreeMetaDialog'))
 const RemoveFolderDialog = lazyWithRetry(() => import('./RemoveFolderDialog'))
@@ -42,6 +44,7 @@ function Sidebar({
   worktreeScrollAnchorRef
 }: SidebarProps): React.JSX.Element {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const pieActive = useAppStore((s) => s.activeView === 'pie')
   const sidebarWidth = useAppStore((s) => s.sidebarWidth)
   const setSidebarWidth = useAppStore((s) => s.setSidebarWidth)
   const repos = useAppStore((s) => s.repos)
@@ -115,10 +118,10 @@ function Sidebar({
   }, [onlineRuntimeEnvKey, fetchAllWorktrees, fetchWorktreeLineage])
 
   useEffect(() => {
-    if (!sidebarOpen && workspaceBoardRenderedOpen) {
+    if ((!sidebarOpen || pieActive) && workspaceBoardRenderedOpen) {
       closeWorkspaceBoard()
     }
-  }, [closeWorkspaceBoard, sidebarOpen, workspaceBoardRenderedOpen])
+  }, [closeWorkspaceBoard, pieActive, sidebarOpen, workspaceBoardRenderedOpen])
 
   const { containerRef, onResizeStart, isResizing } = useSidebarResize<HTMLDivElement>({
     isOpen: sidebarOpen,
@@ -134,38 +137,43 @@ function Sidebar({
     <TooltipProvider delayDuration={400}>
       <div
         ref={containerRef}
-        data-native-file-drop-target={sidebarOpen ? nativeDropTarget : undefined}
+        data-native-file-drop-target={sidebarOpen && !pieActive ? nativeDropTarget : undefined}
         className="relative min-h-0 flex-shrink-0 bg-worktree-sidebar flex flex-col overflow-hidden scrollbar-sleek-parent"
         style={leftSidebarStyle}
-        {...dropHandlers}
+        {...(pieActive ? {} : dropHandlers)}
       >
         {sidebarOpen && (
           <>
-            {/* Fixed controls */}
-            <SidebarNav />
-            <SidebarHeader onWorkspaceBoardMenuOpenChange={setWorkspaceBoardMenuOpen} />
-
-            <WorktreeList
-              scrollOffsetRef={worktreeScrollOffsetRef}
-              scrollAnchorRef={worktreeScrollAnchorRef}
-              workspaceBoardOpen={workspaceBoardOpen}
-              onWorkspaceBoardDragPreviewStart={previewWorkspaceBoardFromDrag}
-              onWorkspaceBoardDragPreviewCommit={solidifyWorkspaceBoardFromDrag}
-              onWorkspaceBoardDragPreviewCancel={cancelWorkspaceBoardDragPreview}
-            />
-
-            <SetupScriptPromptCard />
+            <SidebarModeTabs />
+            {pieActive ? (
+              <PieSidebarNav />
+            ) : (
+              <>
+                <SidebarNav />
+                <SidebarHeader onWorkspaceBoardMenuOpenChange={setWorkspaceBoardMenuOpen} />
+                <WorktreeList
+                  scrollOffsetRef={worktreeScrollOffsetRef}
+                  scrollAnchorRef={worktreeScrollAnchorRef}
+                  workspaceBoardOpen={workspaceBoardOpen}
+                  onWorkspaceBoardDragPreviewStart={previewWorkspaceBoardFromDrag}
+                  onWorkspaceBoardDragPreviewCommit={solidifyWorkspaceBoardFromDrag}
+                  onWorkspaceBoardDragPreviewCancel={cancelWorkspaceBoardDragPreview}
+                />
+                <SetupScriptPromptCard />
+              </>
+            )}
 
             {/* Fixed bottom toolbar */}
             <SidebarToolbar
               workspaceBoardOpen={workspaceBoardOpen}
               workspaceBoardDragPreviewOpen={workspaceBoardDragPreviewOpen}
               onWorkspaceBoardToggle={toggleWorkspaceBoard}
+              showWorkspaceControls={!pieActive}
             />
           </>
         )}
 
-        {sidebarOpen && affordance.visible ? (
+        {sidebarOpen && !pieActive && affordance.visible ? (
           <div
             className={cn(
               'pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-1.5 rounded-md border bg-worktree-sidebar-accent/95 px-4 text-center text-worktree-sidebar-accent-foreground shadow-xs',
@@ -210,7 +218,7 @@ function Sidebar({
         {activeModal === 'confirm-orca-yaml-hooks' ? <OrcaYamlTrustDialog /> : null}
         {activeModal === 'forget-ssh-workspace' ? <ForgetSshWorkspaceDialog /> : null}
       </React.Suspense>
-      {sidebarOpen ? (
+      {sidebarOpen && !pieActive ? (
         <WorkspaceKanbanDrawer
           leftSidebarStyle={leftSidebarStyle}
           open={workspaceBoardRenderedOpen}

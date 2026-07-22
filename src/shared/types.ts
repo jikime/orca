@@ -41,6 +41,7 @@ import type {
   LocalWindowsRuntimePreference
 } from './project-execution-runtime'
 import type { UsagePercentageDisplay } from './usage-percentage-display'
+import type { PieWorkspaceContext } from './pie-workspace-context'
 
 // Re-exported for backward compat with renderer call sites that import
 // `WorkspaceCreateTelemetrySource` from '../../../shared/types'.
@@ -319,6 +320,8 @@ export type FolderWorkspace = {
   /** SSH target ID for folder workspaces whose folder path lives remotely. */
   connectionId?: string | null
   linkedTask: FolderWorkspaceLinkedTask | null
+  /** Pie project/work-item identity that launched this workspace. */
+  pieWorkspaceContext?: PieWorkspaceContext
   comment: string
   isArchived: boolean
   isUnread: boolean
@@ -471,6 +474,8 @@ export type Worktree = {
   linkedLinearIssue: string | null
   linkedLinearIssueWorkspaceId?: string | null
   linkedLinearIssueOrganizationUrlKey?: string | null
+  /** Pie project/work-item identity that launched this workspace. */
+  pieWorkspaceContext?: PieWorkspaceContext
   // Why: parallel slots for non-GitHub work-item references. Kept as separate
   // fields (rather than reusing linkedIssue / linkedPR with a provider
   // discriminator) so the persistence layer is unambiguous when a user
@@ -583,6 +588,8 @@ export type WorktreeMeta = {
   linkedLinearIssue: string | null
   linkedLinearIssueWorkspaceId?: string | null
   linkedLinearIssueOrganizationUrlKey?: string | null
+  /** See Worktree.pieWorkspaceContext. */
+  pieWorkspaceContext?: PieWorkspaceContext
   /** Optional for backward compatibility — see Worktree.linkedGitLabMR. */
   linkedGitLabMR?: number | null
   /** Optional for backward compatibility — see Worktree.linkedGitLabIssue. */
@@ -2099,6 +2106,8 @@ export type CreateWorktreeArgs = {
   linkedLinearIssue?: string
   linkedLinearIssueWorkspaceId?: string | null
   linkedLinearIssueOrganizationUrlKey?: string | null
+  /** Tenant-scoped Pie context used for workspace-to-portal navigation. */
+  pieWorkspaceContext?: PieWorkspaceContext
   linkedGitLabIssue?: number
   linkedGitLabMR?: number
   linkedBitbucketPR?: number | null
@@ -3049,7 +3058,12 @@ export type GhosttyImportPreview = {
 // schema-vs-renderer enum sync guard.
 export type DiscoveryStatusEmitted = 'found' | 'absent' | 'imported'
 
-export type NotificationEventSource = 'agent-task-complete' | 'terminal-bell' | 'test'
+export type NotificationEventSource =
+  | 'agent-task-complete'
+  | 'terminal-bell'
+  | 'pie-chat'
+  | 'pie-meeting'
+  | 'test'
 
 export type NotificationDispatchRequest = {
   source: NotificationEventSource
@@ -3071,6 +3085,13 @@ export type NotificationDispatchRequest = {
   agentToolInput?: string
   agentLastAssistantMessage?: string
   agentInterrupted?: boolean
+  chatChannelId?: string
+  chatMessageId?: string
+  chatChannelLabel?: string
+  chatBodyPreview?: string
+  meetingId?: string
+  meetingTitle?: string
+  meetingStartLabel?: string
 }
 
 export type NotificationDispatchResult = {

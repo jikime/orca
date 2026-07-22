@@ -8,17 +8,23 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { PieChatRendererApi, PieMessage } from '../../../../shared/pie-chat-contract'
+import type {
+  PieChatMember,
+  PieChatRendererApi,
+  PieMessage
+} from '../../../../shared/pie-chat-contract'
 import { translate } from '@/i18n/i18n'
+import { chatMemberDisplayName } from './chat-member-display-name'
 
 type MessageSearchProps = {
   api: PieChatRendererApi
+  members: PieChatMember[]
   // Selecting a result hands the message back so the workspace can focus its
   // channel and refetch to bring it into view.
   onSelect: (message: PieMessage) => void
 }
 
-export function MessageSearch({ api, onSelect }: MessageSearchProps): React.JSX.Element {
+export function MessageSearch({ api, members, onSelect }: MessageSearchProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PieMessage[]>([])
@@ -92,7 +98,7 @@ export function MessageSearch({ api, onSelect }: MessageSearchProps): React.JSX.
                   className="rounded-md px-2 py-1.5 text-left hover:bg-accent"
                 >
                   <div className="text-xs text-muted-foreground">
-                    {message.authorId.slice(0, 8)}
+                    {chatMemberDisplayName(message.authorId, members)}
                   </div>
                   <div className="truncate text-sm text-foreground">{message.body}</div>
                 </button>

@@ -2,6 +2,7 @@ import { app, safeStorage, shell } from 'electron'
 import { desktopSessionBroker } from './pie-session/desktop-session-broker'
 import { PieSessionTokenLifecycle } from './pie-session/pie-session-token-lifecycle'
 import { SafeStorageSessionSecretStore } from './pie-session/safe-storage-session-secret-store'
+import { resumePieRealtime, suspendPieRealtime } from './pie-realtime/realtime-service'
 import {
   acceptPieInvite,
   getPieAuthAccessToken,
@@ -27,7 +28,9 @@ export function startPieAuthMainIfEnabled(): void {
     openAuthorizationUrl: (url) => shell.openExternal(url),
     lifecycle,
     store,
-    sessionBroker: desktopSessionBroker
+    sessionBroker: desktopSessionBroker,
+    onSessionAuthenticated: resumePieRealtime,
+    onSessionUnavailable: suspendPieRealtime
   })
 }
 

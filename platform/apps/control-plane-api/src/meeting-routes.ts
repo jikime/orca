@@ -20,10 +20,13 @@ import {
   listMeetings,
   markMeetingRecordingStopped,
   reviewMeetingMinutes,
+  setMeetingCaptureStatus,
   setMeetingParticipantConsent,
   startMeetingRecording,
   transitionMeeting,
   type MeetingResource,
+  type MeetingCaptureType,
+  type MeetingRecurrence,
   type MeetingScopeKind,
   type MeetingStatus,
   type MinutesReviewDecision,
@@ -37,6 +40,19 @@ import { beginIdempotency } from './idempotent-mutation'
 import { buildProblemDetails, requestCorrelationId, sendProblem } from './problem-details'
 import { authorizeOrgPermission } from './route-authorization'
 import { meetingMediaRoomName, type MeetingMediaService } from './meeting-media-service'
+import { registerMeetingAgendaRoutes } from './meeting-agenda-routes'
+import { registerMeetingTranscriptSegmentRoutes } from './meeting-transcript-segment-routes'
+import { registerMeetingDecisionRoutes } from './meeting-decision-routes'
+import { registerMeetingActionItemRoutes } from './meeting-action-item-routes'
+import { registerMeetingParticipantControlRoutes } from './meeting-participant-control-routes'
+import { registerMeetingGovernanceRoutes } from './meeting-governance-routes'
+import {
+  registerMeetingCaptureControlRoutes,
+  stopActiveMeetingCapture
+} from './meeting-capture-control-routes'
+import { registerMeetingCalendarRoutes } from './meeting-calendar-routes'
+import type { MeetingCalendarService } from './meeting-calendar-service'
+import { registerMeetingGuestLinkRoutes } from './meeting-guest-link-routes'
 
 const SCHEMA = {
   meeting: 'https://schemas.pielab.ai/resources/meeting.v1.schema.json',
@@ -47,6 +63,7 @@ const SCHEMA = {
   participantConsent:
     'https://schemas.pielab.ai/resources/meeting-participant-consent.v1.schema.json',
   recording: 'https://schemas.pielab.ai/resources/meeting-recording.v1.schema.json',
+  recordingStart: 'https://schemas.pielab.ai/resources/meeting-recording-start.v1.schema.json',
   recordingPlayback:
     'https://schemas.pielab.ai/resources/meeting-recording-playback.v1.schema.json',
   recordingFinalize:
@@ -72,6 +89,7 @@ export type MeetingRoutesDeps = {
   registry: ContractSchemaRegistry
   media?: MeetingMediaService
   objectStorage?: ObjectStorage
+  calendar?: MeetingCalendarService
 }
 
 function problem(
@@ -97,6 +115,15 @@ function problem(
 function validates(registry: ContractSchemaRegistry, schemaId: string, body: unknown): boolean {
   const validate = registry.ajv.getSchema(schemaId)
   return !validate || validate(body) === true
+}
+
+function isTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format()
+    return true
+  } catch {
+    return false
+  }
 }
 
 function assertResponse(registry: ContractSchemaRegistry, schemaId: string, body: unknown): void {
@@ -159,6 +186,15 @@ export function registerMeetingRoutes(app: FastifyInstance, deps: MeetingRoutesD
   registerProcessingJobRoutes(app, deps)
   registerTranscriptRoutes(app, deps)
   registerMinutesRoutes(app, deps)
+  registerMeetingAgendaRoutes(app, deps)
+  registerMeetingTranscriptSegmentRoutes(app, deps)
+  registerMeetingDecisionRoutes(app, deps)
+  registerMeetingActionItemRoutes(app, deps)
+  registerMeetingGovernanceRoutes(app, deps)
+  registerMeetingCalendarRoutes(app, deps)
+  registerMeetingGuestLinkRoutes(app, deps)
+  if (deps.media) registerMeetingCaptureControlRoutes(app, { ...deps, media: deps.media })
+  if (deps.media) registerMeetingParticipantControlRoutes(app, { ...deps, media: deps.media })
 }
 
 // === meetings ===
@@ -221,6 +257,8 @@ async function createMeetingHandler(
     hostUserId?: string
     scheduledStart?: string
     scheduledEnd?: string
+    timeZone?: string
+    recurrence?: MeetingRecurrence
   }
   // A scoped meeting must name its scope id (mirrors the migration CHECK) — a 400, not a DB error.
   if (body.scopeKind && body.scopeKind !== 'none' && !body.scopeId)
@@ -231,6 +269,40 @@ async function createMeetingHandler(
       'VALIDATION_FAILED',
       'scopeId is required for a scoped meeting'
     )
+  if (Boolean(body.scheduledStart) !== Boolean(body.scheduledEnd)) {
+    return problem(
+      reply,
+      request,
+      400,
+      'VALIDATION_FAILED',
+      'scheduledStart and scheduledEnd must be provided together'
+    )
+  }
+  if (
+    body.scheduledStart &&
+    body.scheduledEnd &&
+    new Date(body.scheduledEnd).getTime() <= new Date(body.scheduledStart).getTime()
+  ) {
+    return problem(
+      reply,
+      request,
+      400,
+      'VALIDATION_FAILED',
+      'scheduledEnd must be after scheduledStart'
+    )
+  }
+  if (body.timeZone && !isTimeZone(body.timeZone)) {
+    return problem(reply, request, 400, 'VALIDATION_FAILED', 'timeZone must be an IANA time zone')
+  }
+  if (body.recurrence && body.recurrence !== 'none' && !body.scheduledStart) {
+    return problem(
+      reply,
+      request,
+      400,
+      'VALIDATION_FAILED',
+      'a recurring meeting requires a schedule'
+    )
+  }
   const gate = await beginIdempotency(
     deps.db,
     request,
@@ -264,7 +336,9 @@ async function createMeetingHandler(
     ...(body.scopeKind ? { scopeKind: body.scopeKind } : {}),
     scopeId: body.scopeId ?? null,
     scheduledStart: body.scheduledStart ?? null,
-    scheduledEnd: body.scheduledEnd ?? null
+    scheduledEnd: body.scheduledEnd ?? null,
+    timeZone: body.timeZone ?? 'UTC',
+    recurrence: body.recurrence ?? 'none'
   })
   await gate.complete(created.id)
   return respond(created)
@@ -392,7 +466,14 @@ async function addParticipantHandler(
     return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid participant add')
   const body = request.body as {
     userId: string
-    role?: 'host' | 'participant'
+    role?: 'host' | 'co_host' | 'presenter' | 'participant'
+  }
+  if (body.role === 'host') {
+    const meeting = await getMeeting(deps.db, organizationId, meetingId)
+    if (!meeting) return problem(reply, request, 404, 'NOT_FOUND', 'meeting not found')
+    if (meeting.hostUserId !== body.userId) {
+      return problem(reply, request, 422, 'HOST_PROTECTED', 'only the designated host can be host')
+    }
   }
   const result = await addMeetingParticipant(deps.db, {
     organizationId,
@@ -454,6 +535,23 @@ async function consentParticipantHandler(
       )
     return problem(reply, request, 409, 'VERSION_CONFLICT', 'participant modified concurrently')
   }
+  if (consent === false && deps.media) {
+    try {
+      await stopActiveMeetingCapture(
+        { db: deps.db, media: deps.media },
+        {
+          organizationId,
+          meetingId: result.participant.meetingId,
+          actorUserId: auth.userId,
+          status: 'paused',
+          captureType: 'recording'
+        }
+      )
+    } catch (error) {
+      // Legacy clients still use this endpoint, so their withdrawal must trigger the same teardown.
+      request.log.error({ err: error }, 'failed to stop capture after legacy consent withdrawal')
+    }
+  }
   assertResponse(deps.registry, SCHEMA.participant, result.participant)
   void reply.header('etag', etag('meeting-participant', result.participant.version))
   return result.participant
@@ -507,10 +605,21 @@ async function startRecordingHandler(
   }
   if (!UUID_PATTERN.test(meetingId))
     return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+  const body = (request.body ?? {}) as {
+    captureTypes?: Array<Extract<MeetingCaptureType, 'recording' | 'transcription' | 'ai_notes'>>
+  }
+  if (!validates(deps.registry, SCHEMA.recordingStart, body))
+    return problem(reply, request, 400, 'VALIDATION_FAILED', 'invalid recording start')
+  const captureTypes: Array<'recording' | 'transcription' | 'ai_notes'> = body.captureTypes ?? [
+    'recording',
+    'transcription',
+    'ai_notes'
+  ]
   const result = await startMeetingRecording(deps.db, {
     organizationId,
     actorUserId: auth.userId,
-    meetingId
+    meetingId,
+    captureTypes
   })
   if (!result.ok) {
     if (result.reason === 'meeting_not_found')
@@ -548,7 +657,8 @@ async function startRecordingHandler(
       roomName,
       organizationId,
       meetingId,
-      recordingId: result.recording.id
+      recordingId: result.recording.id,
+      captureTypes
     })
     const attached = await attachMeetingRecordingMedia(deps.db, {
       organizationId,
@@ -562,7 +672,17 @@ async function startRecordingHandler(
       throw new Error('recording changed before media attachment')
     }
     assertResponse(deps.registry, SCHEMA.recording, attached)
-    void reply.code(201).header('etag', etag('meeting-recording', attached.version))
+    await setMeetingCaptureStatus(deps.db, {
+      organizationId,
+      meetingId,
+      actorUserId: auth.userId,
+      status: 'active',
+      captureTypes
+    })
+    void reply
+      .code(201)
+      .header('etag', etag('meeting-recording', attached.version))
+      .header('location', `/v1/organizations/${organizationId}/meeting-recordings/${attached.id}`)
     return attached
   } catch (error) {
     request.log.error({ err: error }, 'failed to start LiveKit recording egress')
@@ -665,6 +785,13 @@ async function stopRecordingHandler(
   })
   if (!updated)
     return problem(reply, request, 409, 'RECORDING_NOT_ACTIVE', 'recording is not active')
+  await setMeetingCaptureStatus(deps.db, {
+    organizationId,
+    meetingId: recording.meetingId,
+    actorUserId: auth.userId,
+    status: 'stopped',
+    captureTypes: []
+  })
   assertResponse(deps.registry, SCHEMA.recording, updated)
   void reply.header('etag', etag('meeting-recording', updated.version))
   return updated

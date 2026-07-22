@@ -10,20 +10,28 @@ vi.mock('electron', () => ({
 }))
 
 const clientMocks = vi.hoisted(() => ({
+  addChannelMember: vi.fn(),
   createChannel: vi.fn(),
   createDm: vi.fn(),
   createGroupDm: vi.fn(),
+  listChannelMembers: vi.fn(),
   muteChannel: vi.fn(),
+  removeChannelMember: vi.fn(),
   unmuteChannel: vi.fn(),
+  updateChannel: vi.fn(),
   listMembers: vi.fn()
 }))
 
 vi.mock('../pie-chat/chat-channel-admin-client', () => clientMocks)
 
 import {
+  PIE_CHAT_ADD_CHANNEL_MEMBER_CHANNEL,
   PIE_CHAT_CREATE_CHANNEL_CHANNEL,
   PIE_CHAT_CREATE_DM_CHANNEL,
-  PIE_CHAT_LIST_MEMBERS_CHANNEL
+  PIE_CHAT_LIST_CHANNEL_MEMBERS_CHANNEL,
+  PIE_CHAT_LIST_MEMBERS_CHANNEL,
+  PIE_CHAT_REMOVE_CHANNEL_MEMBER_CHANNEL,
+  PIE_CHAT_UPDATE_CHANNEL_CHANNEL
 } from '../../shared/pie-chat-contract'
 import { registerPieChatAdminHandlers } from './pie-chat-admin'
 import type { PieChatHandlerDeps } from './pie-chat-ipc-shared'
@@ -31,6 +39,7 @@ import { setTrustedPieRendererWebContentsId } from './pie-renderer-trust'
 
 const ORG = '20000000-0000-4000-8000-000000000001'
 const OTHER = '20000000-0000-4000-8000-000000000005'
+const CHANNEL = '20000000-0000-4000-8000-000000000002'
 
 function trustedEvent(): unknown {
   const mainFrame = { url: 'file:///app/index.html' }
@@ -96,6 +105,67 @@ describe('Pie chat admin IPC', () => {
       handlerFor(PIE_CHAT_CREATE_DM_CHANNEL)(trustedEvent(), { otherUserId: 'nope' })
     ).toThrow('PIE_CHAT_INVALID_REQUEST')
     expect(clientMocks.createDm).not.toHaveBeenCalled()
+  })
+
+  it('adds a member using trusted ids and Main-owned auth', async () => {
+    clientMocks.addChannelMember.mockResolvedValue(undefined)
+    await handlerFor(PIE_CHAT_ADD_CHANNEL_MEMBER_CHANNEL)(trustedEvent(), {
+      channelId: CHANNEL,
+      userId: OTHER
+    })
+
+    expect(clientMocks.addChannelMember).toHaveBeenCalledWith(
+      'https://cp.example/v1',
+      'token-123',
+      ORG,
+      CHANNEL,
+      OTHER,
+      expect.any(Function)
+    )
+  })
+
+  it('updates channel details with a validated version and a fresh idempotency key', async () => {
+    clientMocks.updateChannel.mockResolvedValue({})
+    await handlerFor(PIE_CHAT_UPDATE_CHANNEL_CHANNEL)(trustedEvent(), {
+      channelId: CHANNEL,
+      update: { topic: 'Launch' },
+      expectedVersion: 3
+    })
+    expect(clientMocks.updateChannel).toHaveBeenCalledWith(
+      'https://cp.example/v1',
+      'token-123',
+      ORG,
+      CHANNEL,
+      { update: { topic: 'Launch' }, expectedVersion: 3, idempotencyKey: expect.any(String) },
+      expect.any(Function)
+    )
+  })
+
+  it('lists and removes channel members through Main-owned auth', async () => {
+    clientMocks.listChannelMembers.mockResolvedValue([])
+    await handlerFor(PIE_CHAT_LIST_CHANNEL_MEMBERS_CHANNEL)(trustedEvent(), {
+      channelId: CHANNEL
+    })
+    await handlerFor(PIE_CHAT_REMOVE_CHANNEL_MEMBER_CHANNEL)(trustedEvent(), {
+      channelId: CHANNEL,
+      userId: OTHER
+    })
+    expect(clientMocks.listChannelMembers).toHaveBeenCalledWith(
+      'https://cp.example/v1',
+      'token-123',
+      ORG,
+      CHANNEL,
+      expect.any(Function)
+    )
+    expect(clientMocks.removeChannelMember).toHaveBeenCalledWith(
+      'https://cp.example/v1',
+      'token-123',
+      ORG,
+      CHANNEL,
+      OTHER,
+      expect.any(String),
+      expect.any(Function)
+    )
   })
 
   it('rejects an untrusted sender before listing members', () => {

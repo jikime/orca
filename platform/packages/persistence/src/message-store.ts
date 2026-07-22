@@ -8,6 +8,10 @@ import {
 import type { Database } from './database-schema'
 import { emitCollaborationChange, isChannelMemberTx } from './channel-store'
 import { mutedUserIdsForChannelTx } from './channel-mute-store'
+import {
+  allMessageNotificationUserIdsTx,
+  notificationSuppressedUserIdsTx
+} from './notification-preference-store'
 import { withTenantTransaction } from './tenant-transaction'
 
 export type MessageVisibility = 'internal' | 'project' | 'customer'
@@ -260,14 +264,17 @@ async function resolveMentions(
   channelId: string,
   messageId: string,
   targets: MentionTargets
-): Promise<void> {
+): Promise<Set<string>> {
   const explicit = new Set(targets.explicit)
   // Broadcast-only = reached solely by a group scope (not also a deliberate direct ping).
   const broadcastOnly = [...new Set(targets.broadcast)].filter((id) => !explicit.has(id))
   const muted = await mutedUserIdsForChannelTx(trx, channelId, broadcastOnly)
   // Single notify set: every explicit target + broadcast-only targets that are NOT muted.
   // The two inputs are disjoint and each deduped, so no user appears twice.
-  const notifiable = [...explicit, ...broadcastOnly.filter((id) => !muted.has(id))]
+  const candidates = [...explicit, ...broadcastOnly.filter((id) => !muted.has(id))]
+  const suppressed = await notificationSuppressedUserIdsTx(trx, channelId, candidates)
+  const notifiable = candidates.filter((id) => !suppressed.has(id))
+  const notified = new Set<string>()
   for (const mentionedUserId of notifiable) {
     if (!(await isChannelMemberTx(trx, channelId, mentionedUserId))) {
       continue
@@ -298,6 +305,44 @@ async function resolveMentions(
       })
       .execute()
     await emitCollaborationChange(trx, organizationId, 'notification', notificationId, 1, 'created')
+    notified.add(mentionedUserId)
+  }
+  return notified
+}
+
+async function createAllMessageNotifications(
+  trx: Transaction<Database>,
+  input: {
+    organizationId: string
+    channelId: string
+    messageId: string
+    authorUserId: string
+    alreadyNotified: ReadonlySet<string>
+  }
+): Promise<void> {
+  const recipients = await allMessageNotificationUserIdsTx(trx, input.channelId, input.authorUserId)
+  for (const userId of recipients) {
+    if (input.alreadyNotified.has(userId)) continue
+    const notificationId = randomUUID()
+    await trx
+      .insertInto('collaboration.notifications')
+      .values({
+        organization_id: input.organizationId,
+        id: notificationId,
+        user_id: userId,
+        type: 'message',
+        channel_id: input.channelId,
+        message_id: input.messageId
+      })
+      .execute()
+    await emitCollaborationChange(
+      trx,
+      input.organizationId,
+      'notification',
+      notificationId,
+      1,
+      'created'
+    )
   }
 }
 
@@ -403,12 +448,26 @@ export async function postMessage(
         }
       }
     }
+    let notifiedByMention = new Set<string>()
     if (explicit.length > 0 || broadcast.size > 0) {
-      await resolveMentions(trx, input.organizationId, input.channelId, message.id, {
-        explicit,
-        broadcast: [...broadcast]
-      })
+      notifiedByMention = await resolveMentions(
+        trx,
+        input.organizationId,
+        input.channelId,
+        message.id,
+        {
+          explicit,
+          broadcast: [...broadcast]
+        }
+      )
     }
+    await createAllMessageNotifications(trx, {
+      organizationId: input.organizationId,
+      channelId: input.channelId,
+      messageId: message.id,
+      authorUserId: input.authorUserId,
+      alreadyNotified: notifiedByMention
+    })
     if (input.attachmentIds && input.attachmentIds.length > 0) {
       const linked = await linkAttachmentsTx(trx, input.channelId, message.id, input.attachmentIds)
       if (!linked) {
@@ -471,7 +530,13 @@ export async function listChannelMessages(
   organizationId: string,
   channelId: string,
   userId: string,
-  options: { limit?: number; afterMessageId?: string; threadRootMessageId?: string } = {}
+  options: {
+    limit?: number
+    afterMessageId?: string
+    beforeMessageId?: string
+    latest?: boolean
+    threadRootMessageId?: string
+  } = {}
 ): Promise<ListMessagesResult> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 200)
   return withTenantTransaction(db, organizationId, async (trx) => {
@@ -498,13 +563,32 @@ export async function listChannelMessages(
       // Keyset comparison entirely in SQL so the cursor's microsecond timestamp
       // keeps full precision (a JS Date round-trip truncates to ms and re-includes it).
       query = query.where(
-        sql<boolean>`(created_at, id) > (select created_at, id from collaboration.messages where id = ${options.afterMessageId})`
+        sql<boolean>`(created_at, id) > (select created_at, id from collaboration.messages where id = ${options.afterMessageId} and channel_id = ${channelId})`
       )
     }
-    const rows = await query.orderBy('created_at').orderBy('id').limit(limit).execute()
-    const messages = await enrichMessages(trx, rows, userId)
+    if (options.beforeMessageId) {
+      query = query.where(
+        sql<boolean>`(created_at, id) < (select created_at, id from collaboration.messages where id = ${options.beforeMessageId} and channel_id = ${channelId})`
+      )
+    }
+    // Why: chat opens at the newest page, but the renderer still receives each
+    // page oldest-first so appending realtime messages keeps one ordering model.
+    const newestFirst = options.latest === true || options.beforeMessageId !== undefined
+    const rows = await (
+      newestFirst
+        ? query.orderBy('created_at', 'desc').orderBy('id', 'desc')
+        : query.orderBy('created_at').orderBy('id')
+    )
+      .limit(limit)
+      .execute()
+    const orderedRows = newestFirst ? rows.toReversed() : rows
+    const messages = await enrichMessages(trx, orderedRows, userId)
     const nextCursor =
-      messages.length === limit ? (messages[messages.length - 1]?.id ?? null) : null
+      messages.length === limit
+        ? newestFirst
+          ? (messages[0]?.id ?? null)
+          : (messages[messages.length - 1]?.id ?? null)
+        : null
     return { ok: true, messages, nextCursor }
   })
 }

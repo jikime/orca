@@ -7,6 +7,7 @@ type NotificationInboxProps = {
   unreadCount: number
   onSelect: (notification: PieNotification) => void
   onMarkAllRead: () => void
+  surface?: 'sidebar' | 'panel'
 }
 
 // The backend feed carries no actor or message body — only a type + channel/
@@ -46,7 +47,8 @@ export function NotificationInbox({
   channels,
   unreadCount,
   onSelect,
-  onMarkAllRead
+  onMarkAllRead,
+  surface = 'sidebar'
 }: NotificationInboxProps): React.JSX.Element {
   const channelName = (channelId: string | null): string => {
     const channel = channelId ? channels.find((item) => item.id === channelId) : undefined
@@ -54,7 +56,13 @@ export function NotificationInbox({
   }
 
   return (
-    <div className="flex max-h-64 shrink-0 flex-col border-t border-border">
+    <div
+      className={
+        surface === 'sidebar'
+          ? 'flex max-h-64 shrink-0 flex-col border-t border-border'
+          : 'flex min-h-0 flex-1 flex-col'
+      }
+    >
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {translate('auto.pie.chat.NotificationInbox.2c80f2a8e0', 'Notifications')}
@@ -69,7 +77,7 @@ export function NotificationInbox({
           </button>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pb-3">
+      <div className="flex-1 overflow-y-auto px-2 pb-3 scrollbar-sleek">
         {notifications.length === 0 ? (
           <p className="px-2 py-1.5 text-sm text-muted-foreground">
             {translate('auto.pie.chat.NotificationInbox.a9d880377a', 'No new notifications')}

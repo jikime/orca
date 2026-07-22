@@ -10,6 +10,7 @@ import type {
 import type { AgentStartupPlan } from '@/lib/tui-agent-startup'
 import type { AgentStartedTelemetry } from '@/lib/worktree-activation'
 import type { TaskSourceContext, WorkspaceRunContext } from '../../../shared/task-source-context'
+import type { PieWorkspaceContext } from '../../../shared/pie-workspace-context'
 
 /** Two-phase status reported by the main process while a worktree is created.
  *  `preparing` covers renderer-side preflight before `createWorktree` starts;
@@ -36,6 +37,8 @@ export type WorktreeCreationRequest = {
    *  repoId keeps old create APIs working, while this records the project-first
    *  host intent for retry, diagnostics, and future metadata writes. */
   workspaceRunContext?: WorkspaceRunContext | null
+  /** Stable Pie identity retained across background creation and Retry. */
+  pieWorkspaceContext?: PieWorkspaceContext
   /** Ephemeral VM runtime provisioned for this create. Used for best-effort
    *  cleanup if Orca fails before the workspace owns the runtime. */
   ephemeralVmRuntimeId?: string

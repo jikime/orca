@@ -19,6 +19,7 @@ tags:
   - name: Artifacts
   - name: Sync
   - name: Operations
+  - name: Meetings
   - name: RemoteSessions
 paths:
   /.well-known/pie:
@@ -55,6 +56,22 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - name: before
+          in: query
+          required: false
+          description: >-
+            Pages toward older history from this message id. Mutually exclusive
+            with cursor. Results remain oldest-first within the returned page.
+          schema:
+            $ref: ../schemas/common/opaque-id.v1.schema.json
+        - name: latest
+          in: query
+          required: false
+          description: >-
+            Opens the newest page instead of the legacy oldest page. Mutually
+            exclusive with cursor; may be combined with before.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Organizations available to the authenticated account.
@@ -245,6 +262,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/IfMatch'
         - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -408,6 +426,33 @@ paths:
                 $ref: ../schemas/resources/work-item.v1.schema.json
         '412':
           $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/work-items/{workItemId}/source-bindings:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/WorkItemId'
+    get:
+      tags: [WorkItems]
+      operationId: listWorkItemSourceBindings
+      description: >-
+        Lists the chat-message and meeting-action sources that created this WorkItem.
+        Results are filtered by the caller's source permissions and channel membership.
+      responses:
+        '200':
+          description: Source bindings visible to the caller.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/work-item-source-binding.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
         default:
           $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/teams/{teamId}/workflow-states:
@@ -626,6 +671,33 @@ paths:
                 $ref: ../schemas/resources/channel.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
+    patch:
+      tags: [Collaboration]
+      operationId: updateChannel
+      description: Updates channel metadata or archives/restores a normal channel using optimistic concurrency.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/channel-update.v1.schema.json
+      responses:
+        '200':
+          description: Updated channel.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/channels/{channelId}/members:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'
@@ -634,6 +706,24 @@ paths:
         required: true
         schema:
           $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: listChannelMembers
+      responses:
+        '200':
+          description: Current channel roster.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/channel-member.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
     post:
       tags: [Collaboration]
       operationId: addChannelMember
@@ -656,6 +746,113 @@ paths:
       responses:
         '204':
           description: Member added (or already present).
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/audit:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: listChannelAudit
+      description: Lists the latest 200 channel and message governance events for channel managers.
+      responses:
+        '200':
+          description: Recent governance activity, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/channel-audit-entry.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/export:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: exportChannelMessages
+      description: Exports up to 10,000 channel messages for channel managers.
+      responses:
+        '200':
+          description: A point-in-time JSON export including tombstone audit metadata.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/channel-message-export.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/retention:apply:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Collaboration]
+      operationId: applyChannelRetention
+      description: Redacts expired message and revision bodies using the channel retention policy.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Retention applied successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, redactedCount]
+                additionalProperties: false
+                properties:
+                  ok:
+                    const: true
+                  redactedCount:
+                    type: integer
+                    minimum: 0
+        '409':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    delete:
+      tags: [Collaboration]
+      operationId: removeChannelMember
+      description: Removes a member from a normal channel while preserving at least one owner.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Member removed (or was already absent).
+        '409':
+          $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/dms:
@@ -757,7 +954,9 @@ paths:
             $ref: ../schemas/common/opaque-id.v1.schema.json
       responses:
         '200':
-          description: Messages in the channel, oldest first, keyset-paginated by message id.
+          description: >-
+            Messages in chronological order within each page. Cursor pages
+            forward; latest and before page backward through channel history.
           content:
             application/json:
               schema:
@@ -808,6 +1007,19 @@ paths:
         required: true
         schema:
           $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Collaboration]
+      operationId: getChannelMessage
+      description: Fetches one message so notification links can open content outside the loaded page.
+      responses:
+        '200':
+          description: Message representation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/message.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
     patch:
       tags: [Collaboration]
       operationId: editMessage
@@ -860,7 +1072,7 @@ paths:
                 reason:
                   type: string
                   minLength: 1
-                  maxLength: 1000
+                  maxLength: 500
       responses:
         '204':
           description: Message deleted (or was already a tombstone).
@@ -1204,7 +1416,8 @@ paths:
         collaboration and delivery. Requires BOTH message.read (source) and
         work_item.create (target); a caller with only one is denied 403. The actor must be
         a member of the source channel. title is optional — derived from the message body
-        when omitted. Idempotent per Idempotency-Key.
+        when omitted. Idempotent per Idempotency-Key and per source message; a second
+        conversion request returns the already-linked WorkItem instead of creating another.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1216,6 +1429,15 @@ paths:
       responses:
         '201':
           description: Work item created from the message.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/work-item.v1.schema.json
+        '200':
+          description: The WorkItem already linked to this source message.
           headers:
             Location:
               $ref: '#/components/headers/Location'
@@ -1313,6 +1535,70 @@ paths:
                   updated:
                     type: integer
                     minimum: 0
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/notifications/preferences:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Notifications]
+      operationId: getNotificationPreferences
+      responses:
+        '200':
+          description: The caller's desktop, DND, and channel notification preferences.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/notification-preferences.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      tags: [Notifications]
+      operationId: updateNotificationPreferences
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/notification-preferences-update.v1.schema.json
+      responses:
+        '200':
+          description: Updated preferences.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/notification-preferences.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/channels/{channelId}/notification-level:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    put:
+      tags: [Collaboration]
+      operationId: setChannelNotificationLevel
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [level]
+              properties:
+                level:
+                  enum: [all, mentions, none]
+              additionalProperties: false
+      responses:
+        '204':
+          description: Channel notification level updated.
         default:
           $ref: '#/components/responses/Problem'
   /v1/organizations/{organizationId}/notifications/{notificationId}/read:
@@ -2265,6 +2551,834 @@ paths:
       responses:
         '204':
           description: Driver revoked (or already absent).
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-participant-controls/{participantId}:mute:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: participantId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: muteMeetingParticipant
+      description: Mutes a connected participant's microphone through the trusted media service.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Participant microphone muted.
+        '409':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-participant-controls/{participantId}:remove:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: participantId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: removeMeetingParticipant
+      description: Ejects a participant, revokes the active media token, and blocks token reissue.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Blocked meeting participant.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-participant.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-participant-controls/{participantId}:admit:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: participantId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: admitMeetingParticipant
+      description: Admits a waiting participant. Only the meeting host or an admitted co-host may act.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Admitted participant.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-participant.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-participant-controls/{participantId}:deny:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: participantId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: denyMeetingParticipant
+      description: Denies a waiting participant and prevents token issuance until reinvited.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Denied participant.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-participant.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-participants/{participantId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: participantId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    patch:
+      tags: [Meetings]
+      operationId: updateMeetingParticipantRole
+      description: Changes a non-host participant role and forces a fresh capability-scoped token.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: ../schemas/resources/meeting-participant-role-update.v1.schema.json
+      responses:
+        '200':
+          description: Participant with the updated role.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-participant.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/waiting-room:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: requestMeetingAdmission
+      description: Requests admission or returns the caller's current waiting-room status.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Current participant admission state.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-participant.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/media-diagnostics:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: diagnoseMeetingMedia
+      description: Checks control-plane and LiveKit endpoint reachability without joining the room.
+      responses:
+        '200':
+          description: Current meeting media diagnostic.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-media-diagnostics.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/media-token:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: issueMeetingMediaToken
+      description: Issues a short-lived room token only after server-side admission and role checks.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Capability-scoped LiveKit token.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-media-token.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-transcripts/{transcriptId}/segments:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: transcriptId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: listMeetingTranscriptSegments
+      description: Lists the canonical timed transcript segments in playback order.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: Transcript segment page.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/meeting-transcript-segment.v1.schema.json
+                  nextCursor:
+                    type: [string, 'null']
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-transcript-segments/{segmentId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: segmentId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: getMeetingTranscriptSegment
+      description: Gets one timed segment so linked evidence can open at its recording position.
+      responses:
+        '200':
+          description: Transcript segment.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-transcript-segment.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags: [Meetings]
+      operationId: correctMeetingTranscriptSegment
+      description: Corrects the canonical speaker and text while retaining the previous revision.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-transcript-segment-update.v1.schema.json
+      responses:
+        '200':
+          description: Corrected transcript segment.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-transcript-segment.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-transcript-segments/{segmentId}/revisions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: segmentId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: listMeetingTranscriptSegmentRevisions
+      responses:
+        '200':
+          description: Immutable prior segment revisions, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/meeting-transcript-segment-revision.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/decisions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: listMeetingDecisions
+      responses:
+        '200':
+          description: Reviewable meeting decisions.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/meeting-decision.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-decisions/{decisionId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: decisionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    patch:
+      tags: [Meetings]
+      operationId: updateMeetingDecision
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-decision-update.v1.schema.json
+      responses:
+        '200':
+          description: Updated decision, reset to unreviewed.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-decision.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-decisions/{decisionId}:review:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: decisionId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: reviewMeetingDecision
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-outcome-review.v1.schema.json
+      responses:
+        '200':
+          description: Reviewed decision.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-decision.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/action-items:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: listMeetingActionItems
+      responses:
+        '200':
+          description: Reviewable meeting action items.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/meeting-action-item.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-action-items/{actionItemId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: actionItemId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    patch:
+      tags: [Meetings]
+      operationId: updateMeetingActionItem
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-action-item-update.v1.schema.json
+      responses:
+        '200':
+          description: Updated action item, reset to unreviewed.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-action-item.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '428':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-action-items/{actionItemId}:review:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: actionItemId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: reviewMeetingActionItem
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-outcome-review.v1.schema.json
+      responses:
+        '200':
+          description: Reviewed action item.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-action-item.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-action-items/{actionItemId}:convert-to-work-item:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: actionItemId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: convertMeetingActionItemToWorkItem
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-action-work-item-conversion.v1.schema.json
+      responses:
+        '200':
+          description: Converted action item with its workItemId.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-action-item.v1.schema.json
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/governance:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: getMeetingGovernance
+      responses:
+        '200':
+          description: Meeting capture and retention policy.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-governance.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags: [Meetings]
+      operationId: updateMeetingGovernance
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: ../schemas/resources/meeting-governance-update.v1.schema.json
+      responses:
+        '200':
+          description: Updated meeting governance policy.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-governance.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/capture-consents:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: listMeetingCaptureConsents
+      responses:
+        '200':
+          description: Capture consent matrix for meeting participants.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/meeting-capture-consent.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meeting-capture-consents/{consentId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: consentId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    patch:
+      tags: [Meetings]
+      operationId: updateMeetingCaptureConsent
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: ../schemas/resources/meeting-capture-consent-update.v1.schema.json
+      responses:
+        '200':
+          description: Updated personal capture consent.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-capture-consent.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/recordings:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: startMeetingRecording
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-recording-start.v1.schema.json
+      responses:
+        '201':
+          description: Meeting capture started after current consent validation.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-recording.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Meetings]
+      operationId: listMeetingRecordings
+      responses:
+        '200':
+          description: Meeting recording segments.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/resources/meeting-recording.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/capture/pause:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: pauseMeetingCapture
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Capture paused and active egress stopped.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-governance.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/capture/resume:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: resumeMeetingCapture
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Capture resumed after consent was revalidated.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-recording.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/governance-export:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: exportMeetingGovernanceData
+      responses:
+        '200':
+          description: Audited JSON export of meeting data.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-governance-export.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/governance-audit:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    get:
+      tags: [Meetings]
+      operationId: listMeetingGovernanceAudit
+      responses:
+        '200':
+          description: Governance audit entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, actorId, action, occurredAt]
+                      properties:
+                        id:
+                          $ref: ../schemas/common/opaque-id.v1.schema.json
+                        actorId:
+                          oneOf:
+                            - $ref: ../schemas/common/opaque-id.v1.schema.json
+                            - type: 'null'
+                        action:
+                          type: string
+                        occurredAt:
+                          $ref: ../schemas/common/timestamp.v1.schema.json
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/organizations/{organizationId}/meetings/{meetingId}/deletion-requests:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          $ref: ../schemas/common/opaque-id.v1.schema.json
+    post:
+      tags: [Meetings]
+      operationId: requestMeetingDeletion
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/resources/meeting-deletion-request.v1.schema.json
+      responses:
+        '202':
+          description: Meeting deletion queued for the retention worker.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/resources/meeting-governance.v1.schema.json
         default:
           $ref: '#/components/responses/Problem'
 components:

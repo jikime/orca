@@ -1,4 +1,4 @@
-export type MeetingMediaRole = 'host' | 'participant'
+export type MeetingMediaRole = 'host' | 'co_host' | 'presenter' | 'participant'
 
 export type MeetingMediaToken = {
   token: string
@@ -7,7 +7,7 @@ export type MeetingMediaToken = {
 
 export type MeetingMediaRecordingSession = {
   videoEgressId: string
-  audioEgressId: string
+  audioEgressId: string | null
   transcriptionDispatchId: string | null
 }
 
@@ -36,6 +36,7 @@ export type MeetingMediaWebhookEvent =
 
 export interface MeetingMediaService {
   readonly serverUrl: string
+  diagnoseConnectivity(): Promise<{ reachable: boolean; latencyMs: number }>
   ensureRoom(input: {
     roomName: string
     organizationId: string
@@ -48,6 +49,7 @@ export interface MeetingMediaService {
     organizationId: string
     meetingId: string
     recordingId: string
+    captureTypes: readonly ('recording' | 'transcription' | 'ai_notes')[]
   }): Promise<MeetingMediaRecordingSession>
   stopRecording(input: {
     roomName: string
@@ -60,6 +62,8 @@ export interface MeetingMediaService {
     userId: string
     role: MeetingMediaRole
   }): Promise<MeetingMediaToken>
+  muteParticipantMicrophone(input: { roomName: string; userId: string }): Promise<boolean>
+  removeParticipant(input: { roomName: string; userId: string }): Promise<void>
   receiveWebhook(
     rawBody: string,
     authorization: string | undefined

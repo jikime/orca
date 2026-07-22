@@ -1,0 +1,21 @@
+{
+  "meetingId": "33333333-3333-4333-8333-333333333333",
+  "organizationId": "22222222-2222-4222-8222-222222222222",
+  "policyVersion": 2,
+  "purpose": "Create a searchable recap and follow-up actions.",
+  "retentionDays": 90,
+  "retentionUntil": "2026-10-19T00:00:00.000Z",
+  "legalHold": false,
+  "captureStatus": "paused",
+  "activeCaptureTypes": ["recording", "transcription", "ai_notes"],
+  "deletionStatus": "active",
+  "deletionRequestedAt": null,
+  "deletionRequestedBy": null,
+  "deletionReason": null,
+  "deletionCompletedAt": null,
+  "deletionAttempts": 0,
+  "deletionLastError": null,
+  "version": 3,
+  "createdAt": "2026-07-21T00:00:00.000Z",
+  "updatedAt": "2026-07-21T00:00:00.000Z"
+}

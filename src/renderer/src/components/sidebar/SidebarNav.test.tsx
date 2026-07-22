@@ -342,18 +342,18 @@ describe('SidebarNav', () => {
     expect(mocks.updateSettings).toHaveBeenCalledWith({ showTasksButton: false })
   })
 
-  it('keeps unavailable Tasks context-menu-capable while left click remains inert', async () => {
+  it('opens Pie My Work when no Git repository is available', async () => {
     setSidebarState({ repos: [folderRepo()] })
     const container = await renderSidebarNav()
 
     const tasksButton = getButtonByText(container, 'Tasks')
-    expect(tasksButton.getAttribute('aria-disabled')).toBe('true')
+    expect(tasksButton.getAttribute('aria-disabled')).toBe('false')
     expect(tasksButton.disabled).toBe(false)
-    expect(tasksButton.querySelectorAll('[role="button"]')).toHaveLength(0)
+    expect(tasksButton.querySelector('[aria-label="Open Pie My Work"]')).not.toBeNull()
     expect(tasksButton.querySelector('[aria-label="Open GitHub tasks"]')).toBeNull()
 
     await clickButton(tasksButton)
-    expect(mocks.openTaskPage).not.toHaveBeenCalled()
+    expect(mocks.openTaskPage).toHaveBeenCalledWith({ internalTaskSource: 'pie' })
 
     const tasksMenu = tasksButton.closest('[data-testid="context-menu"]')
     expect(tasksMenu).not.toBeNull()

@@ -11,6 +11,8 @@ export function buildPiePortalPlanningDomains(): readonly PieDomainConfig[] {
       listPath: '/projects',
       itemPath: (id) => `/projects/${id}`,
       etagPrefix: 'project',
+      contextChannelScope: 'project',
+      contextMeetingScope: { kind: 'project', titleKey: 'name' },
       columns: [
         {
           key: 'name',
@@ -37,6 +39,14 @@ export function buildPiePortalPlanningDomains(): readonly PieDomainConfig[] {
           key: 'summary',
           label: translate('auto.pie.workspace.pie.delivery.domains.856bc71328', 'Summary'),
           type: 'textarea'
+        },
+        {
+          key: 'status',
+          label: translate('auto.pie.workspace.pie.delivery.domains.5577678c87', 'Status'),
+          type: 'select',
+          options: ['planned', 'active'],
+          defaultValue: 'planned',
+          required: true
         }
       ],
       detailFields: [
@@ -81,6 +91,7 @@ export function buildPiePortalPlanningDomains(): readonly PieDomainConfig[] {
         }
       ],
       createPath: '/projects/{projectId}/change-requests',
+      editable: true,
       createFields: [
         {
           key: 'title',
@@ -179,6 +190,7 @@ export function buildPiePortalPlanningDomains(): readonly PieDomainConfig[] {
         }
       ],
       createPath: '/projects/{projectId}/deliverables',
+      editable: true,
       createFields: [
         {
           key: 'name',

@@ -3,6 +3,8 @@ import { deriveApiBaseUrl, loadPieRealtimeConfig } from './realtime-config'
 import {
   __resetPieRealtimeForTests,
   getPieRealtimeStatus,
+  resumePieRealtime,
+  suspendPieRealtime,
   startPieRealtimeIfEnabled
 } from './realtime-service'
 
@@ -50,5 +52,30 @@ describe('startPieRealtimeIfEnabled gates', () => {
     })
     expect(connection).toBeNull()
     expect(getPieRealtimeStatus().state).toBe('disabled')
+  })
+
+  it('suspends on logout and reconnects with retained config after login', () => {
+    let opened = 0
+    let closed = 0
+    startPieRealtimeIfEnabled({
+      env: {
+        PIE_REALTIME_URL: 'ws://localhost:8080/v1/realtime',
+        PIE_REALTIME_ORG_ID: '11111111-1111-4111-8111-111111111111'
+      },
+      getAccessToken: () => 'token',
+      connectionOverrides: {
+        socketFactory: () => {
+          opened += 1
+          return { send: () => {}, close: () => void (closed += 1) }
+        }
+      }
+    })
+    expect(opened).toBe(1)
+    suspendPieRealtime()
+    expect(closed).toBe(1)
+    expect(getPieRealtimeStatus().state).toBe('stopped')
+    resumePieRealtime()
+    expect(opened).toBe(2)
+    expect(getPieRealtimeStatus().state).toBe('connecting')
   })
 })

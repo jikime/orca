@@ -5,11 +5,14 @@ import {
   PieRealtimeClientHelloSchema,
   PieRealtimeConnectionClosingSchema,
   PieRealtimeHeartbeatSchema,
+  PieRealtimeRemoteCursorChangedSchema,
+  PieRealtimeRemotePresenceChangedSchema,
   PieRealtimeResourceChangedSchema,
   PieRealtimeResyncRequiredSchema,
   PieRealtimeServerMessageSchema,
   PieRealtimeServerWelcomeSchema,
-  PieRealtimeSessionRevokedSchema
+  PieRealtimeSessionRevokedSchema,
+  RESOURCE_CHANGE_RESOURCE_TYPES
 } from './pie-realtime-contract'
 
 function readFixture(relativePath: string): unknown {
@@ -46,6 +49,35 @@ describe('Pie realtime contract', () => {
         readFixture('invalid/realtime-resource-version-zero.json')
       ).success
     ).toBe(false)
+  })
+
+  it('keeps the desktop resource union identical to the wire contract', () => {
+    const contract = readFixture('../schemas/events/realtime-resource-changed.v1.schema.json') as {
+      properties: { resourceType: { enum: string[] } }
+    }
+    expect(RESOURCE_CHANGE_RESOURCE_TYPES).toEqual(contract.properties.resourceType.enum)
+  })
+
+  it('accepts remote-session ephemeral frames declared by the server contract', () => {
+    const base = {
+      schemaVersion: 1,
+      organizationId: '11111111-1111-4111-8111-111111111111',
+      sessionId: '22222222-2222-4222-8222-222222222222',
+      participantId: '33333333-3333-4333-8333-333333333333',
+      at: '2026-07-20T12:00:00.000Z'
+    }
+    const presence = {
+      ...base,
+      type: 'remote_presence.changed',
+      userId: '44444444-4444-4444-8444-444444444444',
+      state: 'online',
+      role: 'operator'
+    }
+    const cursor = { ...base, type: 'remote_cursor.changed', row: 10, col: 20 }
+    expect(PieRealtimeRemotePresenceChangedSchema.safeParse(presence).success).toBe(true)
+    expect(PieRealtimeRemoteCursorChangedSchema.safeParse(cursor).success).toBe(true)
+    expect(PieRealtimeServerMessageSchema.safeParse(presence).success).toBe(true)
+    expect(PieRealtimeServerMessageSchema.safeParse(cursor).success).toBe(true)
   })
 
   it('discriminates every server message by type', () => {

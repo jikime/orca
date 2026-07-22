@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/notification-preferences-update.v1.schema.json",
+  "title": "Chat notification preferences update",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "desktopEnabled": { "type": "boolean" },
+    "dndEnabled": { "type": "boolean" },
+    "dndStartMinute": { "type": "integer", "minimum": 0, "maximum": 1439 },
+    "dndEndMinute": { "type": "integer", "minimum": 0, "maximum": 1439 },
+    "timezone": { "type": "string", "minLength": 1, "maxLength": 100 }
+  },
+  "additionalProperties": false
+}

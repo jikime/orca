@@ -14,6 +14,10 @@
     "hostUserId",
     "scheduledStart",
     "scheduledEnd",
+    "timeZone",
+    "recurrence",
+    "seriesId",
+    "occurrenceIndex",
     "status",
     "version",
     "createdAt",
@@ -31,7 +35,7 @@
       "minLength": 1
     },
     "scopeKind": {
-      "enum": ["project", "ticket", "none"]
+      "enum": ["project", "ticket", "remote_session", "none"]
     },
     "scopeId": {
       "oneOf": [
@@ -53,6 +57,21 @@
         { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
         { "type": "null" }
       ]
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "recurrence": {
+      "enum": ["none", "daily", "weekly", "monthly"]
+    },
+    "seriesId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "occurrenceIndex": {
+      "type": "integer",
+      "minimum": 0
     },
     "status": {
       "enum": ["scheduled", "live", "ended", "cancelled"]

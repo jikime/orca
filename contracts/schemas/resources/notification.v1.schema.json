@@ -9,7 +9,7 @@
     "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
     "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
     "userId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
-    "type": { "enum": ["mention"] },
+    "type": { "enum": ["mention", "message"] },
     "channelId": {
       "oneOf": [
         { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },

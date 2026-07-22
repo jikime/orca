@@ -16,15 +16,15 @@
       - img/media blob: + data:: pet, editor, terminal, and emulator surfaces
         build blob:/data: URLs for images and frames.
       - worker-src blob:: Monaco spins up its language workers.
-      - connect-src wss + loopback ws: meeting media uses WebRTC signaling. Remote
-        instances must use TLS; cleartext signaling is limited to local Docker.
+      - connect-src TLS + loopback: meeting signaling and validation use both WS
+        and HTTP. Remote instances require TLS; cleartext stays local-only.
       - frame-src inherits default-src 'self', which permits the sandboxed
         srcdoc notebook iframe (IpynbViewer) while blocking remote frames.
       <webview> guests have their own security context and are unaffected.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: data: https: http://127.0.0.1:* http://[::1]:*; worker-src 'self' blob:; connect-src 'self' wss: ws://127.0.0.1:* ws://[::1]:*; object-src 'none'; base-uri 'none'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: data: https: http://127.0.0.1:* http://[::1]:*; worker-src 'self' blob:; connect-src 'self' wss: https: ws://127.0.0.1:* ws://[::1]:* http://127.0.0.1:* http://[::1]:*; object-src 'none'; base-uri 'none'"
     />
   </head>
 

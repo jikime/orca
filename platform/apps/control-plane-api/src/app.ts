@@ -18,6 +18,9 @@ import { loadDiscoveryConfig, type DiscoveryConfig } from './discovery-config'
 import { registerIdentityRoutes } from './identity-routes'
 import { registerChannelRoutes } from './channel-routes'
 import { registerChannelMuteRoutes } from './channel-mute-routes'
+import { registerChannelManagementRoutes } from './channel-management-routes'
+import { registerChannelGovernanceRoutes } from './channel-governance-routes'
+import { registerChannelMessageLookupRoute } from './channel-message-lookup-route'
 import { registerRelayAdmissionRoutes } from './relay-admission-routes'
 import { registerRemoteSessionCapabilityRoutes } from './remote-session-capability-routes'
 import { registerRemoteSessionDriverRoutes } from './remote-session-driver-routes'
@@ -25,6 +28,7 @@ import { registerRemoteSessionPresenceRoutes } from './remote-session-presence-r
 import { registerRemoteSessionRoutes } from './remote-session-routes'
 import { registerMessageSearchRoutes } from './message-search-routes'
 import { registerNotificationRoutes } from './notification-routes'
+import { registerNotificationPreferenceRoutes } from './notification-preference-routes'
 import { registerDeliveryRoutes } from './delivery-routes'
 import { registerWorkItemRoutes } from './work-item-routes'
 import { registerCrmAccountRoutes } from './crm-account-routes'
@@ -41,6 +45,8 @@ import {
   registerMeetingMediaWebhookRoute
 } from './meeting-media-routes'
 import type { MeetingMediaService } from './meeting-media-service'
+import type { MeetingCalendarService } from './meeting-calendar-service'
+import { registerMeetingGuestMediaRoutes } from './meeting-guest-media-routes'
 import { registerMeetingMinutesEditRoutes } from './meeting-minutes-edit-routes'
 import { registerAiGovernanceRoutes } from './ai-governance-routes'
 import { registerAssetRoutes } from './asset-routes'
@@ -77,6 +83,7 @@ export type BuildAppDeps = HealthDeps & {
   gateway?: RealtimeGateway
   objectStorage?: ObjectStorage
   meetingMedia?: MeetingMediaService
+  meetingCalendar?: MeetingCalendarService
   discoveryConfig?: DiscoveryConfig
   // Enables the token-authenticated identity routes (session/memberships/
   // provisioning). Omitted by the dependency-light unit tests.
@@ -222,11 +229,17 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       db: deps.db,
       registry: deps.registry,
       ...(deps.meetingMedia ? { media: deps.meetingMedia } : {}),
-      ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {})
+      ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {}),
+      ...(deps.meetingCalendar ? { calendar: deps.meetingCalendar } : {})
     })
     registerMeetingMinutesEditRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.meetingMedia) {
       registerMeetingMediaTokenRoute(app, {
+        db: deps.db,
+        registry: deps.registry,
+        media: deps.meetingMedia
+      })
+      registerMeetingGuestMediaRoutes(app, {
         db: deps.db,
         registry: deps.registry,
         media: deps.meetingMedia
@@ -245,6 +258,9 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
       ...(deps.objectStorage ? { objectStorage: deps.objectStorage } : {})
     })
     registerChannelMuteRoutes(app, { db: deps.db })
+    registerChannelManagementRoutes(app, { db: deps.db, registry: deps.registry })
+    registerChannelGovernanceRoutes(app, { db: deps.db })
+    registerChannelMessageLookupRoute(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionRoutes(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionCapabilityRoutes(app, { db: deps.db, registry: deps.registry })
     registerRemoteSessionDriverRoutes(app, { db: deps.db, registry: deps.registry })
@@ -255,6 +271,7 @@ export function buildApp(deps: BuildAppDeps): FastifyInstance {
     registerAgentSessionIntakeRoutes(app, { db: deps.db, registry: deps.registry })
     registerAgentEventQuarantineRoutes(app, { db: deps.db, registry: deps.registry })
     registerNotificationRoutes(app, { db: deps.db, registry: deps.registry })
+    registerNotificationPreferenceRoutes(app, { db: deps.db, registry: deps.registry })
     registerMessageSearchRoutes(app, { db: deps.db, registry: deps.registry })
     if (deps.gateway) {
       registerRevocationRoutes(app, { db: deps.db, gateway: deps.gateway })

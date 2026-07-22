@@ -83,6 +83,7 @@ import type {
 import type {
   AutomationWorkspaceProvenance,
   BaseRefSearchResult,
+  CreateWorktreeArgs,
   CreateWorktreeResult,
   DetectedWorktree,
   DetectedWorktreeListResult,
@@ -1574,6 +1575,7 @@ function mergeRuntimeFolderWorkspace(repo: Repo, worktreeId: string, meta: Workt
     linkedLinearIssue: meta.linkedLinearIssue ?? null,
     linkedLinearIssueWorkspaceId: meta.linkedLinearIssueWorkspaceId ?? null,
     linkedLinearIssueOrganizationUrlKey: meta.linkedLinearIssueOrganizationUrlKey ?? null,
+    ...(meta.pieWorkspaceContext ? { pieWorkspaceContext: meta.pieWorkspaceContext } : {}),
     linkedGitLabMR: meta.linkedGitLabMR ?? null,
     linkedGitLabIssue: meta.linkedGitLabIssue ?? null,
     linkedBitbucketPR: meta.linkedBitbucketPR ?? null,
@@ -11981,6 +11983,7 @@ export class OrcaRuntimeService {
     folderPath?: string | null
     connectionId?: string | null
     linkedTask?: FolderWorkspace['linkedTask']
+    pieWorkspaceContext?: FolderWorkspace['pieWorkspaceContext']
     createdWithAgent?: FolderWorkspace['createdWithAgent']
     pendingFirstAgentMessageRename?: boolean
   }): Promise<FolderWorkspace> {
@@ -12029,6 +12032,7 @@ export class OrcaRuntimeService {
         | 'name'
         | 'folderPath'
         | 'linkedTask'
+        | 'pieWorkspaceContext'
         | 'comment'
         | 'isArchived'
         | 'isUnread'
@@ -15065,6 +15069,7 @@ export class OrcaRuntimeService {
     startupPrompt?: string
     pendingFirstAgentMessageRename?: boolean
     automationProvenance?: AutomationWorkspaceProvenance
+    pieWorkspaceContext?: CreateWorktreeArgs['pieWorkspaceContext']
     startup?: WorktreeStartupLaunch
     startupDraft?: string
     startupDraftPaste?: WorktreeStartupDraftPaste
@@ -15125,6 +15130,7 @@ export class OrcaRuntimeService {
           nestWorkspaces: settings.nestWorkspaces
         },
         ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {}),
+        ...(args.pieWorkspaceContext ? { pieWorkspaceContext: args.pieWorkspaceContext } : {}),
         ...(args.linkedIssue !== undefined ? { linkedIssue: args.linkedIssue } : {}),
         ...(args.linkedPR !== undefined ? { linkedPR: args.linkedPR } : {}),
         ...(args.linkedLinearIssue !== undefined
@@ -15729,6 +15735,7 @@ export class OrcaRuntimeService {
         ? { pendingFirstAgentMessageRename: true }
         : {}),
       ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {}),
+      ...(args.pieWorkspaceContext ? { pieWorkspaceContext: args.pieWorkspaceContext } : {}),
       ...(args.comment !== undefined ? { comment: args.comment } : {}),
       ...(args.manualOrder !== undefined ? { manualOrder: args.manualOrder } : {}),
       ...(args.workspaceStatus !== undefined ? { workspaceStatus: args.workspaceStatus } : {})
@@ -16053,6 +16060,7 @@ export class OrcaRuntimeService {
       createdWithAgent?: TuiAgent
       pendingFirstAgentMessageRename?: boolean
       automationProvenance?: AutomationWorkspaceProvenance
+      pieWorkspaceContext?: CreateWorktreeArgs['pieWorkspaceContext']
       startup?: WorktreeStartupLaunch
       startupFollowup?: WorktreeStartupFollowup
       startupDraftPaste?: WorktreeStartupDraftPaste
@@ -16104,7 +16112,8 @@ export class OrcaRuntimeService {
         ...(args.pendingFirstAgentMessageRename === true
           ? { pendingFirstAgentMessageRename: true }
           : {}),
-        ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {})
+        ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {}),
+        ...(args.pieWorkspaceContext ? { pieWorkspaceContext: args.pieWorkspaceContext } : {})
       },
       repo,
       this.store as unknown as Store,

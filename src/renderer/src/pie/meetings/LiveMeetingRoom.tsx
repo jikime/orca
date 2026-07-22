@@ -1,25 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Camera,
-  CameraOff,
-  LogOut,
-  Mic,
-  MicOff,
-  MonitorUp,
-  PhoneCall,
-  ScreenShareOff
-} from 'lucide-react'
-import { Room, RoomEvent, type Participant } from 'livekit-client'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ConnectionQuality, Room, RoomEvent, type Participant } from 'livekit-client'
 import { translate } from '@/i18n/i18n'
-import { apiGet, apiPost, PieApiError, resourceEtag } from '../control-plane/pie-api-client'
-import type { MeetingMediaToken, MeetingParticipant } from './meeting-types'
-import { MeetingParticipantTile } from './MeetingParticipantTile'
+import { apiPost, PieApiError } from '../control-plane/pie-api-client'
+import { usePieResource } from '../control-plane/use-pie-resource'
+import type {
+  MeetingMediaDiagnostics,
+  MeetingMediaToken,
+  MeetingParticipant
+} from './meeting-types'
 import { MeetingDisplaySourceDialog } from './MeetingDisplaySourceDialog'
+import { MeetingConnectionStatus, type MeetingConnectionState } from './MeetingConnectionStatus'
+import { MeetingRoomControlBar } from './MeetingRoomControlBar'
+import { MeetingStage } from './MeetingStage'
 import type { MeetingDisplaySource } from '../../../../shared/meeting-display-source'
-
-type ConnectionState = 'idle' | 'joining' | 'connected'
+import { MeetingDevicePreview, type MeetingDevicePreferences } from './MeetingDevicePreview'
 
 type LiveCaption = { segmentId: string; speaker: string; text: string; final: boolean }
 
@@ -38,17 +32,23 @@ export function LiveMeetingRoom({
   onParticipantsChanged: () => void
 }): React.JSX.Element {
   const roomRef = useRef<Room | null>(null)
-  const [state, setState] = useState<ConnectionState>('idle')
+  const preferencesRef = useRef<MeetingDevicePreferences | null>(null)
+  const explicitLeaveRef = useRef(false)
+  const waitingPollRef = useRef(false)
+  const recoveryTimerRef = useRef<number | null>(null)
+  const [state, setState] = useState<MeetingConnectionState>('idle')
   const [mediaToken, setMediaToken] = useState<MeetingMediaToken | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
-  const [speakers, setSpeakers] = useState<Set<string>>(new Set())
-  const [busyControl, setBusyControl] = useState<'mic' | 'camera' | 'screen' | 'consent' | null>(
-    null
-  )
+  const [activeSpeakerIds, setActiveSpeakerIds] = useState<string[]>([])
+  const [busyControl, setBusyControl] = useState<'mic' | 'camera' | 'screen' | null>(null)
   const [displaySources, setDisplaySources] = useState<MeetingDisplaySource[]>([])
   const [displayPickerOpen, setDisplayPickerOpen] = useState(false)
   const [captions, setCaptions] = useState<LiveCaption[]>([])
   const [error, setError] = useState<string | null>(null)
+  const diagnostics = usePieResource<MeetingMediaDiagnostics>(
+    `/meetings/${meetingId}/media-diagnostics`
+  )
+  const refetchDiagnostics = diagnostics.refetch
 
   const refreshRoom = useCallback(() => {
     const room = roomRef.current
@@ -59,68 +59,197 @@ export function LiveMeetingRoom({
   }, [])
 
   const leave = useCallback(() => {
+    explicitLeaveRef.current = true
     const room = roomRef.current
     roomRef.current = null
     room?.disconnect()
     setState('idle')
     setParticipants([])
-    setSpeakers(new Set())
+    setActiveSpeakerIds([])
     setCaptions([])
+    setMediaToken(null)
+    if (recoveryTimerRef.current !== null) {
+      window.clearTimeout(recoveryTimerRef.current)
+    }
     window.setTimeout(onParticipantsChanged, 750)
   }, [onParticipantsChanged])
 
   useEffect(() => leave, [leave])
 
-  const join = async (): Promise<void> => {
-    setState('joining')
-    setError(null)
-    try {
-      const issued = await apiPost<MeetingMediaToken>(`/meetings/${meetingId}/media-token`)
-      const room = new Room({ adaptiveStream: true, dynacast: true })
-      roomRef.current = room
-      room.registerTextStreamHandler('lk.transcription', async (reader, participant) => {
-        const text = (await reader.readAll()).trim()
-        if (!text || roomRef.current !== room) {
+  const markRecovered = useCallback((): void => {
+    setState('recovered')
+    if (recoveryTimerRef.current !== null) {
+      window.clearTimeout(recoveryTimerRef.current)
+    }
+    recoveryTimerRef.current = window.setTimeout(() => {
+      setState((current) => (current === 'recovered' ? 'connected' : current))
+    }, 2_500)
+  }, [])
+
+  const join = useCallback(
+    async (preferences: MeetingDevicePreferences): Promise<void> => {
+      preferencesRef.current = preferences
+      explicitLeaveRef.current = false
+      setState('joining')
+      setError(null)
+      try {
+        const issued = await apiPost<MeetingMediaToken>(`/meetings/${meetingId}/media-token`)
+        const room = new Room({ adaptiveStream: true, dynacast: true })
+        roomRef.current = room
+        room.registerTextStreamHandler('lk.transcription', async (reader, participant) => {
+          const text = (await reader.readAll()).trim()
+          if (!text || roomRef.current !== room) {
+            return
+          }
+          const attributes = reader.info.attributes ?? {}
+          const segmentId = attributes['lk.segment_id'] ?? reader.info.id
+          const final = attributes['lk.transcription_final'] === 'true'
+          setCaptions((current) => {
+            const next = current.filter((caption) => caption.segmentId !== segmentId)
+            next.push({ segmentId, speaker: participant.identity, text, final })
+            return next.slice(-4)
+          })
+        })
+        room
+          .on(RoomEvent.ParticipantConnected, refreshRoom)
+          .on(RoomEvent.ParticipantDisconnected, refreshRoom)
+          .on(RoomEvent.TrackPublished, refreshRoom)
+          .on(RoomEvent.TrackUnpublished, refreshRoom)
+          .on(RoomEvent.TrackSubscribed, refreshRoom)
+          .on(RoomEvent.TrackUnsubscribed, refreshRoom)
+          // Why: LiveKit normally toggles devices by muting an existing publication.
+          // Publication/subscription events alone would leave remote camera state stale.
+          .on(RoomEvent.TrackMuted, refreshRoom)
+          .on(RoomEvent.TrackUnmuted, refreshRoom)
+          .on(RoomEvent.LocalTrackPublished, refreshRoom)
+          .on(RoomEvent.LocalTrackUnpublished, refreshRoom)
+          .on(RoomEvent.ActiveSpeakersChanged, (active) => {
+            setActiveSpeakerIds(active.map((participant) => participant.identity))
+          })
+          .on(RoomEvent.Reconnecting, () => setState('reconnecting'))
+          .on(RoomEvent.SignalReconnecting, () => setState('reconnecting'))
+          .on(RoomEvent.Reconnected, markRecovered)
+          .on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+            if (participant !== room.localParticipant) {
+              return
+            }
+            if (quality === ConnectionQuality.Poor || quality === ConnectionQuality.Lost) {
+              setState('degraded')
+            } else {
+              setState((current) => {
+                if (current !== 'degraded') {
+                  return current
+                }
+                window.setTimeout(markRecovered, 0)
+                return current
+              })
+            }
+          })
+          .on(RoomEvent.MediaDevicesError, (caught) => {
+            setError(
+              translate(
+                'auto.pie.meetings.LiveMeetingRoom.deviceError',
+                'A camera or microphone became unavailable: {{value0}}',
+                { value0: errorText(caught) }
+              )
+            )
+          })
+          .on(RoomEvent.Disconnected, () => {
+            roomRef.current = null
+            setState('idle')
+            setParticipants([])
+            setActiveSpeakerIds([])
+            setCaptions([])
+            setMediaToken(null)
+            if (!explicitLeaveRef.current) {
+              setError(
+                translate(
+                  'auto.pie.meetings.LiveMeetingRoom.disconnected',
+                  'The media connection ended. Check the connection status and join again.'
+                )
+              )
+            }
+          })
+        await room.connect(issued.serverUrl, issued.token)
+        if (preferences.speakerDeviceId) {
+          await room.switchActiveDevice('audiooutput', preferences.speakerDeviceId)
+        }
+        if (preferences.microphoneEnabled) {
+          await room.localParticipant.setMicrophoneEnabled(true, {
+            deviceId: preferences.microphoneDeviceId || undefined
+          })
+        }
+        if (preferences.cameraEnabled) {
+          await room.localParticipant.setCameraEnabled(true, {
+            deviceId: preferences.cameraDeviceId || undefined
+          })
+        }
+        setMediaToken(issued)
+        setState('connected')
+        refreshRoom()
+        window.setTimeout(onParticipantsChanged, 750)
+      } catch (caught) {
+        roomRef.current?.disconnect()
+        roomRef.current = null
+        if (caught instanceof PieApiError && caught.code === 'MEETING_ADMISSION_REQUIRED') {
+          setState('waiting')
+          setError(null)
+          onParticipantsChanged()
+        } else {
+          setState('idle')
+          setError(errorText(caught))
+          refetchDiagnostics()
+        }
+      }
+    },
+    [markRecovered, meetingId, onParticipantsChanged, refetchDiagnostics, refreshRoom]
+  )
+
+  useEffect(() => {
+    if (state !== 'waiting') {
+      return
+    }
+    let cancelled = false
+    const poll = async (): Promise<void> => {
+      if (waitingPollRef.current) {
+        return
+      }
+      waitingPollRef.current = true
+      try {
+        const participant = await apiPost<MeetingParticipant>(`/meetings/${meetingId}/waiting-room`)
+        onParticipantsChanged()
+        if (cancelled) {
           return
         }
-        const attributes = reader.info.attributes ?? {}
-        const segmentId = attributes['lk.segment_id'] ?? reader.info.id
-        const final = attributes['lk.transcription_final'] === 'true'
-        setCaptions((current) => {
-          const next = current.filter((caption) => caption.segmentId !== segmentId)
-          next.push({ segmentId, speaker: participant.identity, text, final })
-          return next.slice(-4)
-        })
-      })
-      room
-        .on(RoomEvent.ParticipantConnected, refreshRoom)
-        .on(RoomEvent.ParticipantDisconnected, refreshRoom)
-        .on(RoomEvent.TrackPublished, refreshRoom)
-        .on(RoomEvent.TrackUnpublished, refreshRoom)
-        .on(RoomEvent.TrackSubscribed, refreshRoom)
-        .on(RoomEvent.TrackUnsubscribed, refreshRoom)
-        .on(RoomEvent.LocalTrackPublished, refreshRoom)
-        .on(RoomEvent.LocalTrackUnpublished, refreshRoom)
-        .on(RoomEvent.ActiveSpeakersChanged, (active) => {
-          setSpeakers(new Set(active.map((participant) => participant.identity)))
-        })
-        .on(RoomEvent.Disconnected, () => {
-          roomRef.current = null
+        if (participant.accessStatus === 'admitted' && preferencesRef.current) {
+          await join(preferencesRef.current)
+        } else if (
+          participant.accessStatus === 'denied' ||
+          participant.accessStatus === 'blocked'
+        ) {
           setState('idle')
-          setParticipants([])
-        })
-      await room.connect(issued.serverUrl, issued.token)
-      setMediaToken(issued)
-      setState('connected')
-      refreshRoom()
-      window.setTimeout(onParticipantsChanged, 750)
-    } catch (caught) {
-      roomRef.current?.disconnect()
-      roomRef.current = null
-      setState('idle')
-      setError(errorText(caught))
+          setError(
+            translate(
+              'auto.pie.meetings.LiveMeetingRoom.admissionDenied',
+              'The host did not admit this participant.'
+            )
+          )
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setError(errorText(caught))
+        }
+      } finally {
+        waitingPollRef.current = false
+      }
     }
-  }
+    void poll()
+    const interval = window.setInterval(() => void poll(), 3_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [join, meetingId, onParticipantsChanged, state])
 
   const toggleScreenShare = async (): Promise<void> => {
     const localParticipant = roomRef.current?.localParticipant
@@ -189,48 +318,16 @@ export function LiveMeetingRoom({
     }
   }
 
-  const toggleTrack = async (kind: 'mic' | 'camera'): Promise<void> => {
+  const toggleMicrophone = async (): Promise<void> => {
     const local = roomRef.current?.localParticipant
     if (!local) {
       return
     }
-    setBusyControl(kind)
+    setBusyControl('mic')
     setError(null)
     try {
-      await (kind === 'mic'
-        ? local.setMicrophoneEnabled(!local.isMicrophoneEnabled)
-        : local.setCameraEnabled(!local.isCameraEnabled))
+      await local.setMicrophoneEnabled(!local.isMicrophoneEnabled)
       refreshRoom()
-    } catch (caught) {
-      setError(errorText(caught))
-    } finally {
-      setBusyControl(null)
-    }
-  }
-
-  const setConsent = async (): Promise<void> => {
-    const self = mediaToken?.participant
-    if (!self) {
-      return
-    }
-    setBusyControl('consent')
-    setError(null)
-    try {
-      // Presence webhooks can bump the participant version after join; fetch before the OCC write.
-      const current = await apiGet<{ items: MeetingParticipant[] }>(
-        `/meetings/${meetingId}/participants`
-      )
-      const participant = current.items.find((item) => item.userId === self.userId)
-      if (!participant) {
-        throw new Error('current participant not found')
-      }
-      const updated = await apiPost<MeetingParticipant>(
-        `/meeting-participants/${participant.id}:consent`,
-        { consent: !participant.consentRecording },
-        resourceEtag('meeting-participant', participant.version)
-      )
-      setMediaToken({ ...mediaToken, participant: updated })
-      onParticipantsChanged()
     } catch (caught) {
       setError(errorText(caught))
     } finally {
@@ -240,128 +337,62 @@ export function LiveMeetingRoom({
 
   const local = roomRef.current?.localParticipant
   const micEnabled = Boolean(local?.isMicrophoneEnabled)
-  const cameraEnabled = Boolean(local?.isCameraEnabled)
   const screenEnabled = Boolean(local?.isScreenShareEnabled)
-  const consented = Boolean(mediaToken?.participant.consentRecording)
-  const participantCount = useMemo(() => participants.length, [participants])
+  const participantCount = participants.length
+  const canShareScreen =
+    mediaToken?.participant.role === 'host' ||
+    mediaToken?.participant.role === 'co_host' ||
+    mediaToken?.participant.role === 'presenter'
+  const inRoom = ['connected', 'reconnecting', 'degraded', 'recovered'].includes(state)
 
-  if (state !== 'connected') {
+  if (!inRoom) {
     return (
-      <div className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 px-6 text-center">
-        <div className="rounded-full bg-muted p-3 text-muted-foreground">
-          <PhoneCall className="size-5" />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">
-            {translate('auto.pie.meetings.LiveMeetingRoom.ready', 'Ready to join')}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {translate(
-              'auto.pie.meetings.LiveMeetingRoom.devicesOff',
-              'Your microphone and camera stay off until you enable them.'
-            )}
-          </p>
-        </div>
-        <Button size="sm" onClick={() => void join()} disabled={state === 'joining'}>
-          <PhoneCall />
-          {state === 'joining'
-            ? translate('auto.pie.meetings.LiveMeetingRoom.joining', 'Joining…')
-            : translate('auto.pie.meetings.LiveMeetingRoom.join', 'Join meeting')}
-        </Button>
-        {error && <p className="max-w-md text-xs text-destructive">{error}</p>}
-      </div>
+      <MeetingDevicePreview
+        joining={state === 'joining'}
+        waiting={state === 'waiting'}
+        connectionError={error}
+        diagnostics={diagnostics.data}
+        diagnosticsLoading={diagnostics.loading}
+        diagnosticsError={diagnostics.error}
+        onRetryDiagnostics={diagnostics.refetch}
+        onJoin={(preferences) => void join(preferences)}
+      />
     )
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary">
-          {translate('auto.pie.meetings.LiveMeetingRoom.participantCount', '{{value0}} connected', {
-            value0: participantCount
-          })}
-        </Badge>
-        <Badge variant={consented ? 'secondary' : 'outline'}>
-          {consented
-            ? translate('auto.pie.meetings.LiveMeetingRoom.consentGranted', 'Recording allowed')
-            : translate(
-                'auto.pie.meetings.LiveMeetingRoom.consentMissing',
-                'Recording not allowed'
-              )}
-        </Badge>
-      </div>
+      <MeetingConnectionStatus
+        state={state}
+        participantCount={participantCount}
+        role={mediaToken?.participant.role ?? null}
+      />
       <div className="relative min-h-0 flex-1">
-        <div className="grid size-full grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-2 overflow-y-auto scrollbar-sleek">
-          {participants.map((participant) => (
-            <MeetingParticipantTile
-              key={participant.identity}
-              participant={participant}
-              local={participant === local}
-              speaking={speakers.has(participant.identity)}
-            />
-          ))}
-        </div>
-        {captions.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-4 bottom-3 mx-auto max-w-3xl rounded-lg bg-background/90 px-3 py-2 text-center text-xs text-foreground shadow-sm backdrop-blur-sm">
-            {captions.slice(-2).map((caption) => (
-              <p key={caption.segmentId} className={caption.final ? '' : 'text-muted-foreground'}>
-                <span className="font-medium">{caption.speaker}: </span>
-                {caption.text}
-              </p>
-            ))}
-          </div>
-        )}
+        <MeetingStage
+          participants={participants}
+          localParticipant={local}
+          activeSpeakerIds={activeSpeakerIds}
+          captions={captions}
+        />
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Button
-          size="sm"
-          variant={micEnabled ? 'secondary' : 'outline'}
-          onClick={() => void toggleTrack('mic')}
-          disabled={busyControl !== null}
-        >
-          {micEnabled ? <Mic /> : <MicOff />}
-          {micEnabled
-            ? translate('auto.pie.meetings.LiveMeetingRoom.mute', 'Mute')
-            : translate('auto.pie.meetings.LiveMeetingRoom.unmute', 'Unmute')}
-        </Button>
-        <Button
-          size="sm"
-          variant={screenEnabled ? 'secondary' : 'outline'}
-          onClick={() => void toggleScreenShare()}
-          disabled={busyControl !== null}
-        >
-          {screenEnabled ? <ScreenShareOff /> : <MonitorUp />}
-          {screenEnabled
-            ? translate('auto.pie.meetings.LiveMeetingRoom.screenOff', 'Stop sharing')
-            : translate('auto.pie.meetings.LiveMeetingRoom.screenOn', 'Share screen')}
-        </Button>
-        <Button
-          size="sm"
-          variant={cameraEnabled ? 'secondary' : 'outline'}
-          onClick={() => void toggleTrack('camera')}
-          disabled={busyControl !== null}
-        >
-          {cameraEnabled ? <Camera /> : <CameraOff />}
-          {cameraEnabled
-            ? translate('auto.pie.meetings.LiveMeetingRoom.cameraOff', 'Stop camera')
-            : translate('auto.pie.meetings.LiveMeetingRoom.cameraOn', 'Start camera')}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void setConsent()}
-          disabled={busyControl !== null}
-        >
-          {consented
-            ? translate('auto.pie.meetings.LiveMeetingRoom.revokeConsent', 'Revoke consent')
-            : translate('auto.pie.meetings.LiveMeetingRoom.grantConsent', 'Allow recording')}
-        </Button>
-        <Button size="sm" variant="destructive" className="ml-auto" onClick={leave}>
-          <LogOut />
-          {translate('auto.pie.meetings.LiveMeetingRoom.leave', 'Leave')}
-        </Button>
-      </div>
+      {roomRef.current && mediaToken?.participant && (
+        <MeetingRoomControlBar
+          room={roomRef.current}
+          meetingId={meetingId}
+          participant={mediaToken.participant}
+          micEnabled={micEnabled}
+          screenEnabled={screenEnabled}
+          canShareScreen={canShareScreen}
+          busy={busyControl !== null}
+          onToggleMicrophone={() => void toggleMicrophone()}
+          onToggleScreenShare={() => void toggleScreenShare()}
+          onCameraBusyChange={(busy) => setBusyControl(busy ? 'camera' : null)}
+          onError={setError}
+          onChanged={refreshRoom}
+          onLeave={leave}
+        />
+      )}
       <MeetingDisplaySourceDialog
         open={displayPickerOpen}
         sources={displaySources}

@@ -26,6 +26,20 @@ export function buildNotificationOptions(args: NotificationDispatchRequest): {
   silent?: boolean
   sound?: string
 } {
+  if (args.source === 'pie-meeting') {
+    return {
+      title: args.meetingTitle ? `Meeting soon: ${args.meetingTitle}` : 'Meeting starts soon',
+      body: args.meetingStartLabel
+        ? `Scheduled for ${args.meetingStartLabel}. Open Orca to join.`
+        : 'Open Orca to join the meeting.'
+    }
+  }
+  if (args.source === 'pie-chat') {
+    return {
+      title: args.chatChannelLabel ? `New message in ${args.chatChannelLabel}` : 'New Pie message',
+      body: args.chatBodyPreview ?? 'Open Orca to view the conversation.'
+    }
+  }
   if (args.source === 'terminal-bell') {
     return {
       title: `Bell in ${args.worktreeLabel ?? 'workspace'}`,

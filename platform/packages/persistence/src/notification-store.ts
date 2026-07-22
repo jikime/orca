@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely'
 import type { Database } from './database-schema'
 import { withTenantUserTransaction } from './tenant-transaction'
 
-export type NotificationType = 'mention'
+export type NotificationType = 'mention' | 'message'
 
 export type NotificationResource = {
   id: string

@@ -28,6 +28,7 @@ export function buildPiePortalQualityDomains(): readonly PieDomainConfig[] {
         }
       ],
       createPath: '/projects/{projectId}/defects',
+      editable: true,
       createFields: [
         {
           key: 'title',
@@ -91,7 +92,7 @@ export function buildPiePortalQualityDomains(): readonly PieDomainConfig[] {
       scope: 'project',
       listPath: '/projects/{projectId}/risks',
       itemPath: (id) => `/risks/${id}`,
-      etagPrefix: 'risk',
+      etagPrefix: 'project-risk',
       columns: [
         {
           key: 'title',
@@ -109,6 +110,7 @@ export function buildPiePortalQualityDomains(): readonly PieDomainConfig[] {
         }
       ],
       createPath: '/projects/{projectId}/risks',
+      editable: true,
       createFields: [
         {
           key: 'title',

@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  getNotificationPreferences,
   listNotifications,
   markAllNotificationsRead,
-  markNotificationRead
+  markNotificationRead,
+  setChannelNotificationLevel,
+  updateNotificationPreferences
 } from './chat-notification-client'
 import { PieChatError } from './chat-control-plane-http'
 import type { PieNotification } from '../../shared/pie-chat-contract'
@@ -68,6 +71,41 @@ describe('chat-notification-client', () => {
     const [url, init] = fetchImpl.mock.calls[0]
     expect(url).toBe(`${API}/organizations/${ORG}/notifications:read-all`)
     expect(init.method).toBe('POST')
+  })
+
+  it('reads and updates desktop and DND preferences', async () => {
+    const response = {
+      desktopEnabled: true,
+      dndEnabled: true,
+      dndStartMinute: 1320,
+      dndEndMinute: 480,
+      timezone: 'Asia/Seoul',
+      channelLevels: []
+    }
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(response))
+      .mockResolvedValueOnce(jsonResponse({ ...response, desktopEnabled: false }))
+    await getNotificationPreferences(API, TOKEN, ORG, fetchImpl)
+    const updated = await updateNotificationPreferences(
+      API,
+      TOKEN,
+      ORG,
+      { desktopEnabled: false },
+      'preferences-1',
+      fetchImpl
+    )
+    expect(updated.desktopEnabled).toBe(false)
+    expect(fetchImpl.mock.calls[0][0]).toBe(`${API}/organizations/${ORG}/notifications/preferences`)
+    expect(fetchImpl.mock.calls[1][1].headers['idempotency-key']).toBe('preferences-1')
+  })
+
+  it('sets a per-channel notification level', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    await setChannelNotificationLevel(API, TOKEN, ORG, CHANNEL, 'all', 'level-1', fetchImpl)
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe(`${API}/organizations/${ORG}/channels/${CHANNEL}/notification-level`)
+    expect(JSON.parse(init.body as string)).toEqual({ level: 'all' })
   })
 
   it('throws PieChatError with the status on a non-ok response', async () => {

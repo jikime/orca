@@ -1,6 +1,9 @@
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { Database } from './database-schema'
 import { auditMeetingEvent, emitMeetingResourceChange } from './meeting-resource-events'
+import { persistMeetingTranscriptSegments } from './meeting-transcript-segment-store'
+import { insertAiMeetingDecisions } from './meeting-decision-store'
+import { insertAiMeetingActionItems } from './meeting-action-item-store'
 import { withTenantTransaction, withWorkerClaimTransaction } from './tenant-transaction'
 
 export type MeetingProcessingJobType = 'transcribe' | 'summarize'
@@ -185,6 +188,14 @@ export async function completeMeetingTranscriptionJob(
       })
       .returning('id')
       .executeTakeFirstOrThrow()
+    await persistMeetingTranscriptSegments(trx, {
+      organizationId: input.organizationId,
+      meetingId: job.meeting_id,
+      transcriptId: transcript.id,
+      segments: input.segments,
+      source: 'post_recording',
+      language: input.language
+    })
     await auditMeetingEvent(
       trx,
       input.organizationId,
@@ -211,26 +222,45 @@ export async function completeMeetingTranscriptionJob(
       })
       .where('id', '=', input.jobId)
       .execute()
-    await trx
-      .insertInto('meetings.processing_jobs')
-      .values({
-        organization_id: input.organizationId,
-        meeting_id: job.meeting_id,
-        recording_id: job.recording_id,
-        job_type: 'summarize',
-        transcript_id: transcript.id
-      })
-      .onConflict((conflict) =>
-        conflict.columns(['organization_id', 'recording_id', 'job_type']).doNothing()
-      )
-      .execute()
+    const recording = await trx
+      .selectFrom('meetings.recordings')
+      .select('capture_types')
+      .where('id', '=', job.recording_id)
+      .executeTakeFirst()
+    if (recording?.capture_types.includes('ai_notes')) {
+      await trx
+        .insertInto('meetings.processing_jobs')
+        .values({
+          organization_id: input.organizationId,
+          meeting_id: job.meeting_id,
+          recording_id: job.recording_id,
+          job_type: 'summarize',
+          transcript_id: transcript.id
+        })
+        .onConflict((conflict) =>
+          conflict.columns(['organization_id', 'recording_id', 'job_type']).doNothing()
+        )
+        .execute()
+    }
     return transcript.id
   })
 }
 
 export async function completeMeetingSummarizationJob(
   db: Kysely<Database>,
-  input: { organizationId: string; jobId: string; workerId: string; summary: string }
+  input: {
+    organizationId: string
+    jobId: string
+    workerId: string
+    summary: string
+    decisions: Array<{ statement: string; evidenceQuote: string | null }>
+    actionItems: Array<{
+      task: string
+      owner: string | null
+      due: string | null
+      evidenceQuote: string | null
+    }>
+  }
 ): Promise<string | null> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
     const job = await ownedProcessingJob(trx, input.jobId, input.workerId)
@@ -263,6 +293,41 @@ export async function completeMeetingSummarizationJob(
         edited_by: meeting.host_user_id
       })
       .execute()
+    const transcriptSegments = job.transcript_id
+      ? await trx
+          .selectFrom('meetings.transcript_segments')
+          .select(['id', 'text'])
+          .where('transcript_id', '=', job.transcript_id)
+          .execute()
+      : []
+    const evidenceSegmentId = (quote: string | null): string | null => {
+      const needle = quote?.trim().toLocaleLowerCase()
+      if (!needle) return null
+      return (
+        transcriptSegments.find((segment) => segment.text.toLocaleLowerCase().includes(needle))
+          ?.id ?? null
+      )
+    }
+    await insertAiMeetingDecisions(trx, {
+      organizationId: input.organizationId,
+      meetingId: job.meeting_id,
+      minutesId: minutes.id,
+      items: input.decisions.map((decision) => ({
+        statement: decision.statement,
+        evidenceSegmentId: evidenceSegmentId(decision.evidenceQuote)
+      }))
+    })
+    await insertAiMeetingActionItems(trx, {
+      organizationId: input.organizationId,
+      meetingId: job.meeting_id,
+      minutesId: minutes.id,
+      items: input.actionItems.map((item) => ({
+        task: item.task,
+        owner: item.owner,
+        due: item.due,
+        evidenceSegmentId: evidenceSegmentId(item.evidenceQuote)
+      }))
+    })
     await auditMeetingEvent(
       trx,
       input.organizationId,

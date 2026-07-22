@@ -73,6 +73,7 @@ type WorkItem = {
   title: string
   teamId: string
   description: string | null
+  assigneeId: string | null
 }
 
 async function convert(
@@ -186,7 +187,11 @@ describe('chat message→workitem vertical', () => {
   it('a member with work_item.create converts a message → work item + link row', async (ctx) => {
     if (!harness) return ctx.skip()
     const messageId = await postMsg('member', 'the deploy is flapping, someone should own this')
-    const r = await convert('member', messageId, { teamId, title: 'Own the flapping deploy' })
+    const r = await convert('member', messageId, {
+      teamId,
+      title: 'Own the flapping deploy',
+      assigneeId: memberId
+    })
     expect(r.status).toBe(201)
     const location = r.headers.get('location')
     const workItem = await jsonOf<WorkItem>(r)
@@ -200,6 +205,29 @@ describe('chat message→workitem vertical', () => {
     const links = await linkRowsFor(messageId)
     expect(links).toHaveLength(1)
     expect(links[0]?.work_item_id).toBe(workItem.id)
+    const sources = await jsonOf<{
+      items: Array<{ kind: string; sourceId: string; containerId: string; containerLabel: string }>
+    }>(
+      await bearerFetch(
+        'member',
+        `/v1/organizations/${orgId}/work-items/${workItem.id}/source-bindings`
+      )
+    )
+    expect(sources.items).toEqual([
+      expect.objectContaining({
+        kind: 'chat_message',
+        sourceId: messageId,
+        containerId: channelId,
+        containerLabel: 'general'
+      })
+    ])
+    const hiddenSources = await jsonOf<{ items: unknown[] }>(
+      await bearerFetch(
+        'stranger',
+        `/v1/organizations/${orgId}/work-items/${workItem.id}/source-bindings`
+      )
+    )
+    expect(hiddenSources.items).toEqual([])
   })
 
   it('title is derived from the message body when omitted', async (ctx) => {
@@ -224,6 +252,19 @@ describe('chat message→workitem vertical', () => {
     expect(secondItem.id).toBe(firstItem.id) // replayed, not re-created
     const links = await linkRowsFor(messageId)
     expect(links).toHaveLength(1)
+  })
+
+  it('is source-idempotent across different Idempotency-Keys', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const messageId = await postMsg('member', 'convert this source only once')
+    const first = await convert('member', messageId, { teamId }, randomUUID())
+    expect(first.status).toBe(201)
+    const firstItem = await jsonOf<WorkItem>(first)
+    const second = await convert('member', messageId, { teamId }, randomUUID())
+    expect(second.status).toBe(200)
+    const secondItem = await jsonOf<WorkItem>(second)
+    expect(secondItem.id).toBe(firstItem.id)
+    expect(await linkRowsFor(messageId)).toHaveLength(1)
   })
 
   it('a member lacking work_item.create is denied 403 (dual gate)', async (ctx) => {
@@ -283,12 +324,16 @@ describe('chat message→workitem vertical', () => {
   it('the created work item is a real, listable delivery work item', async (ctx) => {
     if (!harness) return ctx.skip()
     const messageId = await postMsg('member', 'this becomes a listed work item')
-    const r = await convert('member', messageId, { teamId, title: 'Listed conversion' })
+    const r = await convert('member', messageId, {
+      teamId,
+      title: 'Listed conversion',
+      assigneeId: memberId
+    })
     expect(r.status).toBe(201)
     const workItem = await jsonOf<WorkItem>(r)
     // It appears in the delivery work-item list.
     const list = await jsonOf<{ items: WorkItem[] }>(
-      await bearerFetch('owner', `/v1/organizations/${orgId}/work-items`)
+      await bearerFetch('member', `/v1/organizations/${orgId}/work-items?assignee=me`)
     )
     expect(list.items.some((w) => w.id === workItem.id)).toBe(true)
     // And in the per-message conversion-link read model.

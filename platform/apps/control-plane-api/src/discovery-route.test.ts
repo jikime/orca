@@ -4,6 +4,10 @@ import { createContractSchemaRegistry } from './contract-schema-registry'
 import { loadDiscoveryConfig } from './discovery-config'
 
 describe('instance discovery', () => {
+  it('uses the desktop broker instance ID for local development', () => {
+    expect(loadDiscoveryConfig({}).instanceId).toBe('local-desktop')
+  })
+
   it('serves a contract-valid discovery document with honest values', async () => {
     const app = buildApp({ ping: async () => true, registry: createContractSchemaRegistry() })
     const response = await app.inject({ method: 'GET', url: '/.well-known/pie' })

@@ -1,6 +1,7 @@
 import { type Kysely, type Transaction } from 'kysely'
 import type { Database } from './database-schema'
 import { auditMeetingEvent, emitMeetingResourceChange } from './meeting-resource-events'
+import { persistMeetingTranscriptSegments } from './meeting-transcript-segment-store'
 import { withTenantTransaction } from './tenant-transaction'
 
 // R7 MEETINGS — transcripts (captions). content OR segments carries the text; source records
@@ -100,6 +101,16 @@ export async function createMeetingTranscript(
       })
       .returningAll()
       .executeTakeFirstOrThrow()
+    if (hasSegments) {
+      await persistMeetingTranscriptSegments(trx, {
+        organizationId: input.organizationId,
+        meetingId: input.meetingId,
+        transcriptId: row.id,
+        segments: input.segments,
+        source: input.source === 'live_caption' ? 'live_caption' : 'post_recording',
+        language: input.language ?? null
+      })
+    }
     await auditMeetingEvent(
       trx,
       input.organizationId,

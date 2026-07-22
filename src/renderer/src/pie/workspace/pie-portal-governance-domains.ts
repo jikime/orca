@@ -83,11 +83,13 @@ export function buildPiePortalGovernanceDomains(): readonly PieDomainConfig[] {
         }
       ],
       createPath: '/projects/{projectId}/status-reports',
+      editable: true,
       createFields: [
         {
           key: 'periodStart',
           label: translate('auto.pie.workspace.pie.delivery.domains.03b015adff', 'Period start'),
-          type: 'date'
+          type: 'date',
+          required: true
         },
         {
           key: 'periodEnd',
@@ -99,13 +101,29 @@ export function buildPiePortalGovernanceDomains(): readonly PieDomainConfig[] {
           key: 'overallStatus',
           label: translate('auto.pie.workspace.pie.delivery.domains.a7035e605f', 'Overall'),
           type: 'select',
-          options: ['green', 'amber', 'red']
+          options: ['green', 'amber', 'red'],
+          defaultValue: 'green'
         },
         {
           key: 'summary',
           label: translate('auto.pie.workspace.pie.delivery.domains.856bc71328', 'Summary'),
           type: 'textarea',
           required: true
+        },
+        {
+          key: 'highlights',
+          label: translate('auto.pie.workspace.pie.delivery.domains.highlights', 'Highlights'),
+          type: 'textarea'
+        },
+        {
+          key: 'risksSummary',
+          label: translate('auto.pie.workspace.pie.delivery.domains.risksSummary', 'Risk summary'),
+          type: 'textarea'
+        },
+        {
+          key: 'nextSteps',
+          label: translate('auto.pie.workspace.pie.delivery.domains.nextSteps', 'Next steps'),
+          type: 'textarea'
         }
       ],
       detailFields: [
@@ -120,6 +138,18 @@ export function buildPiePortalGovernanceDomains(): readonly PieDomainConfig[] {
         {
           key: 'summary',
           label: translate('auto.pie.workspace.pie.delivery.domains.856bc71328', 'Summary')
+        },
+        {
+          key: 'highlights',
+          label: translate('auto.pie.workspace.pie.delivery.domains.highlights', 'Highlights')
+        },
+        {
+          key: 'risksSummary',
+          label: translate('auto.pie.workspace.pie.delivery.domains.risksSummary', 'Risk summary')
+        },
+        {
+          key: 'nextSteps',
+          label: translate('auto.pie.workspace.pie.delivery.domains.nextSteps', 'Next steps')
         }
       ]
     }

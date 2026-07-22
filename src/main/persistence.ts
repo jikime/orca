@@ -4078,6 +4078,7 @@ export class Store {
     name?: string
     folderPath?: string | null
     linkedTask?: FolderWorkspace['linkedTask']
+    pieWorkspaceContext?: FolderWorkspace['pieWorkspaceContext']
     connectionId?: string | null
     createdWithAgent?: FolderWorkspace['createdWithAgent']
     pendingFirstAgentMessageRename?: boolean
@@ -4100,6 +4101,7 @@ export class Store {
       folderPath,
       connectionId: input.connectionId ?? group.connectionId ?? null,
       linkedTask: input.linkedTask ?? null,
+      ...(input.pieWorkspaceContext ? { pieWorkspaceContext: input.pieWorkspaceContext } : {}),
       comment: '',
       isArchived: false,
       isUnread: false,
@@ -4126,6 +4128,7 @@ export class Store {
         | 'name'
         | 'folderPath'
         | 'linkedTask'
+        | 'pieWorkspaceContext'
         | 'comment'
         | 'isArchived'
         | 'isUnread'
@@ -4152,6 +4155,9 @@ export class Store {
     }
     if (updates.linkedTask !== undefined) {
       workspace.linkedTask = updates.linkedTask
+    }
+    if (updates.pieWorkspaceContext !== undefined) {
+      workspace.pieWorkspaceContext = updates.pieWorkspaceContext
     }
     if (updates.comment !== undefined) {
       workspace.comment = updates.comment

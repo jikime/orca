@@ -654,6 +654,96 @@
       "schemaId": "https://schemas.pielab.ai/resources/driver-grant.v1.schema.json",
       "document": "invalid/driver-grant-unknown-field.json",
       "expectedValid": false
+    },
+    {
+      "name": "meeting transcript segment response",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-transcript-segment.v1.schema.json",
+      "document": "valid/meeting-transcript-segment.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting transcript segment correction",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-transcript-segment-update.v1.schema.json",
+      "document": "valid/meeting-transcript-segment-update.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting transcript segment revision response",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-transcript-segment-revision.v1.schema.json",
+      "document": "valid/meeting-transcript-segment-revision.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting decision response",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-decision.v1.schema.json",
+      "document": "valid/meeting-decision.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting decision update",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-decision-update.v1.schema.json",
+      "document": "valid/meeting-decision-update.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting action item response",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-action-item.v1.schema.json",
+      "document": "valid/meeting-action-item.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting action item update",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-action-item-update.v1.schema.json",
+      "document": "valid/meeting-action-item-update.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting outcome review",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-outcome-review.v1.schema.json",
+      "document": "valid/meeting-outcome-review.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting action work item conversion",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-action-work-item-conversion.v1.schema.json",
+      "document": "valid/meeting-action-work-item-conversion.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting capture consent response",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-capture-consent.v1.schema.json",
+      "document": "valid/meeting-capture-consent.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting capture consent update",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-capture-consent-update.v1.schema.json",
+      "document": "valid/meeting-capture-consent-update.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting governance response",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-governance.v1.schema.json",
+      "document": "valid/meeting-governance.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting governance update",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-governance-update.v1.schema.json",
+      "document": "valid/meeting-governance-update.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting deletion request",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-deletion-request.v1.schema.json",
+      "document": "valid/meeting-deletion-request.json",
+      "expectedValid": true
+    },
+    {
+      "name": "meeting recording start",
+      "schemaId": "https://schemas.pielab.ai/resources/meeting-recording-start.v1.schema.json",
+      "document": "valid/meeting-recording-start.json",
+      "expectedValid": true
     }
   ]
 }

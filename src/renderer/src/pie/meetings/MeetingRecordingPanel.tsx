@@ -1,11 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
-import { CircleStop, LoaderCircle, Play, Radio, Video } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { LoaderCircle, MessageSquareText, Play, Radio, Send, Video } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
-import { apiGet, apiPost, PieApiError } from '../control-plane/pie-api-client'
+import { apiGet, PieApiError } from '../control-plane/pie-api-client'
 import { usePieResource } from '../control-plane/use-pie-resource'
-import type { MeetingProcessingJob, MeetingRecording, MeetingTranscript } from './meeting-types'
+import type {
+  MeetingProcessingJob,
+  MeetingRecording,
+  MeetingResource,
+  MeetingTranscript
+} from './meeting-types'
+import {
+  openPublishedMeetingMessage,
+  publishMeetingMessage,
+  type PublishedMeetingMessage
+} from './meeting-chat'
+import { MeetingTranscriptTimeline } from './MeetingTranscriptTimeline'
+import { subscribeMeetingRecordingSeek } from './meeting-recording-navigation'
+import { MeetingCaptureToolbar } from './MeetingCaptureToolbar'
 
 function errorText(caught: unknown): string {
   if (caught instanceof PieApiError) {
@@ -15,14 +28,17 @@ function errorText(caught: unknown): string {
 }
 
 export function MeetingRecordingPanel({
-  meetingId,
+  meeting,
   live,
-  recordingReady
+  joinedParticipantIds,
+  canManageTranscript
 }: {
-  meetingId: string
+  meeting: MeetingResource
   live: boolean
-  recordingReady: boolean
+  joinedParticipantIds: string[]
+  canManageTranscript: boolean
 }): React.JSX.Element {
+  const meetingId = meeting.id
   const {
     data: recordingData,
     error: recordingError,
@@ -43,8 +59,12 @@ export function MeetingRecordingPanel({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
+  const [published, setPublished] = useState<PublishedMeetingMessage | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const pendingSeekMs = useRef<number | null>(null)
   const items = recordingData?.items ?? []
-  const active = items.find((item) => item.status === 'pending')
+  const active = items.find((item) => item.status === 'pending' && !item.stoppedAt)
+  const finalizing = items.some((item) => item.status === 'pending' && item.stoppedAt)
   const latestAvailable = items
     .filter((item) => item.status === 'available')
     .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
@@ -71,6 +91,16 @@ export function MeetingRecordingPanel({
     return () => window.clearInterval(interval)
   }, [active, processing, refetchJobs, refetchRecordings, refetchTranscripts])
 
+  useEffect(() => {
+    const seekMs = pendingSeekMs.current
+    if (!playbackUrl || seekMs === null || !videoRef.current) {
+      return
+    }
+    videoRef.current.currentTime = seekMs / 1_000
+    pendingSeekMs.current = null
+    void videoRef.current.play().catch(() => undefined)
+  }, [playbackUrl])
+
   const mutate = async (action: () => Promise<unknown>): Promise<void> => {
     setBusy(true)
     setError(null)
@@ -86,17 +116,70 @@ export function MeetingRecordingPanel({
     }
   }
 
-  const play = async (): Promise<void> => {
+  const seekRecording = useCallback(
+    async (milliseconds: number): Promise<void> => {
+      if (!latestAvailable) {
+        return
+      }
+      pendingSeekMs.current = milliseconds
+      if (playbackUrl && videoRef.current) {
+        videoRef.current.currentTime = milliseconds / 1_000
+        pendingSeekMs.current = null
+        void videoRef.current.play().catch(() => undefined)
+        return
+      }
+      setBusy(true)
+      setError(null)
+      try {
+        const grant = await apiGet<{ url: string }>(
+          `/meeting-recordings/${latestAvailable.id}/playback`
+        )
+        setPlaybackUrl(grant.url)
+      } catch (caught) {
+        setError(errorText(caught))
+      } finally {
+        setBusy(false)
+      }
+    },
+    [latestAvailable, playbackUrl]
+  )
+
+  useEffect(
+    () => subscribeMeetingRecordingSeek((milliseconds) => void seekRecording(milliseconds)),
+    [seekRecording]
+  )
+
+  const publish = async (): Promise<void> => {
     if (!latestAvailable) {
       return
     }
     setBusy(true)
     setError(null)
     try {
-      const grant = await apiGet<{ url: string }>(
-        `/meeting-recordings/${latestAvailable.id}/playback`
+      const duration = latestAvailable.durationSeconds
+        ? translate(
+            'auto.pie.meetings.MeetingRecordingPanel.duration',
+            'Duration: {{value0}} seconds',
+            { value0: latestAvailable.durationSeconds }
+          )
+        : translate(
+            'auto.pie.meetings.MeetingRecordingPanel.durationunknown',
+            'Duration is being calculated.'
+          )
+      setPublished(
+        await publishMeetingMessage(
+          meeting,
+          `recording:${latestAvailable.id}`,
+          `## ${translate(
+            'auto.pie.meetings.MeetingRecordingPanel.readytitle',
+            'Recording ready: {{value0}}',
+            { value0: meeting.title }
+          )}\n\n${duration}\n\n${translate(
+            'auto.pie.meetings.MeetingRecordingPanel.readybody',
+            'Open the meeting recap to play the recording and review its transcript.'
+          )}`
+        )
       )
-      setPlaybackUrl(grant.url)
     } catch (caught) {
       setError(errorText(caught))
     } finally {
@@ -113,54 +196,53 @@ export function MeetingRecordingPanel({
         <h3 className="text-sm font-semibold text-foreground">
           {translate('auto.pie.meetings.MeetingRecordingPanel.title', 'Recording & transcript')}
         </h3>
-        {active && (
+        {(active || finalizing) && (
           <Badge variant="destructive" className="ml-auto">
             <Radio className="size-3" />
-            {active.stoppedAt
+            {finalizing && !active
               ? translate('auto.pie.meetings.MeetingRecordingPanel.finalizing', 'Finalizing')
               : translate('auto.pie.meetings.MeetingRecordingPanel.recording', 'Recording')}
           </Badge>
         )}
       </div>
       <div className="space-y-3 p-3">
+        <MeetingCaptureToolbar
+          meetingId={meetingId}
+          live={live}
+          joinedParticipantIds={joinedParticipantIds}
+          active={active}
+          busy={busy}
+          mutate={mutate}
+        />
         <div className="flex flex-wrap gap-2">
-          {!active && live && (
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={busy || !recordingReady}
-              onClick={() => void mutate(() => apiPost(`/meetings/${meetingId}/recordings`))}
-            >
-              <Radio />
-              {translate('auto.pie.meetings.MeetingRecordingPanel.start', 'Start recording')}
-            </Button>
-          )}
-          {active && !active.stoppedAt && (
+          {latestAvailable && (
             <Button
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() => void mutate(() => apiPost(`/meeting-recordings/${active.id}:stop`))}
+              onClick={() => void seekRecording(0)}
             >
-              <CircleStop />
-              {translate('auto.pie.meetings.MeetingRecordingPanel.stop', 'Stop')}
-            </Button>
-          )}
-          {latestAvailable && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => void play()}>
               <Play />
               {translate('auto.pie.meetings.MeetingRecordingPanel.play', 'Play latest')}
             </Button>
           )}
+          {latestAvailable && !published && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void publish()}>
+              <Send />
+              {translate('auto.pie.meetings.MeetingRecordingPanel.publish', 'Publish to chat')}
+            </Button>
+          )}
+          {published && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openPublishedMeetingMessage(published)}
+            >
+              <MessageSquareText />
+              {translate('auto.pie.meetings.MeetingRecordingPanel.openpost', 'Open chat post')}
+            </Button>
+          )}
         </div>
-        {live && !recordingReady && !active && (
-          <p className="text-xs text-muted-foreground">
-            {translate(
-              'auto.pie.meetings.MeetingRecordingPanel.consent',
-              'Every connected participant must allow recording first.'
-            )}
-          </p>
-        )}
         {latestJob && (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {(latestJob.status === 'queued' || latestJob.status === 'processing') && (
@@ -172,6 +254,7 @@ export function MeetingRecordingPanel({
         )}
         {playbackUrl && (
           <video
+            ref={videoRef}
             className="aspect-video w-full rounded-md bg-muted"
             src={playbackUrl}
             controls
@@ -197,6 +280,15 @@ export function MeetingRecordingPanel({
           </p>
         )}
       </div>
+      {latestTranscript && (
+        <div className="border-t border-border p-3">
+          <MeetingTranscriptTimeline
+            transcript={latestTranscript}
+            canManage={canManageTranscript}
+            onSeek={(milliseconds) => void seekRecording(milliseconds)}
+          />
+        </div>
+      )}
     </section>
   )
 }

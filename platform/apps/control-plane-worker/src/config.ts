@@ -12,18 +12,21 @@ export type WorkerConfig = {
   baseBackoffMs: number
   maxBackoffMs: number
   metricsIntervalMs: number
+  meetingStorage: MeetingStorageConfig | null
   meetingProcessing: MeetingProcessingConfig | null
 }
 
+export type MeetingStorageConfig = {
+  endpoint: string
+  bucket: string
+  accessKeyId: string
+  secretAccessKey: string
+  region: string
+  forcePathStyle: boolean
+}
+
 export type MeetingProcessingConfig = {
-  objectStorage: {
-    endpoint: string
-    bucket: string
-    accessKeyId: string
-    secretAccessKey: string
-    region: string
-    forcePathStyle: boolean
-  }
+  objectStorage: MeetingStorageConfig
   openAiApiKey: string
   openAiBaseUrl: string
   transcriptionModel: string
@@ -35,27 +38,34 @@ function intFromEnv(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-function meetingProcessingFromEnv(env: NodeJS.ProcessEnv): MeetingProcessingConfig | null {
+function meetingStorageFromEnv(env: NodeJS.ProcessEnv): MeetingStorageConfig | null {
   const endpoint = env.PIE_OBJECT_STORAGE_ENDPOINT
   const bucket = env.PIE_OBJECT_STORAGE_BUCKET
   const accessKeyId = env.PIE_OBJECT_STORAGE_ACCESS_KEY
   const secretAccessKey = env.PIE_OBJECT_STORAGE_SECRET_KEY
-  const openAiApiKey = env.OPENAI_API_KEY
   const values = [endpoint, bucket, accessKeyId, secretAccessKey]
   if (values.every((value) => !value)) return null
   if (values.some((value) => !value)) {
     throw new Error('meeting processing requires all PIE_OBJECT_STORAGE_* settings together')
   }
-  if (!openAiApiKey) return null
   return {
-    objectStorage: {
-      endpoint: endpoint!,
-      bucket: bucket!,
-      accessKeyId: accessKeyId!,
-      secretAccessKey: secretAccessKey!,
-      region: env.PIE_OBJECT_STORAGE_REGION ?? 'us-east-1',
-      forcePathStyle: env.PIE_OBJECT_STORAGE_FORCE_PATH_STYLE !== 'false'
-    },
+    endpoint: endpoint!,
+    bucket: bucket!,
+    accessKeyId: accessKeyId!,
+    secretAccessKey: secretAccessKey!,
+    region: env.PIE_OBJECT_STORAGE_REGION ?? 'us-east-1',
+    forcePathStyle: env.PIE_OBJECT_STORAGE_FORCE_PATH_STYLE !== 'false'
+  }
+}
+
+function meetingProcessingFromEnv(
+  env: NodeJS.ProcessEnv,
+  objectStorage: MeetingStorageConfig | null
+): MeetingProcessingConfig | null {
+  const openAiApiKey = env.OPENAI_API_KEY
+  if (!objectStorage || !openAiApiKey) return null
+  return {
+    objectStorage,
     openAiApiKey,
     openAiBaseUrl: (env.OPENAI_BASE_URL ?? 'https://api.openai.com').replace(/\/$/, ''),
     transcriptionModel: env.PIE_MEETING_TRANSCRIPTION_MODEL ?? 'gpt-4o-transcribe-diarize',
@@ -70,6 +80,7 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
   if (!databaseUrl) {
     throw new Error('control-plane-worker requires PIE_WORKER_DATABASE_URL or DATABASE_URL')
   }
+  const meetingStorage = meetingStorageFromEnv(env)
   return {
     databaseUrl,
     heartbeatIntervalMs: intFromEnv(env.PIE_WORKER_HEARTBEAT_MS, 15_000),
@@ -84,6 +95,7 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     baseBackoffMs: intFromEnv(env.PIE_WORKER_BASE_BACKOFF_MS, 1_000),
     maxBackoffMs: intFromEnv(env.PIE_WORKER_MAX_BACKOFF_MS, 300_000),
     metricsIntervalMs: intFromEnv(env.PIE_WORKER_METRICS_INTERVAL_MS, 30_000),
-    meetingProcessing: meetingProcessingFromEnv(env)
+    meetingStorage,
+    meetingProcessing: meetingProcessingFromEnv(env, meetingStorage)
   }
 }

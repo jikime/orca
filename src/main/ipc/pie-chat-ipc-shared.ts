@@ -48,8 +48,15 @@ export function assertChannelId(value: unknown): string {
   return value
 }
 
-export function assertBody(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0) {
+export function assertClientRequestId(value: unknown): string {
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+    throw new Error('PIE_CHAT_INVALID_REQUEST')
+  }
+  return value
+}
+
+export function assertBody(value: unknown, allowEmpty = false): string {
+  if (typeof value !== 'string' || (!allowEmpty && value.length === 0)) {
     throw new Error('PIE_CHAT_INVALID_REQUEST')
   }
   return value

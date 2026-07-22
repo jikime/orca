@@ -1,5 +1,9 @@
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { Database } from './database-schema'
+import {
+  MEETING_CORE_CAPTURE_TYPES,
+  type MeetingCaptureType
+} from './meeting-capture-consent-store'
 import { auditMeetingEvent, emitMeetingResourceChange } from './meeting-resource-events'
 import { withTenantTransaction } from './tenant-transaction'
 
@@ -20,6 +24,7 @@ export type MeetingRecordingResource = {
   startedAt: string
   stoppedAt: string | null
   errorCode: string | null
+  captureTypes: MeetingCaptureType[]
   version: number
   createdAt: string
   updatedAt: string
@@ -38,6 +43,7 @@ export type MeetingRecordingRow = {
   transcription_dispatch_id: string | null
   stopped_at: Date | string | null
   error_code: string | null
+  capture_types: string[]
   version: string | number
   created_at: Date | string
   updated_at: Date | string
@@ -54,6 +60,7 @@ export function mapMeetingRecordingRow(row: MeetingRecordingRow): MeetingRecordi
     startedAt: new Date(row.started_at).toISOString(),
     stoppedAt: row.stopped_at ? new Date(row.stopped_at).toISOString() : null,
     errorCode: row.error_code,
+    captureTypes: row.capture_types as MeetingCaptureType[],
     version: Number(row.version),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
@@ -75,19 +82,44 @@ async function meetingStatus(
 
 async function joinedParticipantConsentState(
   trx: Transaction<Database>,
-  meetingId: string
+  meetingId: string,
+  captureTypes: readonly MeetingCaptureType[]
 ): Promise<'empty' | 'consented' | 'missing_consent'> {
   const participants = await trx
     .selectFrom('meetings.participants')
-    .select(['id', 'consent_recording'])
+    .select('id')
     .where('meeting_id', '=', meetingId)
     .where('joined_at', 'is not', null)
     .where('left_at', 'is', null)
     .execute()
   if (participants.length === 0) return 'empty'
-  return participants.some((participant) => !participant.consent_recording)
-    ? 'missing_consent'
-    : 'consented'
+  const governance = await trx
+    .selectFrom('meetings.governance')
+    .select('policy_version')
+    .where('meeting_id', '=', meetingId)
+    .executeTakeFirst()
+  if (!governance) return 'missing_consent'
+  const consents = await trx
+    .selectFrom('meetings.capture_consents')
+    .select(['participant_id', 'capture_type'])
+    .where(
+      'participant_id',
+      'in',
+      participants.map((participant) => participant.id)
+    )
+    .where('capture_type', 'in', [...captureTypes])
+    .where('policy_version', '=', governance.policy_version)
+    .where('status', '=', 'granted')
+    .where((expression) =>
+      expression.or([
+        expression('expires_at', 'is', null),
+        expression('expires_at', '>', sql<Date>`now()`)
+      ])
+    )
+    .execute()
+  return consents.length === participants.length * captureTypes.length
+    ? 'consented'
+    : 'missing_consent'
 }
 
 export type StartRecordingResult =
@@ -102,6 +134,7 @@ export type StartRecordingInput = {
   organizationId: string
   actorUserId: string
   meetingId: string
+  captureTypes?: readonly MeetingCaptureType[]
 }
 
 /** Starts a recording (status='pending') — REFUSED unless every joined participant has consented. */
@@ -110,6 +143,7 @@ export async function startMeetingRecording(
   input: StartRecordingInput
 ): Promise<StartRecordingResult> {
   return withTenantTransaction(db, input.organizationId, async (trx) => {
+    const captureTypes = input.captureTypes ?? MEETING_CORE_CAPTURE_TYPES
     const status = await meetingStatus(trx, input.meetingId)
     if (!status) {
       return { ok: false, reason: 'meeting_not_found' }
@@ -120,9 +154,10 @@ export async function startMeetingRecording(
       .select('id')
       .where('meeting_id', '=', input.meetingId)
       .where('status', '=', 'pending')
+      .where('stopped_at', 'is', null)
       .executeTakeFirst()
     if (active) return { ok: false, reason: 'active_recording' }
-    const consentState = await joinedParticipantConsentState(trx, input.meetingId)
+    const consentState = await joinedParticipantConsentState(trx, input.meetingId, captureTypes)
     if (consentState === 'empty') {
       return { ok: false, reason: 'no_joined_participants' }
     }
@@ -144,6 +179,7 @@ export async function startMeetingRecording(
         organization_id: input.organizationId,
         meeting_id: input.meetingId,
         status: 'pending',
+        capture_types: [...captureTypes],
         started_at: sql`now()`
       })
       .returningAll()

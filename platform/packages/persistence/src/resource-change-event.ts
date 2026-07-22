@@ -97,6 +97,11 @@ export type ResourceChangeResourceType =
   | 'meeting_recording'
   | 'meeting_transcript'
   | 'meeting_minutes'
+  | 'meeting_agenda_item'
+  | 'meeting_decision'
+  | 'meeting_action_item'
+  | 'meeting_capture_consent'
+  | 'meeting_governance'
   // Asset registry / CMDB (R8). Asset lifecycle (create/update/transition/assign), CMDB link
   // create/delete, and append-only lifecycle-event invalidations ride the same outbox → Worker →
   // gateway path unchanged.

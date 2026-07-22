@@ -1,15 +1,18 @@
 import { sql, type Kysely } from 'kysely'
 import type { Database } from './database-schema'
 import { auditMeetingEvent, emitMeetingResourceChange } from './meeting-resource-events'
+import { insertMeetingGovernance, scheduleMeetingRetentionOnEnd } from './meeting-governance-store'
 import { withTenantTransaction } from './tenant-transaction'
+import { nextRecurringMeetingSchedule } from './meeting-recurrence'
 
 // R7 MEETINGS. The signaling/metadata record for a video meeting — the media plane (LiveKit/WebRTC
 // transport, screen share, live-caption media) is infra and NOT modeled here. A meeting is scoped to an
 // OPAQUE project/ticket context so its result is preserved and retrievable there (the R7 exit
 // condition "대화와 회의 결과가 프로젝트·티켓 문맥에 보존된다"): listMeetings filters by that scope.
 
-export type MeetingScopeKind = 'project' | 'ticket' | 'none'
+export type MeetingScopeKind = 'project' | 'ticket' | 'remote_session' | 'none'
 export type MeetingStatus = 'scheduled' | 'live' | 'ended' | 'cancelled'
+export type MeetingRecurrence = 'none' | 'daily' | 'weekly' | 'monthly'
 
 export type MeetingResource = {
   id: string
@@ -20,6 +23,10 @@ export type MeetingResource = {
   hostUserId: string
   scheduledStart: string | null
   scheduledEnd: string | null
+  timeZone: string
+  recurrence: MeetingRecurrence
+  seriesId: string
+  occurrenceIndex: number
   status: MeetingStatus
   version: number
   createdAt: string
@@ -35,6 +42,10 @@ type MeetingRow = {
   host_user_id: string
   scheduled_start: Date | string | null
   scheduled_end: Date | string | null
+  time_zone: string
+  recurrence: string
+  series_id: string | null
+  occurrence_index: number
   status: string
   version: string | number
   created_at: Date | string
@@ -55,6 +66,10 @@ function mapMeeting(row: MeetingRow): MeetingResource {
     hostUserId: row.host_user_id,
     scheduledStart: isoOrNull(row.scheduled_start),
     scheduledEnd: isoOrNull(row.scheduled_end),
+    timeZone: row.time_zone,
+    recurrence: row.recurrence as MeetingRecurrence,
+    seriesId: row.series_id ?? row.id,
+    occurrenceIndex: row.occurrence_index,
     status: row.status as MeetingStatus,
     version: Number(row.version),
     createdAt: new Date(row.created_at).toISOString(),
@@ -71,6 +86,10 @@ export type CreateMeetingInput = {
   scopeId?: string | null
   scheduledStart?: string | null
   scheduledEnd?: string | null
+  timeZone?: string
+  recurrence?: MeetingRecurrence
+  seriesId?: string | null
+  occurrenceIndex?: number
 }
 
 /** Creates a meeting in status='scheduled'. A scoped meeting names the project/ticket its result lives in. */
@@ -90,10 +109,18 @@ export async function createMeeting(
         host_user_id: input.hostUserId,
         scheduled_start: input.scheduledStart ?? null,
         scheduled_end: input.scheduledEnd ?? null,
+        time_zone: input.timeZone ?? 'UTC',
+        recurrence: input.recurrence ?? 'none',
+        series_id: input.seriesId ?? null,
+        occurrence_index: input.occurrenceIndex ?? 0,
         status: 'scheduled'
       })
       .returningAll()
       .executeTakeFirstOrThrow()
+    await insertMeetingGovernance(trx, {
+      organizationId: input.organizationId,
+      meetingId: row.id
+    })
     await auditMeetingEvent(
       trx,
       input.organizationId,
@@ -214,6 +241,58 @@ export async function transitionMeeting(
       .where('id', '=', input.meetingId)
       .returningAll()
       .executeTakeFirstOrThrow()
+    if (input.toStatus === 'ended' || input.toStatus === 'cancelled') {
+      await scheduleMeetingRetentionOnEnd(trx, {
+        organizationId: input.organizationId,
+        meetingId: input.meetingId,
+        actorUserId: input.actorUserId
+      })
+    }
+    if (
+      input.toStatus === 'ended' &&
+      current.recurrence !== 'none' &&
+      current.scheduled_start &&
+      current.scheduled_end
+    ) {
+      const next = nextRecurringMeetingSchedule({
+        scheduledStart: new Date(current.scheduled_start).toISOString(),
+        scheduledEnd: new Date(current.scheduled_end).toISOString(),
+        timeZone: current.time_zone,
+        recurrence: current.recurrence as Exclude<MeetingRecurrence, 'none'>
+      })
+      // Why: each recurrence gets its own immutable meeting/result context; ending one occurrence
+      // must not overwrite its minutes while advancing the series reminder.
+      const occurrence = await trx
+        .insertInto('meetings.meetings')
+        .values({
+          organization_id: input.organizationId,
+          title: current.title,
+          scope_kind: current.scope_kind,
+          scope_id: current.scope_id,
+          host_user_id: current.host_user_id,
+          scheduled_start: next.scheduledStart,
+          scheduled_end: next.scheduledEnd,
+          time_zone: current.time_zone,
+          recurrence: current.recurrence,
+          series_id: current.series_id ?? current.id,
+          occurrence_index: current.occurrence_index + 1,
+          status: 'scheduled'
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+      await insertMeetingGovernance(trx, {
+        organizationId: input.organizationId,
+        meetingId: occurrence.id
+      })
+      await emitMeetingResourceChange(
+        trx,
+        input.organizationId,
+        'meeting',
+        occurrence.id,
+        1,
+        'created'
+      )
+    }
     await auditMeetingEvent(
       trx,
       input.organizationId,

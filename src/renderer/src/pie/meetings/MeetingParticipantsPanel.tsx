@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { Check, UserPlus, Users, X } from 'lucide-react'
+import { Check, Users, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { translate } from '@/i18n/i18n'
 import { apiPost, PieApiError } from '../control-plane/pie-api-client'
+import { usePieResource } from '../control-plane/use-pie-resource'
 import type { MeetingParticipant } from './meeting-types'
+import { MeetingAdmissionControls } from './MeetingAdmissionControls'
+import { MeetingParticipantControls } from './MeetingParticipantControls'
+import { MeetingParticipantRoleSelect } from './MeetingParticipantRoleSelect'
+import { meetingAccessStatusLabel, meetingRoleLabel } from './meeting-participant-labels'
+import { MeetingMemberPicker, type MeetingMember } from './MeetingMemberPicker'
 
 function errorText(caught: unknown): string {
   if (caught instanceof PieApiError) {
@@ -18,27 +22,37 @@ export function MeetingParticipantsPanel({
   meetingId,
   participants,
   loading,
+  canManage,
+  currentUserId,
+  hostUserId,
   onChanged
 }: {
   meetingId: string
   participants: MeetingParticipant[]
   loading: boolean
+  canManage: boolean
+  currentUserId: string | null
+  hostUserId: string
   onChanged: () => void
 }): React.JSX.Element {
-  const [inviteeId, setInviteeId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const actor = participants.find((participant) => participant.userId === currentUserId)
+  const canControl =
+    currentUserId === hostUserId || (actor?.accessStatus === 'admitted' && actor.role === 'co_host')
+  const membersQuery = usePieResource<{ items: MeetingMember[] }>('/memberships?limit=100')
+  const members = membersQuery.data?.items ?? []
+  const names = new Map(members.map((member) => [member.userId, member.displayName]))
+  const participantIds = new Set(participants.map((participant) => participant.userId))
 
-  const invite = async (): Promise<void> => {
-    const userId = inviteeId.trim()
-    if (!userId) {
-      return
-    }
+  const invite = async (member: MeetingMember): Promise<void> => {
     setBusy(true)
     setError(null)
     try {
-      await apiPost(`/meetings/${meetingId}/participants`, { userId, role: 'participant' })
-      setInviteeId('')
+      await apiPost(`/meetings/${meetingId}/participants`, {
+        userId: member.userId,
+        role: 'participant'
+      })
       onChanged()
     } catch (caught) {
       setError(errorText(caught))
@@ -59,25 +73,14 @@ export function MeetingParticipantsPanel({
         </Badge>
       </div>
       <div className="flex flex-col gap-3 p-3">
-        <div className="flex gap-2">
-          <Input
-            value={inviteeId}
-            onChange={(event) => setInviteeId(event.target.value)}
-            placeholder={translate(
-              'auto.pie.meetings.MeetingParticipantsPanel.userId',
-              'Organization user ID'
-            )}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                void invite()
-              }
-            }}
+        {canManage && (
+          <MeetingMemberPicker
+            members={members}
+            excludedUserIds={participantIds}
+            disabled={busy || membersQuery.loading}
+            onSelect={(member) => void invite(member)}
           />
-          <Button size="sm" variant="outline" onClick={() => void invite()} disabled={busy}>
-            <UserPlus />
-            {translate('auto.pie.meetings.MeetingParticipantsPanel.invite', 'Invite')}
-          </Button>
-        </div>
+        )}
         {error && <p className="text-xs text-destructive">{error}</p>}
         {loading ? (
           <p className="text-xs text-muted-foreground">
@@ -99,10 +102,30 @@ export function MeetingParticipantsPanel({
                   key={participant.id}
                   className="flex items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5 text-xs"
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono text-foreground">
-                    {participant.userId}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-foreground">
+                      {names.get(participant.userId) ?? participant.userId.slice(0, 8)}
+                    </span>
+                    <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                      {participant.userId}
+                    </span>
                   </span>
-                  <span className="text-muted-foreground">{participant.role}</span>
+                  <Badge variant="outline">
+                    {meetingAccessStatusLabel(participant.accessStatus)}
+                  </Badge>
+                  {canControl && participant.role !== 'host' ? (
+                    <MeetingParticipantRoleSelect participant={participant} onChanged={onChanged} />
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {meetingRoleLabel(participant.role)}
+                    </span>
+                  )}
+                  {canControl && participant.accessStatus === 'waiting' && (
+                    <MeetingAdmissionControls participant={participant} onChanged={onChanged} />
+                  )}
+                  {canControl && connected && participant.role !== 'host' && (
+                    <MeetingParticipantControls participant={participant} onChanged={onChanged} />
+                  )}
                   <span
                     className="flex items-center gap-1 text-muted-foreground"
                     title={translate(

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/channel-audit-entry.v1.schema.json",
+  "title": "Channel audit entry",
+  "type": "object",
+  "required": ["id", "actorId", "action", "targetType", "targetId", "reason", "occurredAt"],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "actorId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "action": { "type": "string", "minLength": 1 },
+    "targetType": { "enum": ["channel", "message"] },
+    "targetId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "reason": { "type": ["string", "null"], "maxLength": 500 },
+    "occurredAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  },
+  "additionalProperties": false
+}

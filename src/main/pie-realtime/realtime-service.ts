@@ -32,6 +32,7 @@ export type StartPieRealtimeOptions = {
   // (unauthenticated) so dev-gated realtime without login degrades to the server's
   // auth response rather than crashing.
   getAccessToken?: () => string | null
+  log?: (message: string) => void
   // Test seam for the socket/fetch transport.
   connectionOverrides?: Partial<RealtimeConnectionOptions>
 }
@@ -68,6 +69,7 @@ export function startPieRealtimeIfEnabled(
     },
     onChange: options.onChange,
     onEphemeral: options.onEphemeral,
+    log: options.log,
     ...options.connectionOverrides
   })
   currentConnection = connection
@@ -81,7 +83,24 @@ export function stopPieRealtime(): void {
   currentStatus = { state: 'disabled' }
 }
 
+/** Closes the authenticated transport while retaining its config for re-login. */
+export function suspendPieRealtime(): void {
+  currentConnection?.stop()
+}
+
+/** Reconnects immediately with the latest Main-only access token. */
+export function resumePieRealtime(): void {
+  if (!currentConnection) {
+    return
+  }
+  // Why: restart also wakes a connection waiting on its token timer and clears a
+  // prior revoked state after the user completes a fresh login.
+  currentConnection.stop()
+  currentConnection.start()
+}
+
 export function __resetPieRealtimeForTests(): void {
+  currentConnection?.stop()
   currentConnection = null
   currentStatus = { state: 'disabled' }
 }

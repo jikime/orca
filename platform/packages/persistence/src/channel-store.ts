@@ -18,7 +18,11 @@ export type ChannelResource = {
   scopeType: string
   scopeId: string | null
   visibility: ChannelVisibility
+  topic: string
+  description: string
+  retentionDays: number | null
   version: number
+  archivedAt: string | null
   createdAt: string
   updatedAt: string
   // For DMs/group DMs: the participant user ids, so a client labels the row by the
@@ -27,9 +31,11 @@ export type ChannelResource = {
   // Unread messages for the requesting user (messages after their read cursor,
   // excluding their own). Set only by the per-member channel list.
   unreadCount?: number
+  // Present only on the per-member list so clients can place the unread boundary.
+  lastReadMessageId?: string | null
 }
 
-function mapChannel(row: {
+export function mapChannelRow(row: {
   id: string
   organization_id: string
   name: string
@@ -37,7 +43,11 @@ function mapChannel(row: {
   scope_type: string
   scope_id: string | null
   visibility: string
+  topic: string
+  description: string
+  retention_days: number | null
   version: string | number
+  archived_at: Date | string | null
   created_at: Date | string
   updated_at: Date | string
 }): ChannelResource {
@@ -49,7 +59,11 @@ function mapChannel(row: {
     scopeType: row.scope_type,
     scopeId: row.scope_id,
     visibility: row.visibility as ChannelVisibility,
+    topic: row.topic,
+    description: row.description,
+    retentionDays: row.retention_days,
     version: Number(row.version),
+    archivedAt: row.archived_at ? new Date(row.archived_at).toISOString() : null,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
   }
@@ -59,7 +73,7 @@ function mapChannel(row: {
  *  createDm(B,A) map to the same key (idempotent find-or-create). A group DM (N>2) uses
  *  the SAME sorted-join over ALL participants, so {A,B,C} keys distinctly from {A,B}. */
 export function computeDmKey(userIds: readonly string[]): string {
-  return [...new Set(userIds)].sort().join(':')
+  return [...new Set(userIds)].toSorted().join(':')
 }
 
 /**
@@ -73,7 +87,7 @@ export async function emitCollaborationChange(
   resourceType: ResourceChangeResourceType,
   resourceId: string,
   version: number,
-  changeKind: 'created' | 'updated'
+  changeKind: 'created' | 'updated' | 'archived'
 ): Promise<void> {
   const outboxId = randomUUID()
   const occurredAt = new Date().toISOString()
@@ -199,7 +213,7 @@ export async function createChannel(
       })
       .execute()
     await emitCollaborationChange(trx, input.organizationId, 'channel', channel.id, 1, 'created')
-    return mapChannel(channel)
+    return mapChannelRow(channel)
   })
 }
 
@@ -227,7 +241,7 @@ export async function getChannelForMember(
     if (!(await isChannelMemberTx(trx, channelId, userId))) {
       return { ok: false, reason: 'not_a_member' }
     }
-    return { ok: true, channel: mapChannel(channel) }
+    return { ok: true, channel: mapChannelRow(channel) }
   })
 }
 
@@ -254,7 +268,7 @@ export async function listChannels(
     }
     const rows = await query.orderBy('collaboration.channels.created_at').execute()
     const channels = rows.map((row) =>
-      mapChannel({ ...row, version: row.version as string | number })
+      mapChannelRow({ ...row, version: row.version as string | number })
     )
     // A DM's stored name is a generic placeholder ('Direct Message'); attach the
     // roster so the client can label the row by the other participant(s).
@@ -279,6 +293,15 @@ export async function listChannels(
     }
     const channelIds = channels.map((channel) => channel.id)
     if (channelIds.length > 0) {
+      const cursorRows = await trx
+        .selectFrom('collaboration.read_cursors')
+        .select(['channel_id', 'last_read_message_id'])
+        .where('user_id', '=', userId)
+        .where('channel_id', 'in', channelIds)
+        .execute()
+      const cursorByChannel = new Map(
+        cursorRows.map((row) => [row.channel_id, row.last_read_message_id])
+      )
       // Unread = messages after the user's read cursor (last_read_at), excluding
       // their own. A missing cursor row means the whole channel is unread.
       const unreadRows = await trx
@@ -316,6 +339,7 @@ export async function listChannels(
       const unreadByChannel = new Map(unreadRows.map((row) => [row.channelId, Number(row.unread)]))
       for (const channel of channels) {
         channel.unreadCount = unreadByChannel.get(channel.id) ?? 0
+        channel.lastReadMessageId = cursorByChannel.get(channel.id) ?? null
       }
     }
     return channels
@@ -393,7 +417,7 @@ export async function createDm(
       .where('dm_key', '=', dmKey)
       .executeTakeFirst()
     if (existing) {
-      return { channel: { ...mapChannel(existing), memberUserIds }, created: false }
+      return { channel: { ...mapChannelRow(existing), memberUserIds }, created: false }
     }
     const inserted = await trx
       .insertInto('collaboration.channels')
@@ -417,7 +441,7 @@ export async function createDm(
         .where('kind', '=', 'dm')
         .where('dm_key', '=', dmKey)
         .executeTakeFirstOrThrow()
-      return { channel: { ...mapChannel(winner), memberUserIds }, created: false }
+      return { channel: { ...mapChannelRow(winner), memberUserIds }, created: false }
     }
     for (const userId of new Set([input.actorUserId, input.otherUserId])) {
       await trx
@@ -442,7 +466,7 @@ export async function createDm(
       })
       .execute()
     await emitCollaborationChange(trx, input.organizationId, 'channel', inserted.id, 1, 'created')
-    return { channel: { ...mapChannel(inserted), memberUserIds }, created: true }
+    return { channel: { ...mapChannelRow(inserted), memberUserIds }, created: true }
   })
 }
 
@@ -500,7 +524,7 @@ export async function createGroupDm(
       .where('dm_key', '=', dmKey)
       .executeTakeFirst()
     if (existing) {
-      return { channel: { ...mapChannel(existing), memberUserIds: distinct }, created: false }
+      return { channel: { ...mapChannelRow(existing), memberUserIds: distinct }, created: false }
     }
     const inserted = await trx
       .insertInto('collaboration.channels')
@@ -524,7 +548,7 @@ export async function createGroupDm(
         .where('kind', '=', 'dm')
         .where('dm_key', '=', dmKey)
         .executeTakeFirstOrThrow()
-      return { channel: { ...mapChannel(winner), memberUserIds: distinct }, created: false }
+      return { channel: { ...mapChannelRow(winner), memberUserIds: distinct }, created: false }
     }
     for (const userId of distinct) {
       await trx
@@ -549,6 +573,6 @@ export async function createGroupDm(
       })
       .execute()
     await emitCollaborationChange(trx, input.organizationId, 'channel', inserted.id, 1, 'created')
-    return { channel: { ...mapChannel(inserted), memberUserIds: distinct }, created: true }
+    return { channel: { ...mapChannelRow(inserted), memberUserIds: distinct }, created: true }
   })
 }

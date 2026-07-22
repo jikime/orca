@@ -1,5 +1,5 @@
 import React from 'react'
-import { EyeOff, Github, Gitlab, List } from 'lucide-react'
+import { EyeOff, Github, Gitlab, List, ListChecks } from 'lucide-react'
 import { JiraIcon } from '@/components/icons/JiraIcon'
 import { LinearIcon } from '@/components/icons/LinearIcon'
 import {
@@ -32,7 +32,7 @@ function HideTaskSidebarMenu({ onHide }: { onHide: () => void }): React.JSX.Elem
   )
 }
 
-function TaskProviderShortcut({
+function TaskSourceShortcut({
   canBrowseTasks,
   label,
   onOpen,
@@ -72,7 +72,7 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
   const activeView = useAppStore((s) => s.activeView)
   const repos = useAppStore((s) => s.repos)
   const repoMap = useRepoMap()
-  const canBrowseTasks = repos.some((repo) => isGitRepoKind(repo))
+  const canBrowseExternalRepoTasks = repos.some((repo) => isGitRepoKind(repo))
   const showTasksButton = useAppStore((s) => s.settings?.showTasksButton !== false)
   const rawVisibleTaskProviders = useAppStore((s) => s.settings?.visibleTaskProviders)
   const defaultTaskSource = useAppStore((s) => s.settings?.defaultTaskSource ?? 'github')
@@ -133,7 +133,7 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
   ])
 
   const handlePrefetch = React.useCallback(() => {
-    if (!canBrowseTasks || resolvedDefaultTaskSource !== 'github') {
+    if (!canBrowseExternalRepoTasks || resolvedDefaultTaskSource !== 'github') {
       return
     }
     const activeRepo = activeRepoId ? (repoMap.get(activeRepoId) ?? null) : null
@@ -149,7 +149,7 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
     }
   }, [
     activeRepoId,
-    canBrowseTasks,
+    canBrowseExternalRepoTasks,
     defaultTaskViewPreset,
     prefetchWorkItems,
     repoMap,
@@ -173,22 +173,20 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
         <button
           type="button"
           onClick={() => {
-            if (!canBrowseTasks) {
-              return
-            }
-            openTaskPage()
+            // Why: Pie My Work is account-backed, so it remains useful before
+            // the user adds a local, WSL, or SSH repository.
+            openTaskPage(canBrowseExternalRepoTasks ? undefined : { internalTaskSource: 'pie' })
           }}
           onPointerEnter={handlePrefetch}
           onFocus={handlePrefetch}
-          aria-disabled={!canBrowseTasks}
+          aria-disabled={false}
           aria-current={tasksActive ? 'page' : undefined}
           data-contextual-tour-target="sidebar-tasks"
           className={cn(
             'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium tracking-tight transition-colors',
             tasksActive
               ? 'bg-worktree-sidebar-accent text-worktree-sidebar-accent-foreground'
-              : 'text-worktree-sidebar-foreground/60 hover:bg-worktree-sidebar-foreground/8',
-            !canBrowseTasks && 'cursor-not-allowed opacity-50 hover:bg-transparent'
+              : 'text-worktree-sidebar-foreground/60 hover:bg-worktree-sidebar-foreground/8'
           )}
         >
           <List
@@ -199,9 +197,19 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
             {translate('auto.components.sidebar.SidebarNav.fee535205b', 'Tasks')}
           </span>
           <span className="hidden items-center gap-1 group-hover:flex group-focus-within:flex">
+            <TaskSourceShortcut
+              canBrowseTasks
+              label={translate(
+                'auto.components.sidebar.SidebarNav.openPieWork',
+                'Open Pie My Work'
+              )}
+              onOpen={() => openTaskPage({ internalTaskSource: 'pie' })}
+            >
+              <ListChecks className="size-3.5" aria-hidden />
+            </TaskSourceShortcut>
             {visibleTaskProviders.includes('github') ? (
-              <TaskProviderShortcut
-                canBrowseTasks={canBrowseTasks}
+              <TaskSourceShortcut
+                canBrowseTasks={canBrowseExternalRepoTasks}
                 label={translate(
                   'auto.components.sidebar.SidebarNav.0ccba862b8',
                   'Open GitHub tasks'
@@ -209,11 +217,11 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
                 onOpen={() => openTaskPage({ taskSource: 'github' })}
               >
                 <Github className="size-3.5" aria-hidden />
-              </TaskProviderShortcut>
+              </TaskSourceShortcut>
             ) : null}
             {visibleTaskProviders.includes('gitlab') ? (
-              <TaskProviderShortcut
-                canBrowseTasks={canBrowseTasks}
+              <TaskSourceShortcut
+                canBrowseTasks={canBrowseExternalRepoTasks}
                 label={translate(
                   'auto.components.sidebar.SidebarNav.196c1b5362',
                   'Open GitLab tasks'
@@ -221,11 +229,11 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
                 onOpen={() => openTaskPage({ taskSource: 'gitlab' })}
               >
                 <Gitlab className="size-3.5" aria-hidden />
-              </TaskProviderShortcut>
+              </TaskSourceShortcut>
             ) : null}
             {visibleTaskProviders.includes('linear') ? (
-              <TaskProviderShortcut
-                canBrowseTasks={canBrowseTasks}
+              <TaskSourceShortcut
+                canBrowseTasks
                 label={translate(
                   'auto.components.sidebar.SidebarNav.c39ab10000',
                   'Open Linear tasks'
@@ -233,11 +241,11 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
                 onOpen={() => openTaskPage({ taskSource: 'linear' })}
               >
                 <LinearIcon className="size-3.5" />
-              </TaskProviderShortcut>
+              </TaskSourceShortcut>
             ) : null}
             {visibleTaskProviders.includes('jira') ? (
-              <TaskProviderShortcut
-                canBrowseTasks={canBrowseTasks}
+              <TaskSourceShortcut
+                canBrowseTasks
                 label={translate(
                   'auto.components.sidebar.SidebarNav.e7ad3c540d',
                   'Open Jira tasks'
@@ -245,7 +253,7 @@ export function SidebarTaskNavButton(): React.JSX.Element | null {
                 onOpen={() => openTaskPage({ taskSource: 'jira' })}
               >
                 <JiraIcon className="size-3.5" />
-              </TaskProviderShortcut>
+              </TaskSourceShortcut>
             ) : null}
           </span>
         </button>

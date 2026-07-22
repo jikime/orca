@@ -31,6 +31,8 @@ export type DiscoveryConfig = {
   ttlSeconds: number
 }
 
+const LOCAL_DESKTOP_INSTANCE_ID = 'local-desktop'
+
 // Sane loopback defaults for local dev (the discovery schema allows http://127.0.0.1).
 export function loadDiscoveryConfig(env: NodeJS.ProcessEnv = process.env): DiscoveryConfig {
   const mediaUrl =
@@ -38,7 +40,8 @@ export function loadDiscoveryConfig(env: NodeJS.ProcessEnv = process.env): Disco
       ? (env.PIE_DISCOVERY_MEDIA_URL ?? liveKitHttpUrl(env.PIE_LIVEKIT_WS_URL))
       : undefined
   return {
-    instanceId: env.PIE_INSTANCE_ID ?? 'pie-local-dev',
+    // The desktop session broker uses this ID for its local trust boundary.
+    instanceId: env.PIE_INSTANCE_ID ?? LOCAL_DESKTOP_INSTANCE_ID,
     displayName: env.PIE_INSTANCE_DISPLAY_NAME ?? 'Pie (local dev)',
     deploymentType:
       (env.PIE_DEPLOYMENT_TYPE as DiscoveryConfig['deploymentType']) ?? 'local_docker',

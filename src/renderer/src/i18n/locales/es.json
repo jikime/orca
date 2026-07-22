@@ -3946,7 +3946,8 @@
           "0ccba862b8": "Abrir tareas de GitHub",
           "fee535205b": "Tareas",
           "d599269755": "Ocultar de la barra lateral",
-          "b1d73cc4fe": "Pie"
+          "b1d73cc4fe": "Pie",
+          "openPieWork": "Abrir Mi trabajo de Pie"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Limpiar",
@@ -4684,6 +4685,14 @@
           "cancel": "Cancelar",
           "forget": "Eliminar de Orca",
           "reconnectAndDelete": "Reconectar y eliminar"
+        },
+        "PieSidebarNav": {
+          "navigation": "Pie navigation"
+        },
+        "SidebarModeTabs": {
+          "sections": "Sidebar sections",
+          "orca": "Orca",
+          "pie": "Pie"
         }
       },
       "shared": {
@@ -13052,6 +13061,10 @@
           "undo": "Deshacer",
           "widthOption": "{{value0}} px"
         }
+      },
+      "PieTaskPage": {
+        "source": "Pie · Mi trabajo",
+        "context": "Pie · Asignado a mí"
       }
     },
     "i18n": {
@@ -13081,7 +13094,12 @@
           "noprojects": "No hay proyectos: crea uno primero",
           "selectproject": "Seleccionar proyecto…",
           "cancel": "Cancelar",
-          "new": "Nuevo"
+          "new": "Nuevo",
+          "chatfailed": "Could not open the resource conversation.",
+          "openchat": "Open conversation",
+          "edit": "Editar",
+          "createDescription": "Añade un nuevo {{value0}} con los datos necesarios para comenzar su seguimiento.",
+          "editDescription": "Actualiza este {{value0}} sin cambiar su estado de flujo de trabajo."
         },
         "PieWorkspace": {
           "b97282a892": "Operaciones",
@@ -13092,7 +13110,9 @@
           "moduleWorkPortal": "Portal de Trabajo",
           "moduleCustomer": "Cliente",
           "moduleSupport": "Apoyo",
-          "moduleAdmin": "Administración"
+          "moduleAdmin": "Administración",
+          "myWork": "My Work",
+          "projects": "Projects"
         },
         "WorkItemBoard": {
           "130caa9064": "Todos los proyectos",
@@ -13109,14 +13129,25 @@
           "33422451f8": "Prioridad",
           "9769d64796": "Todas las prioridades",
           "243c0fa1a8": "Junta",
-          "55fc58e108": "Aún no hay equipo en esta organización."
+          "55fc58e108": "Aún no hay equipo en esta organización.",
+          "mywork": "My Work",
+          "work": "Work"
         },
         "WorkItemDetail": {
           "81f3aa6605": "No asignado",
           "69f14263ba": "Prioridad",
           "6794705376": "Cesionario",
           "2434c8f9ee": "Estado",
-          "8f37fea8b7": "Cerca"
+          "8f37fea8b7": "Cerca",
+          "description": "Description",
+          "opensource": "Open source message",
+          "projectRequired": "Assign this work item to a project before opening a workspace.",
+          "signInRequired": "Sign in to Pie before opening a workspace.",
+          "openForbidden": "You do not have permission to open workspaces for this item.",
+          "openWorkspace": "Open in Workspace",
+          "source": "Origen",
+          "openSourceMessage": "Abrir mensaje de origen",
+          "openSourceMeeting": "Abrir reunión de origen"
         },
         "pie": {
           "delivery": {
@@ -13161,7 +13192,10 @@
               "61bfd56903": "Δ días",
               "0d3345601f": "Proyectos",
               "f6f2ed2887": "Identificación del proyecto",
-              "39a3a89e8b": "Solicitudes de cambio"
+              "39a3a89e8b": "Solicitudes de cambio",
+              "highlights": "Aspectos destacados",
+              "risksSummary": "Resumen de riesgos",
+              "nextSteps": "Próximos pasos"
             }
           },
           "ops": {
@@ -13217,27 +13251,121 @@
               "9d145af54f": "Cuerpo (markdown)"
             }
           }
+        },
+        "PieResourceMeetingLinks": {
+          "title": "Meetings",
+          "loading": "Loading…",
+          "empty": "No meetings are linked yet.",
+          "schedule": "Schedule meeting",
+          "defaultTitle": "{{value0}} meeting"
+        },
+        "ProjectWorkspace": {
+          "projectRequired": "Create a project before adding project work.",
+          "openProjects": "Open projects",
+          "overview": "Overview",
+          "work": "Work",
+          "delivery": "Delivery & Quality",
+          "management": "Management",
+          "sectionsLabel": "Project sections",
+          "createProject": "Crear proyecto",
+          "newProject": "Nuevo proyecto",
+          "loading": "Cargando proyectos…"
+        },
+        "useWorkItemBoard": {
+          "signInRequired": "Sign in to create work assigned to you."
+        },
+        "PieWorkspaceContextBar": {
+          "project": "Pie project",
+          "back": "Back to work item"
+        },
+        "WorkItemWorkspaceDialog": {
+          "title": "Open in Workspace",
+          "description": "Continue in a linked workspace, connect an existing workspace, or create a new one.",
+          "linked": "Linked workspaces",
+          "empty": "No workspace is linked to this work item yet.",
+          "existing": "Connect existing workspace",
+          "select": "Select a workspace",
+          "linking": "Connecting…",
+          "connect": "Connect",
+          "executeRequired": "workspace.execute permission is required to connect or create a workspace.",
+          "create": "Create new workspace"
+        },
+        "PieResourceMutationDialog": {
+          "select": "Seleccionar…",
+          "createTitle": "Crear {{value0}}",
+          "editTitle": "Editar {{value0}}",
+          "cancel": "Cancelar",
+          "creating": "Creando…",
+          "saving": "Guardando…",
+          "create": "Crear",
+          "save": "Guardar cambios"
+        },
+        "ProjectMutationDialog": {
+          "name": "Nombre del proyecto",
+          "status": "Estado",
+          "summary": "Resumen",
+          "project": "proyecto",
+          "editDescription": "Actualiza el nombre, el resumen y el estado del ciclo de vida del proyecto.",
+          "createDescription": "Crea un proyecto para agrupar el trabajo, los controles de entrega y los registros de gestión relacionados."
+        },
+        "ProjectOverview": {
+          "noSummary": "Añade un resumen para que el equipo conozca el objetivo del proyecto.",
+          "updated": "Actualizado el {{value0}}",
+          "edit": "Editar proyecto",
+          "loadError": "No se pudieron cargar algunas métricas del proyecto.",
+          "retry": "Reintentar",
+          "workItems": "Elementos de trabajo",
+          "workDetail": "{{value0}} sin asignar · {{value1}} de prioridad alta",
+          "pendingChanges": "Cambios pendientes",
+          "changeDetail": "{{value0}} solicitudes de cambio en total",
+          "openDefects": "Defectos abiertos",
+          "defectDetail": "{{value0}} defectos en total",
+          "openRisks": "Riesgos abiertos",
+          "riskDetail": "{{value0}} críticos · {{value1}} altos",
+          "deliveryTitle": "Entrega y calidad",
+          "openWork": "Abrir trabajo",
+          "pendingChangeRows": "Solicitudes de cambio pendientes",
+          "outstandingDeliverables": "Entregables pendientes",
+          "openDefectRows": "Defectos abiertos",
+          "openChanges": "Abrir solicitudes de cambio",
+          "governanceTitle": "Gestión",
+          "openRisksAction": "Abrir riesgos",
+          "latestReport": "Último informe de estado",
+          "noReport": "Aún no se ha creado ningún informe de estado.",
+          "open": "Abrir",
+          "recentDecisions": "Decisiones recientes",
+          "noDecisions": "No se han registrado decisiones del proyecto.",
+          "chatError": "No se pudo abrir la conversación del proyecto.",
+          "openConversation": "Abrir conversación"
         }
       },
       "chat": {
         "ChannelComposer": {
           "34937e0c68": "Escribe un mensaje…",
           "882ae59e91": "Menciona a alguien",
-          "1af09ff097": "Ingrese para enviar · Mayús+Intro para una nueva línea · @ para mencionar"
+          "1af09ff097": "Ingrese para enviar · Mayús+Intro para una nueva línea · @ para mencionar",
+          "sendfailed": "Message wasn't sent. Your draft is safe.",
+          "retry": "Retry"
         },
         "ChannelSidebar": {
           "5855bc71db": "Canales",
           "7dad5ec92e": "Cargando…",
           "d4b567493d": "Mensajes",
           "28a333bc28": "Aún no hay canales",
-          "332167b29c": "{{value0}} sin leer"
+          "332167b29c": "{{value0}} sin leer",
+          "archived": "Archived",
+          "muted": "Muted"
         },
         "AttachmentComposer": {
-          "2cfdefee37": "Adjuntar un archivo"
+          "2cfdefee37": "Adjuntar un archivo",
+          "uploadfailed": "Upload failed",
+          "retry": "Retry"
         },
         "ChatHeader": {
           "4cdc4c7776": "Charlar",
-          "9bfb580842": "apagado"
+          "9bfb580842": "apagado",
+          "archived": "Archived channel",
+          "openmeeting": "Open meeting"
         },
         "ChatScreen": {
           "b53e1add3a": "Iniciando sesión…",
@@ -13246,7 +13374,8 @@
           "ff4184c27d": "Su sesión de Pie expiró: inicie sesión nuevamente para continuar.",
           "c601569f79": "Inicia sesión para usar Pie Chat",
           "8bcadb6d26": "No se pudo cargar tu sesión de Pie",
-          "5a6de3b2da": "Selecciona un canal para empezar a chatear"
+          "5a6de3b2da": "Selecciona un canal para empezar a chatear",
+          "archived": "This channel is archived. Restore it in channel settings to continue chatting."
         },
         "ComposerFormattingToolbar": {
           "9357dca58b": "emojis",
@@ -13321,7 +13450,16 @@
           "deb1250abe": "Cargando mensajes…",
           "selfauthor": "Tú",
           "unpin": "Desprender",
-          "pin": "Alfiler"
+          "pin": "Alfiler",
+          "loadingolder": "Cargando…",
+          "loadolder": "Cargar mensajes anteriores",
+          "edit": "Editar",
+          "delete": "Eliminar",
+          "newmessages": "New messages",
+          "unread": "Unread messages",
+          "retry": "Retry",
+          "dismiss": "Dismiss",
+          "sending": "Sending…"
         },
         "NotificationInbox": {
           "276316e695": "en",
@@ -13358,13 +13496,157 @@
           "9bfe3362e2": "Hilo",
           "948c50b342": "Cerrar hilo",
           "422de4e5e4": "Aún no hay respuestas",
-          "selfauthor": "Tú"
+          "selfauthor": "Tú",
+          "deleted": "Mensaje eliminado",
+          "edited": "(editado)",
+          "react": "Reaccionar",
+          "edit": "Editar",
+          "delete": "Eliminar"
         },
         "RichChatComposerEditor": {
           "arialabel": "Mensaje"
         },
         "TypingIndicator": {
           "someone": "Alguien"
+        },
+        "MessageDeleteDialog": {
+          "failed": "No se pudo eliminar este mensaje.",
+          "title": "¿Eliminar mensaje?",
+          "description": "El contenido se sustituirá por un marcador de mensaje eliminado.",
+          "cancel": "Cancelar",
+          "deleting": "Eliminando…",
+          "delete": "Eliminar",
+          "reason": "Moderation reason",
+          "reasonplaceholder": "Explain why this message is being removed."
+        },
+        "MessageEditForm": {
+          "savefailed": "No se pudo guardar. Actualiza la conversación e inténtalo de nuevo.",
+          "editmessage": "Editar mensaje",
+          "saving": "Guardando…",
+          "save": "Guardar",
+          "cancel": "Cancelar",
+          "hint": "Intro para guardar · Mayús+Intro para una línea nueva · Esc para cancelar"
+        },
+        "ChannelMemberInvite": {
+          "failed": "No se pudo añadir a esta persona al canal.",
+          "addpeople": "Añadir personas",
+          "title": "Añadir personas",
+          "description": "Elige miembros de la organización para añadirlos a #{{value0}}.",
+          "empty": "No hay otros miembros",
+          "added": "Añadido",
+          "adding": "Añadiendo…",
+          "add": "Añadir"
+        },
+        "MessageActionToolbar": {
+          "actions": "Acciones del mensaje",
+          "creatework": "Create work item",
+          "addagenda": "Add to agenda",
+          "workItem": "Elemento de trabajo"
+        },
+        "ChannelSettingsDialog": {
+          "you": "You",
+          "membersfailed": "Could not load channel members.",
+          "savefailed": "Could not save the channel.",
+          "archivefailed": "Could not change the channel archive state.",
+          "removefailed": "Could not remove this member.",
+          "trigger": "Channel settings",
+          "title": "Channel settings",
+          "description": "Manage #{{value0}} details, members, and archive state.",
+          "details": "Details",
+          "members": "Members",
+          "name": "Name",
+          "topic": "Topic",
+          "fielddescription": "Description",
+          "archivedhelp": "Restore this channel to allow new messages.",
+          "archivehelp": "Archived channels stay readable but become read-only.",
+          "restore": "Restore",
+          "archive": "Archive",
+          "loading": "Loading…",
+          "owner": "Owner",
+          "member": "Member",
+          "remove": "Remove member",
+          "saving": "Saving…",
+          "save": "Save changes",
+          "governance": "Governance"
+        },
+        "ChatNotificationSettingsDialog": {
+          "loadfailed": "Could not load notification settings.",
+          "savefailed": "Could not save notification settings.",
+          "notifications": "Notifications",
+          "trigger": "Notification settings",
+          "title": "Notification settings",
+          "description": "Choose what #{{value0}} sends and when desktop alerts are allowed.",
+          "loading": "Loading…",
+          "level": "Notify me about",
+          "all": "All new messages",
+          "mentions": "Mentions only",
+          "none": "Nothing",
+          "desktop": "Desktop alerts",
+          "desktophelp": "Also requires notifications to be enabled in Orca settings.",
+          "dnd": "Do not disturb",
+          "start": "Start",
+          "end": "End",
+          "timezone": "Time zone",
+          "timezoneplaceholder": "Asia/Seoul",
+          "saving": "Saving…",
+          "save": "Save"
+        },
+        "MessageAgendaDialog": {
+          "createfailed": "Could not add the message to the agenda.",
+          "title": "Add to meeting agenda",
+          "description": "Keep this message as a linked agenda item for the meeting.",
+          "openmeeting": "Open meeting",
+          "cancel": "Cancel",
+          "adding": "Adding…",
+          "add": "Add to agenda"
+        },
+        "MessageWorkItemDialog": {
+          "loadfailed": "No se pudieron cargar el elemento vinculado, los equipos y los proyectos.",
+          "createfailed": "Could not create the work item.",
+          "title": "Create work item",
+          "description": "Turn this message into tracked work with a link back to the conversation.",
+          "loading": "Loading…",
+          "worktitle": "Title",
+          "team": "Team",
+          "priority": "Priority",
+          "project": "Project",
+          "noproject": "No project",
+          "open": "Open work item",
+          "creating": "Creating…",
+          "create": "Create",
+          "linkedTitle": "Elemento de trabajo vinculado",
+          "linkedDescription": "Abre el trabajo registrado vinculado a este mensaje."
+        },
+        "ChatHeaderContextControls": {
+          "membersfailed": "Could not load channel members.",
+          "openmembers": "Open channel members",
+          "members": "Channel members",
+          "membersdescription": "See who belongs to this conversation and who is online.",
+          "loading": "Loading…",
+          "opennotifications": "Open notifications",
+          "notifications": "Notifications",
+          "notificationsdescription": "Review mentions and jump back to the original message."
+        },
+        "ChannelGovernancePanel": {
+          "system": "System",
+          "auditfailed": "Could not load audit log.",
+          "retentioninvalid": "Retention must be between 1 and 3650 days.",
+          "disabled": "Retention disabled.",
+          "saved": "Retention policy saved.",
+          "savefailed": "Could not save the retention policy.",
+          "applied": "{{value0}} expired messages were removed.",
+          "applyfailed": "Could not apply the retention policy.",
+          "exportfailed": "Could not export messages.",
+          "retention": "Message retention",
+          "retentionhelp": "Leave blank to retain messages indefinitely. Applying a policy permanently redacts expired message bodies.",
+          "forever": "Forever",
+          "save": "Save",
+          "apply": "Apply now",
+          "audit": "Recent audit activity",
+          "export": "Export JSON",
+          "refresh": "Refresh audit log",
+          "loading": "Loading…",
+          "emptyaudit": "No audit activity yet."
         }
       },
       "customer": {
@@ -13391,7 +13673,11 @@
           "status": "Estado",
           "priority": "Prioridad",
           "accountid": "ID de cuenta",
-          "body": "Descripción"
+          "body": "Descripción",
+          "remoteSessions": "Remote Sessions",
+          "sessionKind": "Kind",
+          "ticketId": "Ticket",
+          "sessionId": "Session ID"
         }
       },
       "meetings": {
@@ -13411,7 +13697,17 @@
           "grantConsent": "Allow recording",
           "leave": "Leave",
           "screenOff": "Stop sharing",
-          "screenOn": "Share screen"
+          "screenOn": "Share screen",
+          "deviceError": "A camera or microphone became unavailable: {{value0}}",
+          "disconnected": "The media connection ended. Check the connection status and join again.",
+          "admissionDenied": "The host did not admit this participant.",
+          "screenRestricted": "Only hosts, co-hosts, and presenters can share a screen."
+        },
+        "MeetingCameraControl": {
+          "switchFailed": "Could not switch camera",
+          "defaultCamera": "Default camera",
+          "unnamedCamera": "Camera {{value0}}",
+          "selectCamera": "Choose camera"
         },
         "MeetingDetail": {
           "noScope": "Organization meeting",
@@ -13423,7 +13719,10 @@
           "scheduledTitle": "This meeting has not started",
           "endedTitle": "This meeting has ended",
           "scheduledBody": "Invite participants and prepare the minutes before going live.",
-          "endedBody": "The media room is closed. Minutes and participant history remain available."
+          "endedBody": "The media room is closed. Minutes and participant history remain available.",
+          "openchat": "Open meeting chat",
+          "room": "Meeting room",
+          "recap": "Recap"
         },
         "MeetingMinutesPanel": {
           "title": "Meeting minutes",
@@ -13438,10 +13737,21 @@
           "ai": "AI draft",
           "manual": "Manual",
           "approve": "Approve",
-          "reject": "Reject"
+          "reject": "Reject",
+          "publishedtitle": "Meeting minutes: {{value0}}",
+          "publish": "Publish to chat",
+          "openpost": "Open chat post"
         },
         "MeetingParticipantTile": {
-          "you": "{{value0}} (you)"
+          "you": "{{value0}} (you)",
+          "sharedScreen": "{{value0}}'s screen",
+          "pin": "Pin participant",
+          "unpin": "Unpin participant"
+        },
+        "MeetingStage": {
+          "view": "Meeting view",
+          "gallery": "Gallery",
+          "speaker": "Speaker"
         },
         "MeetingParticipantsPanel": {
           "title": "Participants",
@@ -13466,7 +13776,14 @@
           "loading": "Loading meetings…",
           "empty": "Create a meeting to start a call and capture minutes.",
           "selectTitle": "Select a meeting",
-          "selectBody": "Open a meeting to manage the call, participants, and minutes."
+          "selectBody": "Open a meeting to manage the call, participants, and minutes.",
+          "invalidSchedule": "The meeting end must be after its start.",
+          "startTime": "Start time",
+          "endTime": "End time",
+          "reminder": "A desktop reminder appears 10 minutes before the meeting.",
+          "completeSchedule": "Enter both the meeting start and end.",
+          "invalidWallClock": "The selected local time does not exist in this time zone.",
+          "scopeRemoteSession": "Remote session"
         },
         "MeetingDisplaySourceDialog": {
           "title": "Share a screen or window",
@@ -13481,7 +13798,200 @@
           "stop": "Stop",
           "play": "Play latest",
           "consent": "Every connected participant must allow recording first.",
-          "transcript": "Post-meeting transcript"
+          "transcript": "Post-meeting transcript",
+          "duration": "Duration: {{value0}} seconds",
+          "durationunknown": "Duration is being calculated.",
+          "readytitle": "Recording ready: {{value0}}",
+          "readybody": "Open the meeting recap to play the recording and review its transcript.",
+          "publish": "Publish to chat",
+          "openpost": "Open chat post"
+        },
+        "MeetingAgendaPanel": {
+          "title": "Agenda",
+          "loading": "Loading agenda…",
+          "empty": "Add a meeting-channel message to prepare the agenda.",
+          "opensource": "Open source message"
+        },
+        "outcomes": {
+          "evidence": "Evidence",
+          "cancel": "Cancel",
+          "save": "Save",
+          "approve": "Approve",
+          "reject": "Reject",
+          "toWork": "Create work item",
+          "openWork": "Open work item",
+          "convertTitle": "Create work item",
+          "convertBody": "Create tracked work linked to this approved meeting action.",
+          "team": "Team",
+          "project": "Project",
+          "noProject": "No project",
+          "converting": "Creating…",
+          "convert": "Create work item",
+          "title": "Decisions & action items",
+          "decisions": "Decisions",
+          "actions": "Actions",
+          "loading": "Loading…",
+          "noDecisions": "No decisions captured yet.",
+          "noActions": "No action items captured yet.",
+          "workItem": "Work item",
+          "ai": "AI",
+          "manual": "Manual"
+        },
+        "captureConsent": {
+          "button": "Capture permissions {{value0}}/4",
+          "title": "Meeting capture permissions",
+          "description": "Choose which processing purposes you allow for this meeting.",
+          "renew": "Review again",
+          "loading": "Loading permissions…",
+          "recording": "Video and audio recording",
+          "transcription": "Speech transcription",
+          "aiNotes": "AI meeting notes",
+          "presentationScreenshots": "Presentation screenshots"
+        },
+        "capture": {
+          "recording": "Recording",
+          "transcription": "Transcript",
+          "aiNotes": "AI notes",
+          "pause": "Pause",
+          "resume": "Resume",
+          "consentRequired": "Every connected participant must allow each selected capture purpose."
+        },
+        "prejoin": {
+          "cameraOff": "Camera is off",
+          "title": "Check your devices",
+          "body": "Choose devices and preview them before joining.",
+          "microphone": "Microphone",
+          "camera": "Camera",
+          "joining": "Joining…",
+          "join": "Join meeting",
+          "chooseCamera": "Choose camera",
+          "chooseMicrophone": "Choose microphone",
+          "chooseSpeaker": "Choose speaker",
+          "speaker": "Speaker",
+          "connectionCheck": "Connection check",
+          "retryCheck": "Run check again",
+          "checking": "Checking LiveKit endpoint…",
+          "mediaUnavailable": "Media is unavailable.",
+          "mediaLatency": "Control plane ready · media {{value0}} ms",
+          "waiting": "Waiting for host approval…"
+        },
+        "governance": {
+          "title": "Capture governance",
+          "policy": "Policy v{{value0}}",
+          "indefinite": "No automatic deletion",
+          "purpose": "Capture purpose",
+          "retention": "Retention days",
+          "keep": "Keep indefinitely",
+          "legalHold": "Legal hold blocks deletion",
+          "reconsent": "Changing this policy requires participants to review capture permissions again.",
+          "save": "Save policy",
+          "export": "Export JSON",
+          "delete": "Delete captured data",
+          "audit": "Governance audit",
+          "deleteTitle": "Delete captured meeting data",
+          "deleteBody": "Recordings, transcripts, AI minutes and derived outcomes will be permanently removed. Audit metadata remains.",
+          "reason": "Deletion reason",
+          "confirm": "Type the meeting title exactly: {{value0}}",
+          "queueDelete": "Queue deletion"
+        },
+        "participants": {
+          "mute": "Mute participant",
+          "remove": "Remove participant",
+          "removeTitle": "Remove participant?",
+          "removeBody": "They will be disconnected and cannot rejoin until invited again.",
+          "cancel": "Cancel",
+          "removeConfirm": "Remove"
+        },
+        "recap": {
+          "recording": "Recording",
+          "play": "Play recording",
+          "minutes": "Meeting minutes",
+          "noMinutes": "No meeting minutes yet.",
+          "decisions": "Decisions",
+          "actions": "Action items",
+          "ready": "Ready",
+          "transcript": "Transcript",
+          "minutesDuration": "{{value0}} min",
+          "noDecisions": "No decisions yet.",
+          "noActions": "No action items yet."
+        },
+        "MeetingTranscriptSegmentRow": {
+          "seek": "Play from {{value0}}",
+          "speaker": "Speaker",
+          "text": "Transcript text",
+          "save": "Save",
+          "cancel": "Cancel",
+          "corrected": "corrected",
+          "history": "Revision history",
+          "edit": "Correct segment",
+          "loading": "Loading…",
+          "noHistory": "No earlier revision"
+        },
+        "MeetingTranscriptTimeline": {
+          "title": "Transcript timeline",
+          "search": "Search transcript",
+          "loading": "Loading transcript…",
+          "empty": "No timed transcript segments",
+          "more": "Load more"
+        },
+        "waitingRoom": {
+          "admit": "Admit participant",
+          "deny": "Deny participant"
+        },
+        "role": {
+          "host": "Host",
+          "coHost": "Co-host",
+          "presenter": "Presenter",
+          "participant": "Participant",
+          "choose": "Choose participant role"
+        },
+        "connection": {
+          "reconnecting": "Reconnecting",
+          "degraded": "Connection degraded",
+          "recovered": "Connection recovered"
+        },
+        "access": {
+          "invited": "Invited",
+          "waiting": "Waiting",
+          "admitted": "Admitted",
+          "denied": "Denied",
+          "blocked": "Blocked"
+        },
+        "MeetingCalendarPanel": {
+          "title": "Calendar",
+          "open": "Open calendar event",
+          "syncing": "Syncing…",
+          "notConfigured": "Connect Google Workspace or Microsoft 365 in the server environment to export this meeting."
+        },
+        "MeetingGuestLinksPanel": {
+          "title": "Guest links",
+          "revoke": "Revoke guest link",
+          "expiry": "Expiry in hours",
+          "create": "Create",
+          "copy": "Copy once",
+          "pieAccount": "Pie account",
+          "limitedGuest": "Limited guest",
+          "meetingOnly": "Meeting only",
+          "meetingRecap": "Meeting + recap",
+          "inactive": "Inactive",
+          "active": "Active"
+        },
+        "MeetingMemberPicker": {
+          "placeholder": "Search organization members",
+          "search": "Search by name or user ID…",
+          "empty": "No available members found."
+        },
+        "schedule": {
+          "timeZone": "Time zone",
+          "recurrence": "Recurrence",
+          "recurrenceNone": "Does not repeat",
+          "recurrenceDaily": "Daily",
+          "recurrenceWeekly": "Weekly",
+          "recurrenceMonthly": "Monthly",
+          "scopeOrganization": "Organization",
+          "scopeProject": "Project",
+          "scopeTicket": "Ticket",
+          "scopeRemoteSession": "Remote session"
         }
       }
     }

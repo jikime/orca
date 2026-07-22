@@ -15,6 +15,10 @@ import type { SleepingAgentLaunchConfig } from '../shared/agent-session-resume'
 import type { MobileRelayStatus } from '../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../shared/mobile-pairing-connection-mode'
 import type { MeetingMediaPreloadApi } from '../shared/meeting-display-source'
+import {
+  PIE_MEETING_NOTIFICATION_CLICKED_CHANNEL,
+  type PieMeetingNotificationTarget
+} from '../shared/pie-meeting-notification'
 import type {
   BaseRefSearchResult,
   BaseRefDefaultResult,
@@ -2158,6 +2162,14 @@ const api = {
         clearNotificationSoundPlaybackState()
         return { played: false, reason: 'playback-failed' }
       }
+    },
+    onMeetingClicked: (callback: (target: PieMeetingNotificationTarget) => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        target: PieMeetingNotificationTarget
+      ): void => callback(target)
+      ipcRenderer.on(PIE_MEETING_NOTIFICATION_CLICKED_CHANNEL, listener)
+      return () => ipcRenderer.removeListener(PIE_MEETING_NOTIFICATION_CLICKED_CHANNEL, listener)
     }
   },
 

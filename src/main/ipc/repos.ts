@@ -102,6 +102,7 @@ import {
 import { getGitCloneFailureMessage } from '../../shared/git-clone-failure-message'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import { runWithGitReadCacheInvalidation } from '../git/status'
+import { PieWorkspaceContextSchema } from '../../shared/pie-workspace-context'
 
 // Why: `method` answers "which entry point did the user take?", not "what did
 // they add?" — so the IPC the renderer invoked IS the method. We never send
@@ -781,6 +782,7 @@ const FolderWorkspaceCreateArgs = z.object({
   folderPath: z.string().nullable().optional(),
   connectionId: z.string().nullable().optional(),
   linkedTask: FolderWorkspaceLinkedTaskArgs.optional(),
+  pieWorkspaceContext: PieWorkspaceContextSchema.optional(),
   createdWithAgent: z.string().refine(isTuiAgent).optional(),
   pendingFirstAgentMessageRename: z.boolean().optional()
 })
@@ -791,6 +793,7 @@ const FolderWorkspaceUpdateArgs = z.object({
     name: z.string().optional(),
     folderPath: z.string().optional(),
     linkedTask: FolderWorkspaceLinkedTaskArgs.optional(),
+    pieWorkspaceContext: PieWorkspaceContextSchema.optional(),
     comment: z.string().optional(),
     isArchived: z.boolean().optional(),
     isUnread: z.boolean().optional(),

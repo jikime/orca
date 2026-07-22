@@ -94,6 +94,41 @@ describe('Pie chat IPC', () => {
     expect(args[4].idempotencyKey.length).toBeGreaterThan(0)
   })
 
+  it('reuses a renderer request id for an explicit retry', async () => {
+    clientMocks.sendMessage.mockResolvedValue({})
+    const clientRequestId = '20000000-0000-4000-8000-000000000099'
+    await handlerFor(PIE_CHAT_SEND_MESSAGE_CHANNEL)(trustedEvent(), {
+      channelId: CHANNEL,
+      body: 'retry me',
+      clientRequestId
+    })
+
+    expect(clientMocks.sendMessage.mock.calls[0]?.[4]).toMatchObject({
+      body: 'retry me',
+      idempotencyKey: clientRequestId
+    })
+  })
+
+  it('allows an empty caption only when the message links an attachment', async () => {
+    clientMocks.sendMessage.mockResolvedValue({})
+    await handlerFor(PIE_CHAT_SEND_MESSAGE_CHANNEL)(trustedEvent(), {
+      channelId: CHANNEL,
+      body: '',
+      opts: { attachmentIds: ['att-1'] }
+    })
+
+    expect(clientMocks.sendMessage.mock.calls[0]?.[4]).toMatchObject({
+      body: '',
+      opts: { attachmentIds: ['att-1'] }
+    })
+    expect(() =>
+      handlerFor(PIE_CHAT_SEND_MESSAGE_CHANNEL)(trustedEvent(), {
+        channelId: CHANNEL,
+        body: ''
+      })
+    ).toThrow('PIE_CHAT_INVALID_REQUEST')
+  })
+
   it('rejects an untrusted sender before touching the client', () => {
     const untrusted = {
       sender: { id: 99, getType: () => 'window', isDestroyed: () => false, mainFrame: {} },

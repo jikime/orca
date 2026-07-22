@@ -1157,6 +1157,7 @@ function openMainWindow(): BrowserWindow {
     // arrive as a 'message' change.
     startPieRealtimeIfEnabled({
       getAccessToken: getPieAuthAccessToken,
+      log: (message) => console.warn(message),
       onChange: (change) => {
         if (PIE_CHAT_REALTIME_RESOURCE_TYPES.has(change.resourceType)) {
           emitPieChatMessagesChanged(change.organizationId)

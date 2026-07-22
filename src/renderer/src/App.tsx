@@ -132,6 +132,8 @@ import { reconnectSshTargetForRendererStartup } from './startup/ssh-startup-reco
 import { bootstrapPieDesktopBoundary } from './pie/pie-desktop-bootstrap'
 import { PieChatOverlay } from './pie/chat/PieChatOverlay'
 import { PieWorkspace } from './pie/workspace/PieWorkspace'
+import { PieChatNotificationBridge } from './pie/chat/PieChatNotificationBridge'
+import { PieMeetingNotificationBridge } from './pie/meetings/PieMeetingNotificationBridge'
 import { shouldRenderPetOverlay } from './components/pet/pet-overlay-visibility'
 import { applyDocumentTheme } from './lib/document-theme'
 import { getSystemPrefersDark } from './lib/terminal-theme'
@@ -2253,6 +2255,8 @@ function App(): React.JSX.Element {
         {/* Self-contained, dev-gated Pie chat surface. Renders nothing until
         toggled with Cmd/Ctrl+Shift+K, so it never disturbs the workspace. */}
         <PieChatOverlay />
+        <PieChatNotificationBridge />
+        <PieMeetingNotificationBridge />
         <ConfirmationDialogProvider>
           <LinkRoutingPreferenceDialogProvider>
             <WorkspacePortScanner enabled={workspaceSessionReady} />

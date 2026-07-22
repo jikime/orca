@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { PieChatRendererApi } from '../../../../shared/pie-chat-contract'
 import { translate } from '@/i18n/i18n'
+import { Button } from '@/components/ui/button'
 
 export type PendingAttachment = {
   id: string
@@ -31,10 +32,12 @@ export function AttachmentComposer({
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [failedFile, setFailedFile] = useState<File | null>(null)
 
   const onPick = async (file: File): Promise<void> => {
     setUploading(true)
     setError(null)
+    setFailedFile(null)
     try {
       const buffer = await file.arrayBuffer()
       const intent = await api.uploadAttachment(
@@ -52,7 +55,8 @@ export function AttachmentComposer({
         { id: intent.id, filename: file.name, contentType: file.type, previewUrl }
       ])
     } catch {
-      setError('Upload failed')
+      setError(translate('auto.pie.chat.AttachmentComposer.uploadfailed', 'Upload failed'))
+      setFailedFile(file)
     } finally {
       setUploading(false)
     }
@@ -70,6 +74,17 @@ export function AttachmentComposer({
         {uploading ? '…' : '📎'}
       </button>
       {error && <span className="text-xs text-destructive">{error}</span>}
+      {failedFile && (
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          disabled={uploading}
+          onClick={() => void onPick(failedFile)}
+        >
+          {translate('auto.pie.chat.AttachmentComposer.retry', 'Retry')}
+        </Button>
+      )}
       <input
         ref={inputRef}
         type="file"

@@ -11,6 +11,7 @@
     "meetingId",
     "userId",
     "role",
+    "accessStatus",
     "consentRecording",
     "joinedAt",
     "leftAt",
@@ -32,7 +33,10 @@
       "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
     },
     "role": {
-      "enum": ["host", "participant"]
+      "enum": ["host", "co_host", "presenter", "participant"]
+    },
+    "accessStatus": {
+      "enum": ["invited", "waiting", "admitted", "denied", "blocked"]
     },
     "consentRecording": {
       "type": "boolean"

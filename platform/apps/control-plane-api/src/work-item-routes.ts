@@ -1,4 +1,5 @@
 import {
+  authorizeSubjectForOrg,
   assignWorkItem,
   createComment,
   createWorkItem,
@@ -7,6 +8,7 @@ import {
   listComments,
   listTeamWorkflow,
   listWorkItemActivity,
+  listWorkItemSourceBindings,
   listWorkItems,
   moveWorkItemState,
   projectCommentsForAudience,
@@ -46,6 +48,8 @@ const COMMENT_SCHEMA_ID = 'https://schemas.pielab.ai/resources/comment.v1.schema
 const COMMENT_CREATE_SCHEMA_ID = 'https://schemas.pielab.ai/resources/comment-create.v1.schema.json'
 const ACTIVITY_ENTRY_SCHEMA_ID =
   'https://schemas.pielab.ai/resources/work-item-activity-entry.v1.schema.json'
+const SOURCE_BINDING_SCHEMA_ID =
+  'https://schemas.pielab.ai/resources/work-item-source-binding.v1.schema.json'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type WorkItemRoutesDeps = { db: PieDatabase; registry: ContractSchemaRegistry }
@@ -311,6 +315,61 @@ export function registerWorkItemRoutes(app: FastifyInstance, deps: WorkItemRoute
     void reply.header('etag', workItemEtag(result.workItem.version))
     return result.workItem
   })
+
+  app.get(
+    '/v1/organizations/:organizationId/work-items/:workItemId/source-bindings',
+    async (request, reply) => {
+      const principal = await app.requireAuthenticatedSubject(request, reply)
+      if (!principal) return reply
+      const { organizationId, workItemId } = request.params as {
+        organizationId: string
+        workItemId: string
+      }
+      if (!UUID_PATTERN.test(organizationId) || !UUID_PATTERN.test(workItemId)) {
+        return problem(reply, request, 400, 'BAD_REQUEST', 'invalid id')
+      }
+      const workItemAccess = await authorizeResourcePermission(
+        deps.db,
+        request,
+        reply,
+        principal,
+        organizationId,
+        { resourceType: 'work_item', resourceId: workItemId },
+        'work_item.read'
+      )
+      if (!workItemAccess) return reply
+      if (!(await getWorkItem(deps.db, organizationId, workItemId))) {
+        return problem(reply, request, 404, 'NOT_FOUND', 'work item not found')
+      }
+      const [chatAccess, meetingAccess] = await Promise.all([
+        authorizeSubjectForOrg(
+          deps.db,
+          { issuer: principal.issuer, subject: principal.subject },
+          organizationId,
+          'message.read'
+        ),
+        authorizeSubjectForOrg(
+          deps.db,
+          { issuer: principal.issuer, subject: principal.subject },
+          organizationId,
+          'meeting.read'
+        )
+      ])
+      // Why: source links are an audience projection. A WorkItem grant alone
+      // must not reveal a private channel or meeting the caller cannot read.
+      const items = await listWorkItemSourceBindings(deps.db, {
+        organizationId,
+        workItemId,
+        userId: workItemAccess.userId,
+        includeChat: chatAccess.decision.allowed,
+        includeMeetings: meetingAccess.decision.allowed
+      })
+      for (const item of items) {
+        assertResponse(deps.registry, SOURCE_BINDING_SCHEMA_ID, item)
+      }
+      return { items, nextCursor: null }
+    }
+  )
 
   // AIP-style custom methods (`:move-state`, `:assign`). find-my-way cannot parse a
   // param immediately followed by a literal ':' suffix, so the whole

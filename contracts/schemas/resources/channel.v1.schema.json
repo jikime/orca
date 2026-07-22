@@ -10,7 +10,11 @@
     "name",
     "scopeType",
     "visibility",
+    "topic",
+    "description",
+    "retentionDays",
     "version",
+    "archivedAt",
     "createdAt",
     "updatedAt"
   ],
@@ -19,7 +23,7 @@
     "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
     "name": { "type": "string", "minLength": 1, "maxLength": 120 },
     "kind": { "enum": ["channel", "dm"] },
-    "scopeType": { "enum": ["organization", "team", "project", "customer", "ticket"] },
+    "scopeType": { "enum": ["organization", "team", "project", "customer", "ticket", "meeting"] },
     "scopeId": {
       "oneOf": [
         { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
@@ -27,6 +31,12 @@
       ]
     },
     "visibility": { "enum": ["internal", "project", "customer"] },
+    "topic": { "type": "string", "maxLength": 250 },
+    "description": { "type": "string", "maxLength": 2000 },
+    "retentionDays": {
+      "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 3650 }, { "type": "null" }],
+      "description": "Channel message retention in days; null keeps messages indefinitely."
+    },
     "memberUserIds": {
       "type": "array",
       "items": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
@@ -37,7 +47,20 @@
       "minimum": 0,
       "description": "Unread messages for the requesting user (after their read cursor, excluding their own). Present only on the per-member channel list."
     },
+    "lastReadMessageId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ],
+      "description": "The requesting member's read cursor. Present only on the per-member channel list."
+    },
     "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "archivedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
     "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
     "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
   },

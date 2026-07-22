@@ -11,6 +11,7 @@ export function buildPieCustomerDomains(): readonly PieDomainConfig[] {
       listPath: '/crm/accounts',
       itemPath: (id) => `/crm/accounts/${id}`,
       etagPrefix: 'crm-account',
+      contextChannelScope: 'customer',
       columns: [
         { key: 'name', label: translate('auto.pie.customer.domains.name', 'Name') },
         {

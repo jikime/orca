@@ -3,6 +3,7 @@ import { isTuiAgent } from '../../../../shared/tui-agent-config'
 import type { TuiAgent } from '../../../../shared/types'
 import { workspaceSourceSchema } from '../../../../shared/telemetry-events'
 import { sleepingAgentLaunchConfigSchema } from '../../../../shared/workspace-session-sleeping-agents'
+import { PieWorkspaceContextSchema } from '../../../../shared/pie-workspace-context'
 import {
   OptionalBoolean,
   OptionalFiniteNumber,
@@ -74,6 +75,7 @@ export const WorktreeCreate = z
     linkedLinearIssue: z.string().optional(),
     linkedLinearIssueWorkspaceId: z.union([z.string(), z.null()]).optional(),
     linkedLinearIssueOrganizationUrlKey: z.union([z.string(), z.null()]).optional(),
+    pieWorkspaceContext: PieWorkspaceContextSchema.optional(),
     linkedGitLabMR: TriStateLinkedIssue,
     linkedGitLabIssue: TriStateLinkedIssue,
     linkedBitbucketPR: TriStateLinkedIssue,
@@ -184,6 +186,7 @@ export const WorktreeSet = WorktreeSelector.extend({
   linkedLinearIssue: z.union([z.string(), z.null()]).optional(),
   linkedLinearIssueWorkspaceId: z.union([z.string(), z.null()]).optional(),
   linkedLinearIssueOrganizationUrlKey: z.union([z.string(), z.null()]).optional(),
+  pieWorkspaceContext: PieWorkspaceContextSchema.optional(),
   linkedGitLabMR: TriStateLinkedIssue,
   linkedGitLabIssue: TriStateLinkedIssue,
   linkedBitbucketPR: TriStateLinkedIssue,

@@ -11,7 +11,7 @@
       "minLength": 1
     },
     "scopeKind": {
-      "enum": ["project", "ticket", "none"]
+      "enum": ["project", "ticket", "remote_session", "none"]
     },
     "scopeId": {
       "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
@@ -24,6 +24,14 @@
     },
     "scheduledEnd": {
       "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "recurrence": {
+      "enum": ["none", "daily", "weekly", "monthly"]
     }
   }
 }

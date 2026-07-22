@@ -87,6 +87,7 @@ export function registerIdentityRoutes(app: FastifyInstance, deps: IdentityRoute
       return reply
     }
     const { organizationId } = request.params as { organizationId: string }
+    const { query, limit } = request.query as { query?: string; limit?: string }
     if (!UUID_PATTERN.test(organizationId)) {
       problem(reply, request, 400, 'BAD_REQUEST', 'invalid organizationId')
       return reply
@@ -94,7 +95,11 @@ export function registerIdentityRoutes(app: FastifyInstance, deps: IdentityRoute
     const result = await listMembershipsForMember(
       deps.db,
       { issuer: principal.issuer, subject: principal.subject, expiresAt: principal.expiresAt },
-      organizationId
+      organizationId,
+      {
+        ...(query ? { query } : {}),
+        ...(limit && Number.isFinite(Number(limit)) ? { limit: Number(limit) } : {})
+      }
     )
     if (!result.ok) {
       // Not a member: 403 without confirming the org's membership topology.

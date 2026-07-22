@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-media-diagnostics.v1.schema.json",
+  "title": "Meeting media diagnostics",
+  "description": "A non-mutating control-plane and LiveKit endpoint reachability check.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "controlPlane", "media", "latencyMs", "checkedAt"],
+  "properties": {
+    "status": { "enum": ["ready", "degraded", "unavailable"] },
+    "controlPlane": { "const": "ready" },
+    "media": { "enum": ["ready", "degraded", "unavailable"] },
+    "latencyMs": { "type": ["number", "null"], "minimum": 0 },
+    "checkedAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

@@ -6,8 +6,13 @@ export type MeetingTranscription = {
 
 export type MeetingMinutesDraft = {
   summary: string
-  decisions: string[]
-  actionItems: Array<{ task: string; owner: string | null; due: string | null }>
+  decisions: Array<{ statement: string; evidenceQuote: string | null }>
+  actionItems: Array<{
+    task: string
+    owner: string | null
+    due: string | null
+    evidenceQuote: string | null
+  }>
 }
 
 export type MeetingAiClient = {
@@ -88,7 +93,7 @@ export function createMeetingAiClient(input: {
               {
                 role: 'system',
                 content:
-                  'Create factual meeting minutes from only the transcript. Preserve the transcript language. Never invent decisions, owners, or due dates; use null when absent.'
+                  'Create factual meeting minutes from only the transcript. Preserve the transcript language. Never invent decisions, owners, or due dates; use null when absent. For each decision and action item, include a short exact evidenceQuote copied from the transcript or null when no exact quote supports it.'
               },
               { role: 'user', content: transcript }
             ],
@@ -103,17 +108,29 @@ export function createMeetingAiClient(input: {
                   required: ['summary', 'decisions', 'actionItems'],
                   properties: {
                     summary: { type: 'string' },
-                    decisions: { type: 'array', items: { type: 'string' } },
+                    decisions: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['statement', 'evidenceQuote'],
+                        properties: {
+                          statement: { type: 'string' },
+                          evidenceQuote: { type: ['string', 'null'] }
+                        }
+                      }
+                    },
                     actionItems: {
                       type: 'array',
                       items: {
                         type: 'object',
                         additionalProperties: false,
-                        required: ['task', 'owner', 'due'],
+                        required: ['task', 'owner', 'due', 'evidenceQuote'],
                         properties: {
                           task: { type: 'string' },
                           owner: { type: ['string', 'null'] },
-                          due: { type: ['string', 'null'] }
+                          due: { type: ['string', 'null'] },
+                          evidenceQuote: { type: ['string', 'null'] }
                         }
                       }
                     }
@@ -134,7 +151,7 @@ export function createMeetingAiClient(input: {
 export function renderMeetingMinutes(draft: MeetingMinutesDraft): string {
   const decisions =
     draft.decisions.length > 0
-      ? draft.decisions.map((decision) => `- ${decision}`).join('\n')
+      ? draft.decisions.map((decision) => `- ${decision.statement}`).join('\n')
       : '- 기록된 결정 사항 없음'
   const actions =
     draft.actionItems.length > 0

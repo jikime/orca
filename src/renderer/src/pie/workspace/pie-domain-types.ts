@@ -10,6 +10,8 @@ export type PieFieldSpec = {
   type?: PieFieldType
   options?: readonly string[]
   required?: boolean
+  defaultValue?: string
+  maxLength?: number
 }
 
 export type PieColumnSpec = {
@@ -48,6 +50,17 @@ export type PieDomainConfig = {
   columns: readonly PieColumnSpec[]
   createPath?: string
   createFields?: readonly PieFieldSpec[]
+  // Mutable resources reuse their create fields unless editFields narrows or
+  // expands the update contract.
+  editable?: boolean
+  editFields?: readonly PieFieldSpec[]
   detailFields?: readonly PieFieldSpec[]
   actions?: readonly PieActionSpec[]
+  // A selected resource can open its one canonical conversation channel.
+  contextChannelScope?: 'project' | 'customer' | 'ticket'
+  // Meeting context keeps scheduling and recap navigation anchored to the resource screen.
+  contextMeetingScope?: {
+    kind: 'project' | 'ticket' | 'remote_session'
+    titleKey: string
+  }
 }

@@ -12,7 +12,11 @@ export type PostgresHarness = {
  * Docker daemon is unavailable — callers skip gracefully with an explicit reason.
  */
 export async function startPostgresHarness(): Promise<PostgresHarness> {
-  const container: StartedPostgreSqlContainer = await new PostgreSqlContainer('postgres:16').start()
+  // Integration databases are disposable; tmpfs prevents Docker's declared
+  // PGDATA volume from leaking one anonymous volume per test process.
+  const container: StartedPostgreSqlContainer = await new PostgreSqlContainer('postgres:16')
+    .withTmpFs({ '/var/lib/postgresql/data': 'rw,size=512m' })
+    .start()
   return {
     connectionString: container.getConnectionUri(),
     stop: async () => {

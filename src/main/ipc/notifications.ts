@@ -28,6 +28,11 @@ import { readNotificationAuthorizationStatus } from './notification-authorizatio
 import { parsePaneKey } from '../../shared/stable-pane-id'
 import { setTrayAttention } from '../tray/system-tray'
 import { isMainWindowVisible } from '../window/main-window-visibility'
+import {
+  PIE_CHAT_NOTIFICATION_CLICKED_CHANNEL,
+  PieChatNotificationClickedSchema
+} from '../../shared/pie-chat-contract'
+import { PIE_MEETING_NOTIFICATION_CLICKED_CHANNEL } from '../../shared/pie-meeting-notification'
 
 const NOTIFICATION_COOLDOWN_MS = 5000
 const MAX_RECENT_NOTIFICATION_KEYS = 50
@@ -461,8 +466,8 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
 
       // Why: desktop focus only means this computer has the worktree visible;
       // the paired phone may be locked or elsewhere and still needs the alert.
-      if (runtime && args.source !== 'test') {
-        const dedupeKey = args.worktreeId ?? args.worktreeLabel ?? 'global'
+      if (runtime && (args.source === 'agent-task-complete' || args.source === 'terminal-bell')) {
+        const dedupeKey = args.meetingId ?? args.worktreeId ?? args.worktreeLabel ?? 'global'
         if (reserveNotificationCooldown(recentMobileNotifications, dedupeKey, Date.now())) {
           runtime.dispatchMobileNotification({
             type: 'notification',
@@ -491,7 +496,7 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
       if (args.source !== 'test') {
         // Dedupe by worktree, not by source — an agent finishing and a terminal bell
         // often fire within the same data chunk so only the first one should surface.
-        const dedupeKey = args.worktreeId ?? args.worktreeLabel ?? 'global'
+        const dedupeKey = args.meetingId ?? args.worktreeId ?? args.worktreeLabel ?? 'global'
         if (!reserveNotificationCooldown(recentDesktopNotifications, dedupeKey, Date.now())) {
           return { delivered: false, reason: 'cooldown' }
         }
@@ -566,7 +571,49 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
         // separator is missing we cannot reliably extract a repoId, so skip
         // the click-to-navigate binding — the notification still fires but
         // clicking it will not attempt to switch to an unknown worktree.
-        if (args.worktreeId && args.worktreeId.includes('::')) {
+        if (args.source === 'pie-meeting' && args.meetingId) {
+          clickHandler = () => {
+            release()
+            const win = BrowserWindow.getAllWindows().find((candidate) => !candidate.isDestroyed())
+            if (!win) {
+              return
+            }
+            if (process.platform === 'darwin') {
+              app.focus({ steal: true })
+            }
+            if (win.isMinimized()) {
+              win.restore()
+            }
+            win.focus()
+            win.webContents.send(PIE_MEETING_NOTIFICATION_CLICKED_CHANNEL, {
+              meetingId: args.meetingId
+            })
+          }
+          notification.on('click', clickHandler)
+        } else if (args.source === 'pie-chat' && args.chatChannelId && args.chatMessageId) {
+          clickHandler = () => {
+            release()
+            const win = BrowserWindow.getAllWindows().find((candidate) => !candidate.isDestroyed())
+            if (!win) {
+              return
+            }
+            if (process.platform === 'darwin') {
+              app.focus({ steal: true })
+            }
+            if (win.isMinimized()) {
+              win.restore()
+            }
+            win.focus()
+            win.webContents.send(
+              PIE_CHAT_NOTIFICATION_CLICKED_CHANNEL,
+              PieChatNotificationClickedSchema.parse({
+                channelId: args.chatChannelId,
+                messageId: args.chatMessageId
+              })
+            )
+          }
+          notification.on('click', clickHandler)
+        } else if (args.worktreeId && args.worktreeId.includes('::')) {
           const repoId = getRepoIdFromWorktreeId(args.worktreeId)
           clickHandler = () => {
             release()

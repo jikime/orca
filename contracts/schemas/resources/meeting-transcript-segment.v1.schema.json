@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-transcript-segment.v1.schema.json",
+  "title": "Meeting transcript segment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "organizationId",
+    "meetingId",
+    "transcriptId",
+    "sequence",
+    "speakerParticipantId",
+    "speakerLabel",
+    "startMs",
+    "endMs",
+    "text",
+    "language",
+    "confidence",
+    "source",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "meetingId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "transcriptId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "speakerParticipantId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "speakerLabel": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "startMs": { "type": "integer", "minimum": 0 },
+    "endMs": { "type": "integer", "minimum": 0 },
+    "text": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "language": { "type": ["string", "null"], "maxLength": 50 },
+    "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "source": { "enum": ["live_caption", "post_recording", "corrected"] },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

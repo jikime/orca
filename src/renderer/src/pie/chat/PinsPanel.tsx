@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { PieChatRendererApi, PiePinnedMessage } from '../../../../shared/pie-chat-contract'
+import type {
+  PieChatRendererApi,
+  PieChatMember,
+  PieMessage,
+  PiePinnedMessage
+} from '../../../../shared/pie-chat-contract'
 import { translate } from '@/i18n/i18n'
+import { chatMemberDisplayName } from './chat-member-display-name'
 
 type PinsPanelProps = {
   channelId: string
   api: PieChatRendererApi
-  onJumpToMessage: (messageId: string) => void
+  members: PieChatMember[]
+  onJumpToMessage: (message: PieMessage) => void
 }
 
-export function PinsPanel({ channelId, api, onJumpToMessage }: PinsPanelProps): React.JSX.Element {
+export function PinsPanel({
+  channelId,
+  api,
+  members,
+  onJumpToMessage
+}: PinsPanelProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [pins, setPins] = useState<PiePinnedMessage[]>([])
   const [loading, setLoading] = useState(false)
@@ -62,13 +74,13 @@ export function PinsPanel({ channelId, api, onJumpToMessage }: PinsPanelProps): 
                   key={pin.message.id}
                   type="button"
                   onClick={() => {
-                    onJumpToMessage(pin.message.id)
+                    onJumpToMessage(pin.message)
                     setOpen(false)
                   }}
                   className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-accent"
                 >
                   <div className="text-xs text-muted-foreground">
-                    {pin.message.authorId.slice(0, 8)}
+                    {chatMemberDisplayName(pin.message.authorId, members)}
                   </div>
                   <div className="truncate text-sm text-foreground">{pin.message.body}</div>
                 </button>

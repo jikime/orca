@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/channel-update.v1.schema.json",
+  "title": "Channel update",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "topic": { "type": "string", "maxLength": 250 },
+    "description": { "type": "string", "maxLength": 2000 },
+    "retentionDays": {
+      "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 3650 }, { "type": "null" }]
+    },
+    "archived": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

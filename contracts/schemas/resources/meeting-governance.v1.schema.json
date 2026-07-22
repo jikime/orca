@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-governance.v1.schema.json",
+  "title": "Meeting governance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "meetingId",
+    "organizationId",
+    "policyVersion",
+    "purpose",
+    "retentionDays",
+    "retentionUntil",
+    "legalHold",
+    "captureStatus",
+    "activeCaptureTypes",
+    "deletionStatus",
+    "deletionRequestedAt",
+    "deletionRequestedBy",
+    "deletionReason",
+    "deletionCompletedAt",
+    "deletionAttempts",
+    "deletionLastError",
+    "version",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "meetingId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "organizationId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "policyVersion": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "purpose": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "retentionDays": {
+      "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 3650 }, { "type": "null" }]
+    },
+    "retentionUntil": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "legalHold": { "type": "boolean" },
+    "captureStatus": { "enum": ["idle", "active", "paused", "stopped"] },
+    "activeCaptureTypes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["recording", "transcription", "ai_notes", "presentation_screenshot"]
+      }
+    },
+    "deletionStatus": { "enum": ["active", "queued", "processing", "completed", "failed"] },
+    "deletionRequestedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "deletionRequestedBy": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "deletionReason": { "type": ["string", "null"], "maxLength": 2000 },
+    "deletionCompletedAt": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "deletionAttempts": { "type": "integer", "minimum": 0 },
+    "deletionLastError": { "type": ["string", "null"], "maxLength": 2000 },
+    "version": { "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" },
+    "updatedAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

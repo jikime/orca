@@ -34,7 +34,7 @@ export function MentionAutocomplete({
   }
   return (
     <ul
-      className="mb-1 max-h-40 overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+      className="mb-1 max-h-40 overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md scrollbar-sleek"
       role="listbox"
       aria-label={translate('auto.pie.chat.MentionAutocomplete.dfa38ec247', 'Mention suggestions')}
     >

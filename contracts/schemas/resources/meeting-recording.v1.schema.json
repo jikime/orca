@@ -15,6 +15,7 @@
     "startedAt",
     "stoppedAt",
     "errorCode",
+    "captureTypes",
     "version",
     "createdAt",
     "updatedAt"
@@ -52,6 +53,12 @@
     },
     "errorCode": {
       "type": ["string", "null"]
+    },
+    "captureTypes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["recording", "transcription", "ai_notes"] }
     },
     "version": {
       "$ref": "https://schemas.pielab.ai/common/resource-version.v1.schema.json"

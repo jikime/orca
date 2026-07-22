@@ -35,6 +35,7 @@ export function mergeWorktree(
     linkedLinearIssue: meta?.linkedLinearIssue ?? null,
     linkedLinearIssueWorkspaceId: meta?.linkedLinearIssueWorkspaceId ?? null,
     linkedLinearIssueOrganizationUrlKey: meta?.linkedLinearIssueOrganizationUrlKey ?? null,
+    ...(meta?.pieWorkspaceContext ? { pieWorkspaceContext: meta.pieWorkspaceContext } : {}),
     ...getLinkedWorkItemMetadata(meta),
     isArchived: meta?.isArchived ?? false,
     isUnread: meta?.isUnread ?? false,

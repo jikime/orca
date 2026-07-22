@@ -94,8 +94,14 @@ class MultiParticipantTranscriber:
         return session
 
     async def close_session(self, session: AgentSession) -> None:
-        await session.drain()
-        await session.aclose()
+        try:
+            await session.drain()
+        except RuntimeError as error:
+            # LiveKit may stop a room-bound session before the job shutdown callback runs.
+            if str(error) != "AgentSession isn't running":
+                raise
+        finally:
+            await session.aclose()
 
 
 # A local meeting stack needs one warm worker; the production default of twelve

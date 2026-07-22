@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/work-item-source-binding.v1.schema.json",
+  "title": "Work item source binding",
+  "description": "A provider-neutral, read-only link from a WorkItem to the collaboration or meeting source that created it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "sourceId", "containerId", "containerLabel", "createdAt"],
+  "properties": {
+    "kind": {
+      "enum": ["chat_message", "meeting_action_item"]
+    },
+    "sourceId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "containerId": {
+      "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
+    },
+    "containerLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "createdAt": {
+      "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json"
+    }
+  }
+}

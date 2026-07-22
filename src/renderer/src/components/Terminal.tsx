@@ -94,6 +94,7 @@ import { isMainTerminalSideEffectAuthorityForPty } from './terminal-pane/termina
 import { appendUniqueOpenFileIds } from './terminal/unsaved-close-queue'
 import { setWindowCloseRequestHandler } from './window-close-request-coordinator'
 import CodexRestartChip from './CodexRestartChip'
+import { PieWorkspaceContextBar } from '@/pie/workspace/PieWorkspaceContextBar'
 import {
   findActivityTerminalPortal,
   useActivityTerminalPortals,
@@ -2171,6 +2172,7 @@ function Terminal(): React.JSX.Element | null {
       data-rendered-active-worktree-id={renderedActiveWorktreeId ?? undefined}
     >
       <EditorAutosaveController />
+      <PieWorkspaceContextBar worktreeId={renderedActiveWorktreeId} />
 
       {/* Why: once split groups are enabled, each group owns its own tab strip
           inline. The old titlebar portal stays only as a fallback

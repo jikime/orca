@@ -234,19 +234,24 @@ export async function createWorkItem(
   return withTenantTransaction(db, input.organizationId, (trx) => createWorkItemTx(trx, input))
 }
 
+export async function getWorkItemTx(
+  trx: Transaction<Database>,
+  workItemId: string
+): Promise<WorkItemResource | null> {
+  const row = await trx
+    .selectFrom('delivery.work_items')
+    .selectAll()
+    .where('id', '=', workItemId)
+    .executeTakeFirst()
+  return row ? mapWorkItem(row) : null
+}
+
 export async function getWorkItem(
   db: Kysely<Database>,
   organizationId: string,
   workItemId: string
 ): Promise<WorkItemResource | null> {
-  return withTenantTransaction(db, organizationId, async (trx) => {
-    const row = await trx
-      .selectFrom('delivery.work_items')
-      .selectAll()
-      .where('id', '=', workItemId)
-      .executeTakeFirst()
-    return row ? mapWorkItem(row) : null
-  })
+  return withTenantTransaction(db, organizationId, (trx) => getWorkItemTx(trx, workItemId))
 }
 
 export async function listWorkItems(

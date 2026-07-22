@@ -8,29 +8,46 @@ import { MessageTimeline } from './MessageTimeline'
 import { ThreadPanel } from './ThreadPanel'
 import { ChatHeader } from './ChatHeader'
 import { PinnedBanner } from './PinnedBanner'
-import { ContextSidebar } from './ContextSidebar'
 import { TypingIndicator } from './TypingIndicator'
 import { usePieChat } from './use-pie-chat'
 import type { TimelineMessage } from './use-pie-chat'
 import { translate } from '@/i18n/i18n'
+import { subscribePieChatNavigation, takePieChatNavigation } from './pie-chat-navigation'
+import { MessageWorkItemDialog } from './MessageWorkItemDialog'
+import { MessageAgendaDialog } from './MessageAgendaDialog'
 
 type ChatWorkspaceProps = {
   currentUserId: string
+  permissions: string[]
 }
 
-// 3-column layout: left nav | center stream | right context. Fixed side
-// widths (~232px / ~264px), center stream fills the remaining space.
-const GRID_COLUMNS = 'grid-cols-[232px_minmax(0,1fr)_264px]'
+const CHAT_COLUMNS = 'relative grid-cols-[minmax(10rem,13rem)_minmax(0,1fr)]'
+// A viewport breakpoint cannot tell how narrow this nested workspace is; reserve
+// the third column only while its thread panel is actually visible.
+const CHAT_COLUMNS_WITH_THREAD = 'xl:grid-cols-[232px_minmax(0,1fr)_264px]'
+const CHAT_COLUMNS_WITHOUT_THREAD = 'xl:grid-cols-[232px_minmax(0,1fr)]'
 
-function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element {
+function ChatWorkspace({ currentUserId, permissions }: ChatWorkspaceProps): React.JSX.Element {
   const chat = usePieChat(currentUserId)
   const [threadRoot, setThreadRoot] = useState<PieMessage | null>(null)
+  const [focusedMessageId, setFocusedMessageId] = useState<string | null>(null)
+  const [workItemSource, setWorkItemSource] = useState<TimelineMessage | null>(null)
+  const [agendaSource, setAgendaSource] = useState<TimelineMessage | null>(null)
   const activeChannel = chat.channels.find((channel) => channel.id === chat.selectedChannelId)
+  const meetingId = activeChannel?.scopeType === 'meeting' ? (activeChannel.scopeId ?? null) : null
 
   // Close the thread when the channel changes so it never shows a stale root.
   useEffect(() => {
     setThreadRoot(null)
   }, [chat.selectedChannelId])
+
+  const selectChannel = useCallback(
+    (channelId: string): void => {
+      setFocusedMessageId(null)
+      chat.selectChannel(channelId)
+    },
+    [chat]
+  )
 
   const togglePin = useCallback(
     async (message: TimelineMessage): Promise<void> => {
@@ -40,7 +57,7 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
       await (message.pinned
         ? chat.api.unpinMessage(chat.selectedChannelId, message.id)
         : chat.api.pinMessage(chat.selectedChannelId, message.id))
-      chat.refresh()
+      await chat.refresh()
     },
     [chat]
   )
@@ -49,37 +66,94 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
     (channel: PieChannel) => {
       chat.selectChannelObject(channel)
       setThreadRoot(null)
+      setFocusedMessageId(null)
     },
     [chat]
   )
 
   const onSearchSelect = useCallback(
     (message: PieMessage) => {
-      // Focus the message's channel; the timeline refetch brings it into view.
-      if (message.channelId !== chat.selectedChannelId) {
-        chat.selectChannel(message.channelId)
-      } else {
-        chat.refresh()
-      }
+      chat.focusMessage(message)
+      setFocusedMessageId(message.id)
       setThreadRoot(null)
     },
     [chat]
   )
 
-  const onSelectNotification = useCallback(
-    (notification: PieNotification) => {
-      void chat.markNotificationRead(notification.id)
-      // Jump to the mention's channel when it is one the user can open.
-      if (notification.channelId && notification.channelId !== chat.selectedChannelId) {
-        chat.selectChannel(notification.channelId)
+  const focusExactMessage = useCallback(
+    async (channelId: string, messageId: string): Promise<void> => {
+      try {
+        // Notification targets may be outside the latest loaded page. Fetch the
+        // canonical message before focusing so the jump never lands on blank space.
+        const message = await chat.api.getMessage(channelId, messageId)
+        chat.focusMessage(message)
         setThreadRoot(null)
+        setFocusedMessageId(message.id)
+      } catch {
+        chat.selectChannel(channelId)
+        setFocusedMessageId(messageId)
       }
     },
     [chat]
   )
 
+  const onSelectNotification = useCallback(
+    (notification: PieNotification): void => {
+      void chat.markNotificationRead(notification.id)
+      if (notification.channelId && notification.messageId) {
+        void focusExactMessage(notification.channelId, notification.messageId)
+      }
+    },
+    [chat, focusExactMessage]
+  )
+
+  useEffect(() => {
+    const openPending = (): void => {
+      const target = takePieChatNavigation()
+      if (target) {
+        if (target.messageId) {
+          void focusExactMessage(target.channelId, target.messageId)
+        } else if (target.channel) {
+          jumpToChannel(target.channel)
+        } else {
+          selectChannel(target.channelId)
+        }
+      }
+    }
+    openPending()
+    return subscribePieChatNavigation(openPending)
+  }, [focusExactMessage, jumpToChannel, selectChannel])
+
+  const editMessage = useCallback(
+    async (message: TimelineMessage, body: string): Promise<void> => {
+      if (!chat.selectedChannelId) {
+        return
+      }
+      await chat.api.editMessage(chat.selectedChannelId, message.id, body, message.version)
+      await chat.refresh()
+    },
+    [chat]
+  )
+
+  const deleteMessage = useCallback(
+    async (message: TimelineMessage, reason?: string): Promise<void> => {
+      if (!chat.selectedChannelId) {
+        return
+      }
+      await chat.api.deleteMessage(chat.selectedChannelId, message.id, reason)
+      await chat.refresh()
+    },
+    [chat]
+  )
+
   return (
-    <div className={`grid h-full w-full ${GRID_COLUMNS} bg-background text-foreground`}>
+    <div
+      className={`grid h-full w-full ${CHAT_COLUMNS} ${
+        threadRoot && chat.selectedChannelId
+          ? CHAT_COLUMNS_WITH_THREAD
+          : CHAT_COLUMNS_WITHOUT_THREAD
+      } bg-background text-foreground`}
+    >
       <ChannelSidebar
         channels={chat.channels}
         members={chat.members}
@@ -87,15 +161,25 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
         loading={chat.loadingChannels}
         currentUserId={currentUserId}
         api={chat.api}
-        onSelect={chat.selectChannel}
+        onSelect={selectChannel}
         onChannelCreated={jumpToChannel}
       />
-      <div className="flex min-w-0 min-h-0 flex-col">
+      <main className="flex min-h-0 min-w-0 flex-col">
         <ChatHeader
           channel={activeChannel}
           members={chat.members}
           api={chat.api}
           onSearchSelect={onSearchSelect}
+          onPinnedSelect={onSearchSelect}
+          currentUserId={currentUserId}
+          canManageChannel={permissions.includes('channel.manage')}
+          onChannelUpdated={chat.replaceChannel}
+          channels={chat.channels}
+          onlineUserIds={chat.onlineUserIds}
+          notifications={chat.notifications}
+          unreadNotificationCount={chat.unreadNotificationCount}
+          onSelectNotification={onSelectNotification}
+          onMarkAllNotificationsRead={chat.markAllNotificationsRead}
         />
         {chat.error && (
           <div className="border-b border-border bg-muted px-4 py-2 text-xs text-destructive">
@@ -104,55 +188,119 @@ function ChatWorkspace({ currentUserId }: ChatWorkspaceProps): React.JSX.Element
         )}
         {chat.selectedChannelId ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <PinnedBanner channelId={chat.selectedChannelId} api={chat.api} />
+            <PinnedBanner
+              channelId={chat.selectedChannelId}
+              api={chat.api}
+              members={chat.members}
+              refreshKey={chat.messages
+                .filter((message) => message.pinned)
+                .map((message) => message.id)
+                .join(':')}
+            />
             <MessageTimeline
               messages={chat.messages}
               currentUserId={currentUserId}
+              members={chat.members}
               loading={chat.loadingMessages}
               channelId={chat.selectedChannelId}
+              canModerate={permissions.includes('channel.manage')}
               onToggleReaction={chat.toggleReaction}
               onOpenThread={setThreadRoot}
               onTogglePin={togglePin}
+              onCreateWorkItem={
+                permissions.includes('work_item.create') ? setWorkItemSource : undefined
+              }
+              onAddToAgenda={
+                meetingId && permissions.includes('meeting.manage') ? setAgendaSource : undefined
+              }
+              onEditMessage={editMessage}
+              onDeleteMessage={deleteMessage}
+              onRetryMessage={(optimisticId) => void chat.retryMessage(optimisticId)}
+              onDismissFailedMessage={chat.dismissFailedMessage}
+              loadingOlder={chat.loadingOlderMessages}
+              hasOlder={chat.hasOlderMessages}
+              onLoadOlder={() => void chat.loadOlderMessages()}
+              focusedMessageId={focusedMessageId}
+              unreadBoundaryMessageId={chat.unreadBoundaryMessageId}
+              onReadThrough={(messageId) => {
+                if (chat.selectedChannelId) {
+                  void chat.markReadThrough(chat.selectedChannelId, messageId)
+                }
+              }}
+              readOnly={Boolean(activeChannel?.archivedAt)}
             />
             <TypingIndicator
               typingUserIds={chat.typingUserIdsByChannel.get(chat.selectedChannelId) ?? []}
               members={chat.members}
             />
-            <ChannelComposer
-              channelId={chat.selectedChannelId}
-              members={chat.members}
-              sending={chat.sending}
-              api={chat.api}
-              onSend={chat.sendMessage}
-              notifyTyping={chat.notifyTyping}
-            />
+            {activeChannel?.archivedAt ? (
+              <div className="border-t border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+                {translate(
+                  'auto.pie.chat.ChatScreen.archived',
+                  'This channel is archived. Restore it in channel settings to continue chatting.'
+                )}
+              </div>
+            ) : (
+              <ChannelComposer
+                channelId={chat.selectedChannelId}
+                draftOwnerId={currentUserId}
+                members={chat.members}
+                sending={chat.sending}
+                api={chat.api}
+                onSend={chat.sendMessage}
+                notifyTyping={chat.notifyTyping}
+              />
+            )}
           </div>
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
             {translate('auto.pie.chat.ChatScreen.5a6de3b2da', 'Select a channel to start chatting')}
           </div>
         )}
-      </div>
-      {threadRoot && chat.selectedChannelId ? (
-        <ThreadPanel
-          channelId={chat.selectedChannelId}
-          root={threadRoot}
-          currentUserId={currentUserId}
-          api={chat.api}
-          onClose={() => setThreadRoot(null)}
-          onReplied={chat.refresh}
-        />
-      ) : (
-        <ContextSidebar
-          members={chat.members}
-          onlineUserIds={chat.onlineUserIds}
-          channels={chat.channels}
-          notifications={chat.notifications}
-          unreadNotificationCount={chat.unreadNotificationCount}
-          onSelectNotification={onSelectNotification}
-          onMarkAllNotificationsRead={chat.markAllNotificationsRead}
-        />
+      </main>
+      {threadRoot && chat.selectedChannelId && (
+        <aside className="pie-chat-thread-panel absolute inset-y-0 right-0 z-20 min-w-0 w-80 max-w-full shadow-lg">
+          <ThreadPanel
+            channelId={chat.selectedChannelId}
+            root={threadRoot}
+            currentUserId={currentUserId}
+            members={chat.members}
+            api={chat.api}
+            onClose={() => setThreadRoot(null)}
+            onReplied={chat.refresh}
+            readOnly={Boolean(activeChannel?.archivedAt)}
+            canModerate={permissions.includes('channel.manage')}
+            onCreateWorkItem={
+              permissions.includes('work_item.create') ? setWorkItemSource : undefined
+            }
+            onAddToAgenda={
+              meetingId && permissions.includes('meeting.manage') ? setAgendaSource : undefined
+            }
+          />
+        </aside>
       )}
+      <MessageWorkItemDialog
+        open={workItemSource !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setWorkItemSource(null)
+          }
+        }}
+        channelId={chat.selectedChannelId ?? ''}
+        assigneeId={currentUserId}
+        message={workItemSource}
+      />
+      <MessageAgendaDialog
+        open={agendaSource !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAgendaSource(null)
+          }
+        }}
+        meetingId={meetingId ?? ''}
+        channelId={chat.selectedChannelId ?? ''}
+        message={agendaSource}
+      />
     </div>
   )
 }
@@ -254,5 +402,5 @@ export function ChatScreen({ getSessionState }: ChatScreenProps = {}): React.JSX
     )
   }
 
-  return <ChatWorkspace currentUserId={session.userId} />
+  return <ChatWorkspace currentUserId={session.userId} permissions={session.permissions} />
 }

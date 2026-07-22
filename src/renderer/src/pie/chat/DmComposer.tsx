@@ -110,7 +110,7 @@ export function DmComposer({
               {translate('auto.pie.chat.DmComposer.7ececbf9e0', 'Direct message (')}
               {selected.length} {translate('auto.pie.chat.DmComposer.759a3472a6', 'selected)')}
             </label>
-            <div className="max-h-40 overflow-y-auto rounded-md border border-border">
+            <div className="max-h-40 overflow-y-auto rounded-md border border-border scrollbar-sleek">
               {selectable.length === 0 ? (
                 <p className="px-2 py-2 text-sm text-muted-foreground">
                   {translate('auto.pie.chat.DmComposer.159a31af95', 'No other members')}

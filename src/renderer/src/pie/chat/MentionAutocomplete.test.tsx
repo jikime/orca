@@ -65,6 +65,7 @@ describe('MentionAutocomplete', () => {
     mount(
       <ChannelComposer
         channelId={CHANNEL}
+        draftOwnerId="u-1"
         members={members}
         sending={false}
         api={makeChatApi()}
@@ -91,6 +92,6 @@ describe('MentionAutocomplete', () => {
     act(() => {
       sendButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
-    expect(onSend).toHaveBeenCalledWith('hey @alice', { mentions: [ALICE] })
+    expect(onSend).toHaveBeenCalledWith('hey @alice', { mentions: [ALICE] }, expect.any(String))
   })
 })

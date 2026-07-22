@@ -29,6 +29,7 @@ vi.mock('@/components/ui/popover', () => ({
 
 import { PinsPanel } from './PinsPanel'
 import { CHANNEL, flush, makeChatApi, message, pinnedMessage } from './chat-test-fixtures'
+import type { PieMessage } from '../../../../shared/pie-chat-contract'
 
 let root: Root | null = null
 let container: HTMLDivElement | null = null
@@ -49,13 +50,13 @@ beforeEach(() => {
 
 function renderPins(
   api: ReturnType<typeof makeChatApi>,
-  onJump: (messageId: string) => void
+  onJump: (message: PieMessage) => void
 ): void {
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
   act(() => {
-    root?.render(<PinsPanel channelId={CHANNEL} api={api} onJumpToMessage={onJump} />)
+    root?.render(<PinsPanel channelId={CHANNEL} api={api} members={[]} onJumpToMessage={onJump} />)
   })
 }
 
@@ -94,6 +95,6 @@ describe('PinsPanel', () => {
     act(() => {
       pinButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
-    expect(onJump).toHaveBeenCalledWith(pinned.message.id)
+    expect(onJump).toHaveBeenCalledWith(pinned.message)
   })
 })

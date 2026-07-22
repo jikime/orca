@@ -37,7 +37,7 @@ export function buildPieCommunicationDomains(): readonly PieDomainConfig[] {
           key: 'scopeKind',
           label: translate('auto.pie.workspace.pie.ops.domains.6d6f8659b8', 'Scope'),
           type: 'select',
-          options: ['none', 'project', 'ticket']
+          options: ['none', 'project', 'ticket', 'remote_session']
         },
         {
           key: 'scopeId',

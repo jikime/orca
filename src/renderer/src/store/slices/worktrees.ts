@@ -663,6 +663,7 @@ function getFolderWorkspaceMetaUpdates(
     FolderWorkspace,
     | 'name'
     | 'comment'
+    | 'pieWorkspaceContext'
     | 'isArchived'
     | 'isUnread'
     | 'isPinned'
@@ -680,6 +681,7 @@ function getFolderWorkspaceMetaUpdates(
       FolderWorkspace,
       | 'name'
       | 'comment'
+      | 'pieWorkspaceContext'
       | 'isArchived'
       | 'isUnread'
       | 'isPinned'
@@ -700,6 +702,9 @@ function getFolderWorkspaceMetaUpdates(
   if (updates.comment !== undefined) {
     next.comment = updates.comment
     next.lastActivityAt = Date.now()
+  }
+  if (updates.pieWorkspaceContext !== undefined) {
+    next.pieWorkspaceContext = updates.pieWorkspaceContext
   }
   if (updates.isArchived !== undefined) {
     next.isArchived = updates.isArchived
@@ -2960,6 +2965,7 @@ export const createWorktreeSlice: StateCreator<AppState, [], [], WorktreeSlice> 
     options
   ) => {
     const automationProvenanceRequest = options?.automationProvenanceRequest
+    const pieWorkspaceContext = options?.pieWorkspaceContext
     try {
       for (let attempt = 0; attempt < CLIENT_WORKTREE_CREATE_MAX_ATTEMPTS; attempt += 1) {
         const candidateName = getClientWorktreeCreateCandidate(name, attempt)
@@ -3011,7 +3017,8 @@ export const createWorktreeSlice: StateCreator<AppState, [], [], WorktreeSlice> 
             ...(linkedGiteaPR !== undefined ? { linkedGiteaPR } : {}),
             ...(startup ? { startup } : {}),
             ...(creationId ? { creationId } : {}),
-            ...(automationProvenanceRequest ? { automationProvenanceRequest } : {})
+            ...(automationProvenanceRequest ? { automationProvenanceRequest } : {}),
+            ...(pieWorkspaceContext ? { pieWorkspaceContext } : {})
           }
           const target = getActiveRuntimeTarget(settingsForRepoOwner(get(), repoId))
           const result =
@@ -3055,6 +3062,7 @@ export const createWorktreeSlice: StateCreator<AppState, [], [], WorktreeSlice> 
                     ...(linkedAzureDevOpsPR !== undefined ? { linkedAzureDevOpsPR } : {}),
                     ...(linkedGiteaPR !== undefined ? { linkedGiteaPR } : {}),
                     ...(automationProvenanceRequest ? { automationProvenanceRequest } : {}),
+                    ...(pieWorkspaceContext ? { pieWorkspaceContext } : {}),
                     ...(startup
                       ? {
                           startupCommand: startup.command,

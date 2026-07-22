@@ -23,6 +23,11 @@
     "userId": {
       "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json"
     },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
     "status": {
       "enum": ["invited", "active", "suspended", "revoked"]
     },

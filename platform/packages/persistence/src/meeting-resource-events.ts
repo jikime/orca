@@ -15,7 +15,16 @@ import {
 
 export type MeetingResourceType = Extract<
   ResourceChangeResourceType,
-  'meeting' | 'meeting_participant' | 'meeting_recording' | 'meeting_transcript' | 'meeting_minutes'
+  | 'meeting'
+  | 'meeting_participant'
+  | 'meeting_recording'
+  | 'meeting_transcript'
+  | 'meeting_minutes'
+  | 'meeting_agenda_item'
+  | 'meeting_decision'
+  | 'meeting_action_item'
+  | 'meeting_capture_consent'
+  | 'meeting_governance'
 >
 
 export async function emitMeetingResourceChange(
@@ -57,7 +66,7 @@ export async function emitMeetingResourceChange(
 export async function auditMeetingEvent(
   trx: Transaction<Database>,
   organizationId: string,
-  actorUserId: string,
+  actorUserId: string | null,
   action: string,
   targetType: MeetingResourceType,
   targetId: string

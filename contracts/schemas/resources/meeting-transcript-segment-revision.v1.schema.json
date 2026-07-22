@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-transcript-segment-revision.v1.schema.json",
+  "title": "Meeting transcript segment revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "segmentId",
+    "revision",
+    "speakerParticipantId",
+    "speakerLabel",
+    "text",
+    "editedBy",
+    "createdAt"
+  ],
+  "properties": {
+    "id": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "segmentId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "speakerParticipantId": {
+      "oneOf": [
+        { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "speakerLabel": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "text": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "editedBy": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "createdAt": { "$ref": "https://schemas.pielab.ai/common/timestamp.v1.schema.json" }
+  }
+}

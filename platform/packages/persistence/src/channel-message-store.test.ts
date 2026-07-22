@@ -163,6 +163,40 @@ describe('collaboration: message', () => {
     expect(page2.messages.map((m) => m.body)).toEqual(['m3'])
     expect(page2.nextCursor).toBe(null)
   })
+
+  it('opens at the latest page and pages backward without changing display order', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const { orgId, userId } = await freshOrg()
+    const channel = await createChannel(db, {
+      organizationId: orgId,
+      actorUserId: userId,
+      name: 'latest'
+    })
+    for (const body of ['m1', 'm2', 'm3', 'm4', 'm5']) {
+      await postMessage(db, {
+        organizationId: orgId,
+        channelId: channel.id,
+        authorUserId: userId,
+        body
+      })
+    }
+
+    const latest = await listChannelMessages(db, orgId, channel.id, userId, {
+      limit: 2,
+      latest: true
+    })
+    if (!latest.ok) return
+    expect(latest.messages.map((item) => item.body)).toEqual(['m4', 'm5'])
+    expect(latest.nextCursor).toBe(latest.messages[0]?.id)
+
+    const older = await listChannelMessages(db, orgId, channel.id, userId, {
+      limit: 2,
+      beforeMessageId: latest.nextCursor!
+    })
+    if (!older.ok) return
+    expect(older.messages.map((item) => item.body)).toEqual(['m2', 'm3'])
+    expect(older.nextCursor).toBe(older.messages[0]?.id)
+  })
 })
 
 describe('collaboration: read cursor', () => {
@@ -198,6 +232,8 @@ describe('collaboration: read cursor', () => {
       lastReadMessageId: post.message.id
     })
     expect(marked.ok && marked.cursor.lastReadMessageId).toBe(post.message.id)
+    const listed = await listChannels(db, orgId, userId)
+    expect(listed.find((item) => item.id === channel.id)?.lastReadMessageId).toBe(post.message.id)
     // The second member's cursor is untouched.
     expect(await getReadCursor(db, orgId, channel.id, second.userId)).toBe(null)
   })

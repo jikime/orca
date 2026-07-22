@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react'
-import type { PieChatRendererApi, PiePinnedMessage } from '../../../../shared/pie-chat-contract'
+import type {
+  PieChatMember,
+  PieChatRendererApi,
+  PiePinnedMessage
+} from '../../../../shared/pie-chat-contract'
 import { translate } from '@/i18n/i18n'
+import { chatMemberDisplayName } from './chat-member-display-name'
 
 type PinnedBannerProps = {
   channelId: string
   api: PieChatRendererApi
+  members: PieChatMember[]
+  refreshKey?: string
 }
 
-function authorLabel(authorId: string): string {
-  return authorId.slice(0, 8)
-}
-
-export function PinnedBanner({ channelId, api }: PinnedBannerProps): React.JSX.Element | null {
+export function PinnedBanner({
+  channelId,
+  api,
+  members,
+  refreshKey
+}: PinnedBannerProps): React.JSX.Element | null {
   const [pin, setPin] = useState<PiePinnedMessage | null>(null)
 
   useEffect(() => {
@@ -33,7 +41,7 @@ export function PinnedBanner({ channelId, api }: PinnedBannerProps): React.JSX.E
     return () => {
       cancelled = true
     }
-  }, [api, channelId])
+  }, [api, channelId, refreshKey])
 
   if (!pin) {
     return null
@@ -45,7 +53,7 @@ export function PinnedBanner({ channelId, api }: PinnedBannerProps): React.JSX.E
       <span className="min-w-0 flex-1 truncate text-foreground">{pin.message.body}</span>
       <span className="shrink-0">
         {translate('auto.pie.chat.PinnedBanner.8ce9b55bfd', 'pinned by')}{' '}
-        {authorLabel(pin.pinnedBy)}
+        {chatMemberDisplayName(pin.pinnedBy, members)}
       </span>
     </div>
   )

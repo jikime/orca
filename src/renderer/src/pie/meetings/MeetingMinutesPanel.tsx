@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, FileText, Save, X } from 'lucide-react'
+import { Check, FileText, MessageSquareText, Save, Send, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { translate } from '@/i18n/i18n'
 import { apiPatch, apiPost, PieApiError, resourceEtag } from '../control-plane/pie-api-client'
 import { usePieResource } from '../control-plane/use-pie-resource'
-import type { MeetingMinutes } from './meeting-types'
+import type { MeetingMinutes, MeetingResource } from './meeting-types'
+import {
+  openPublishedMeetingMessage,
+  publishMeetingMessage,
+  type PublishedMeetingMessage
+} from './meeting-chat'
 
 function errorText(caught: unknown): string {
   if (caught instanceof PieApiError) {
@@ -15,7 +20,8 @@ function errorText(caught: unknown): string {
   return caught instanceof Error ? caught.message : String(caught)
 }
 
-export function MeetingMinutesPanel({ meetingId }: { meetingId: string }): React.JSX.Element {
+export function MeetingMinutesPanel({ meeting }: { meeting: MeetingResource }): React.JSX.Element {
+  const meetingId = meeting.id
   const query = usePieResource<{ items: MeetingMinutes[] }>(`/meetings/${meetingId}/minutes`)
   useEffect(() => {
     // AI minutes arrive asynchronously after recording processing, so keep this panel current.
@@ -26,11 +32,13 @@ export function MeetingMinutesPanel({ meetingId }: { meetingId: string }): React
     () => (query.data?.items ?? []).toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))[0],
     [query.data]
   )
-  const editorKey = query.loading ? 'loading' : (newest?.id ?? query.error ?? 'new')
+  // Why: background polling must not remount the editor and discard a user's draft.
+  const editorKey = newest?.id ?? 'new'
   return (
     <MeetingMinutesEditor
       key={`${editorKey}:${newest?.version ?? 0}`}
       meetingId={meetingId}
+      meeting={meeting}
       initialMinutes={newest ?? null}
       loading={query.loading}
       initialError={query.error}
@@ -40,12 +48,14 @@ export function MeetingMinutesPanel({ meetingId }: { meetingId: string }): React
 }
 
 function MeetingMinutesEditor({
+  meeting,
   meetingId,
   initialMinutes,
   loading,
   initialError,
   onChanged
 }: {
+  meeting: MeetingResource
   meetingId: string
   initialMinutes: MeetingMinutes | null
   loading: boolean
@@ -56,6 +66,7 @@ function MeetingMinutesEditor({
   const [draft, setDraft] = useState(initialMinutes?.summary ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(initialError)
+  const [published, setPublished] = useState<PublishedMeetingMessage | null>(null)
   const revisions = usePieResource<{ items: { revision: number }[] }>(
     minutes ? `/meeting-minutes/${minutes.id}/revisions` : null
   )
@@ -126,6 +137,31 @@ function MeetingMinutesEditor({
         resourceEtag('meeting-minutes', minutes.version)
       )
     )
+  }
+
+  const publish = async (): Promise<void> => {
+    if (!minutes || minutes.status !== 'finalized') {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      setPublished(
+        await publishMeetingMessage(
+          meeting,
+          `minutes:${minutes.id}`,
+          `## ${translate(
+            'auto.pie.meetings.MeetingMinutesPanel.publishedtitle',
+            'Meeting minutes: {{value0}}',
+            { value0: meeting.title }
+          )}\n\n${minutes.summary}`
+        )
+      )
+    } catch (caught) {
+      setError(errorText(caught))
+    } finally {
+      setBusy(false)
+    }
   }
 
   const finalized = minutes?.status === 'finalized'
@@ -232,6 +268,25 @@ function MeetingMinutesEditor({
                   {translate('auto.pie.meetings.MeetingMinutesPanel.finalize', 'Finalize')}
                 </Button>
               </>
+            )}
+          </div>
+        )}
+        {finalized && (
+          <div className="flex flex-wrap gap-2">
+            {!published ? (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void publish()}>
+                <Send />
+                {translate('auto.pie.meetings.MeetingMinutesPanel.publish', 'Publish to chat')}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openPublishedMeetingMessage(published)}
+              >
+                <MessageSquareText />
+                {translate('auto.pie.meetings.MeetingMinutesPanel.openpost', 'Open chat post')}
+              </Button>
             )}
           </div>
         )}

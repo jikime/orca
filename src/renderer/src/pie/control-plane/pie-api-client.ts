@@ -62,9 +62,21 @@ export function apiPost<T>(path: string, body?: unknown, etag?: string): Promise
   }) as Promise<T>
 }
 
+export function apiPostWithIdempotencyKey<T>(
+  path: string,
+  body: unknown,
+  idempotencyKey: string
+): Promise<T> {
+  return call('POST', path, { body, idempotencyKey }) as Promise<T>
+}
+
 // OCC update — the etag guards against a stale write (409/428).
 export function apiPatch<T>(path: string, body: unknown, etag: string): Promise<T> {
-  return call('PATCH', path, { body, ifMatch: etag }) as Promise<T>
+  return call('PATCH', path, {
+    body,
+    ifMatch: etag,
+    idempotencyKey: randomId()
+  }) as Promise<T>
 }
 
 export function apiDelete(path: string): Promise<void> {

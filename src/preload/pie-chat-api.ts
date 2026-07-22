@@ -1,6 +1,8 @@
 import type { IpcRenderer, IpcRendererEvent } from 'electron'
 import {
+  PIE_CHAT_ADD_CHANNEL_MEMBER_CHANNEL,
   PIE_CHAT_ADD_REACTION_CHANNEL,
+  PIE_CHAT_APPLY_CHANNEL_RETENTION_CHANNEL,
   PIE_CHAT_CREATE_ATTACHMENT_INTENT_CHANNEL,
   PIE_CHAT_CREATE_CHANNEL_CHANNEL,
   PIE_CHAT_CREATE_DM_CHANNEL,
@@ -8,8 +10,13 @@ import {
   PIE_CHAT_DELETE_MESSAGE_CHANNEL,
   PIE_CHAT_DOWNLOAD_ATTACHMENT_CHANNEL,
   PIE_CHAT_EDIT_MESSAGE_CHANNEL,
+  PIE_CHAT_EXPORT_CHANNEL_CHANNEL,
+  PIE_CHAT_GET_MESSAGE_CHANNEL,
+  PIE_CHAT_GET_NOTIFICATION_PREFERENCES_CHANNEL,
   PIE_CHAT_GET_PRESENCE_CHANNEL,
   PIE_CHAT_LIST_CHANNELS_CHANNEL,
+  PIE_CHAT_LIST_CHANNEL_MEMBERS_CHANNEL,
+  PIE_CHAT_LIST_CHANNEL_AUDIT_CHANNEL,
   PIE_CHAT_LIST_MEMBERS_CHANNEL,
   PIE_CHAT_LIST_MESSAGES_CHANNEL,
   PIE_CHAT_LIST_NOTIFICATIONS_CHANNEL,
@@ -18,6 +25,7 @@ import {
   PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL,
   PIE_CHAT_MARK_READ_CHANNEL,
   PIE_CHAT_MESSAGES_CHANGED_CHANNEL,
+  PIE_CHAT_NOTIFICATION_CLICKED_CHANNEL,
   PIE_CHAT_MUTE_CHANNEL_CHANNEL,
   PIE_CHAT_PIN_MESSAGE_CHANNEL,
   PIE_CHAT_PRESENCE_CHANGED_CHANNEL,
@@ -25,14 +33,22 @@ import {
   PIE_CHAT_SEARCH_MESSAGES_CHANNEL,
   PIE_CHAT_SEND_MESSAGE_CHANNEL,
   PIE_CHAT_SEND_TYPING_CHANNEL,
+  PIE_CHAT_SET_CHANNEL_NOTIFICATION_LEVEL_CHANNEL,
   PIE_CHAT_TYPING_CHANGED_CHANNEL,
+  PIE_CHAT_REMOVE_CHANNEL_MEMBER_CHANNEL,
   PIE_CHAT_UNMUTE_CHANNEL_CHANNEL,
+  PIE_CHAT_UPDATE_CHANNEL_CHANNEL,
+  PIE_CHAT_UPDATE_NOTIFICATION_PREFERENCES_CHANNEL,
   PIE_CHAT_UNPIN_MESSAGE_CHANNEL,
   type PieAttachmentDownload,
   type PieAttachmentIntent,
   type PieChannel,
+  type PieChannelAuditEntry,
+  type PieChannelExport,
+  type PieChannelMember,
   type PieChatMember,
   type PieChatMessagesChanged,
+  type PieChatNotificationClicked,
   type PieChatPresenceChanged,
   type PieChatRendererApi,
   type PieChatTypingChanged,
@@ -41,6 +57,7 @@ import {
   type PieMessageSearchResponse,
   type PieNotification,
   type PieNotificationListResponse,
+  type PieNotificationPreferences,
   type PiePinnedMessage
 } from '../shared/pie-chat-ipc-channels'
 
@@ -58,8 +75,15 @@ export function createPieChatPreloadApi(ipc: PieChatIpcRenderer): PieChatRendere
         channelId,
         opts
       }) as Promise<PieMessageListResponse>,
-    sendMessage: (channelId, body, opts) =>
-      ipc.invoke(PIE_CHAT_SEND_MESSAGE_CHANNEL, { channelId, body, opts }) as Promise<PieMessage>,
+    getMessage: (channelId, messageId) =>
+      ipc.invoke(PIE_CHAT_GET_MESSAGE_CHANNEL, { channelId, messageId }) as Promise<PieMessage>,
+    sendMessage: (channelId, body, opts, clientRequestId) =>
+      ipc.invoke(PIE_CHAT_SEND_MESSAGE_CHANNEL, {
+        channelId,
+        body,
+        opts,
+        clientRequestId
+      }) as Promise<PieMessage>,
     editMessage: (channelId, messageId, body, expectedVersion) =>
       ipc.invoke(PIE_CHAT_EDIT_MESSAGE_CHANNEL, {
         channelId,
@@ -67,8 +91,8 @@ export function createPieChatPreloadApi(ipc: PieChatIpcRenderer): PieChatRendere
         body,
         expectedVersion
       }) as Promise<PieMessage>,
-    deleteMessage: async (channelId, messageId) => {
-      await ipc.invoke(PIE_CHAT_DELETE_MESSAGE_CHANNEL, { channelId, messageId })
+    deleteMessage: async (channelId, messageId, reason) => {
+      await ipc.invoke(PIE_CHAT_DELETE_MESSAGE_CHANNEL, { channelId, messageId, reason })
     },
     markRead: async (channelId, lastReadMessageId) => {
       await ipc.invoke(PIE_CHAT_MARK_READ_CHANNEL, { channelId, lastReadMessageId })
@@ -96,6 +120,30 @@ export function createPieChatPreloadApi(ipc: PieChatIpcRenderer): PieChatRendere
       ipc.invoke(PIE_CHAT_CREATE_DM_CHANNEL, { otherUserId }) as Promise<PieChannel>,
     createGroupDm: (participantUserIds) =>
       ipc.invoke(PIE_CHAT_CREATE_GROUP_DM_CHANNEL, { participantUserIds }) as Promise<PieChannel>,
+    addChannelMember: async (channelId, userId) => {
+      await ipc.invoke(PIE_CHAT_ADD_CHANNEL_MEMBER_CHANNEL, { channelId, userId })
+    },
+    updateChannel: (channelId, update, expectedVersion) =>
+      ipc.invoke(PIE_CHAT_UPDATE_CHANNEL_CHANNEL, {
+        channelId,
+        update,
+        expectedVersion
+      }) as Promise<PieChannel>,
+    listChannelMembers: (channelId) =>
+      ipc.invoke(PIE_CHAT_LIST_CHANNEL_MEMBERS_CHANNEL, {
+        channelId
+      }) as Promise<PieChannelMember[]>,
+    removeChannelMember: async (channelId, userId) => {
+      await ipc.invoke(PIE_CHAT_REMOVE_CHANNEL_MEMBER_CHANNEL, { channelId, userId })
+    },
+    listChannelAudit: (channelId) =>
+      ipc.invoke(PIE_CHAT_LIST_CHANNEL_AUDIT_CHANNEL, {
+        channelId
+      }) as Promise<PieChannelAuditEntry[]>,
+    exportChannel: (channelId) =>
+      ipc.invoke(PIE_CHAT_EXPORT_CHANNEL_CHANNEL, { channelId }) as Promise<PieChannelExport>,
+    applyChannelRetention: (channelId) =>
+      ipc.invoke(PIE_CHAT_APPLY_CHANNEL_RETENTION_CHANNEL, { channelId }) as Promise<number>,
     muteChannel: async (channelId) => {
       await ipc.invoke(PIE_CHAT_MUTE_CHANNEL_CHANNEL, { channelId })
     },
@@ -129,6 +177,25 @@ export function createPieChatPreloadApi(ipc: PieChatIpcRenderer): PieChatRendere
       }) as Promise<PieNotification>,
     markAllNotificationsRead: () =>
       ipc.invoke(PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL) as Promise<number>,
+    getNotificationPreferences: () =>
+      ipc.invoke(
+        PIE_CHAT_GET_NOTIFICATION_PREFERENCES_CHANNEL
+      ) as Promise<PieNotificationPreferences>,
+    updateNotificationPreferences: (update) =>
+      ipc.invoke(
+        PIE_CHAT_UPDATE_NOTIFICATION_PREFERENCES_CHANNEL,
+        update
+      ) as Promise<PieNotificationPreferences>,
+    setChannelNotificationLevel: async (channelId, level) => {
+      await ipc.invoke(PIE_CHAT_SET_CHANNEL_NOTIFICATION_LEVEL_CHANNEL, { channelId, level })
+    },
+    onNotificationClicked: (callback) => {
+      const listener = (_event: IpcRendererEvent, input: unknown): void => {
+        callback(input as PieChatNotificationClicked)
+      }
+      ipc.on(PIE_CHAT_NOTIFICATION_CLICKED_CHANNEL, listener)
+      return () => ipc.removeListener(PIE_CHAT_NOTIFICATION_CLICKED_CHANNEL, listener)
+    },
     onMessagesChanged: (callback) => {
       const listener = (_event: IpcRendererEvent, input: unknown): void => {
         // Trusted boundary: Main emits a validated PieChatMessagesChanged payload.

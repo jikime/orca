@@ -11,6 +11,8 @@ export function buildPieSupportDomains(): readonly PieDomainConfig[] {
       listPath: '/service/tickets',
       itemPath: (id) => `/service/tickets/${id}`,
       etagPrefix: 'service-ticket',
+      contextChannelScope: 'ticket',
+      contextMeetingScope: { kind: 'ticket', titleKey: 'subject' },
       columns: [
         { key: 'subject', label: translate('auto.pie.support.domains.subject', 'Subject') },
         {
@@ -52,6 +54,30 @@ export function buildPieSupportDomains(): readonly PieDomainConfig[] {
         { key: 'subject', label: translate('auto.pie.support.domains.subject', 'Subject') },
         { key: 'status', label: translate('auto.pie.support.domains.status', 'Status') },
         { key: 'priority', label: translate('auto.pie.support.domains.priority', 'Priority') }
+      ]
+    },
+    {
+      key: 'remote-sessions',
+      label: translate('auto.pie.support.domains.remoteSessions', 'Remote Sessions'),
+      scope: 'org',
+      listPath: '/remote-sessions',
+      itemPath: (id) => `/remote-sessions/${id}`,
+      etagPrefix: 'remote-session',
+      contextMeetingScope: { kind: 'remote_session', titleKey: 'kind' },
+      columns: [
+        { key: 'kind', label: translate('auto.pie.support.domains.sessionKind', 'Kind') },
+        {
+          key: 'status',
+          label: translate('auto.pie.support.domains.status', 'Status'),
+          pill: true
+        },
+        { key: 'ticketId', label: translate('auto.pie.support.domains.ticketId', 'Ticket') }
+      ],
+      detailFields: [
+        { key: 'kind', label: translate('auto.pie.support.domains.sessionKind', 'Kind') },
+        { key: 'status', label: translate('auto.pie.support.domains.status', 'Status') },
+        { key: 'ticketId', label: translate('auto.pie.support.domains.ticketId', 'Ticket') },
+        { key: 'id', label: translate('auto.pie.support.domains.sessionId', 'Session ID') }
       ]
     },
     {

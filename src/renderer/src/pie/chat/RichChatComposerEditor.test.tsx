@@ -40,6 +40,8 @@ async function render(overrides: Overrides = {}): Promise<{
       <RichChatComposerEditor
         ref={ref}
         members={MEMBERS}
+        initialMarkdown={overrides.initialMarkdown}
+        initialMentionUserIds={overrides.initialMentionUserIds}
         placeholder="Write a message…"
         showFormatting
         onEmptyChange={overrides.onEmptyChange ?? vi.fn()}
@@ -78,6 +80,11 @@ function pressEnter(shiftKey = false): void {
 }
 
 describe('RichChatComposerEditor markdown round-trip', () => {
+  it('hydrates initial markdown during editor creation', async () => {
+    const { ref } = await render({ initialMarkdown: '**restored**' })
+    expect(ref.current?.getMarkdown()).toBe('**restored**')
+  })
+
   it.each([
     ['bold', '<p><strong>hi</strong></p>', '**hi**'],
     ['italic', '<p><em>hi</em></p>', '*hi*'],
@@ -144,6 +151,13 @@ describe('RichChatComposerEditor send keys and guards', () => {
     expect(ref.current?.getMarkdown()).toBe('')
   })
 
+  it('restores markdown and mention transport metadata', async () => {
+    const { ref } = await render()
+    act(() => ref.current?.setMarkdown('Hello **@Ada**', ['u-1-abc']))
+    expect(ref.current?.getMarkdown()).toBe('Hello **@Ada**')
+    expect(ref.current?.getMentionUserIds()).toEqual(['u-1-abc'])
+  })
+
   it('renders a read-only surface when disabled', async () => {
     await render({ disabled: true })
     expect(contentEl().getAttribute('contenteditable')).toBe('false')
@@ -161,6 +175,9 @@ describe('RichChatComposerEditor mentions', () => {
     })
     expect(ref.current?.getMarkdown()).toContain('@Ada')
     expect(ref.current?.getMentionUserIds()).toEqual(['u-1-abc'])
+
+    act(() => editor().commands.setContent('<p>mention removed</p>'))
+    expect(ref.current?.getMentionUserIds()).toEqual([])
   })
 
   it('triggerMention opens the popup from an imperative call', async () => {

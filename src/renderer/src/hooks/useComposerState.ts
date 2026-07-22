@@ -179,6 +179,7 @@ import {
   shouldReportComposerDropUploadFailure
 } from './composer-drop-upload-result'
 import { translate } from '@/i18n/i18n'
+import type { PieWorkspaceContext } from '../../../shared/pie-workspace-context'
 
 export function canResolveFolderSmartGitHubSubmit({
   hasFolderSourceRepos
@@ -214,6 +215,7 @@ export type UseComposerStateOptions = {
   initialLinkedWorkItem?: LinkedWorkItemSummary | null
   initialTaskSourceContext?: TaskSourceContext | null
   initialWorkspaceStatus?: WorkspaceStatus
+  initialPieWorkspaceContext?: PieWorkspaceContext
   /** Seed the Start-from selection when the composer opens. Used by the
    *  Create-from → Quick fallback path so a PR pick that needs a setup
    *  decision still lands with the resolved PR head as the base branch. */
@@ -550,6 +552,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     initialLinkedWorkItem = null,
     initialTaskSourceContext = null,
     initialWorkspaceStatus,
+    initialPieWorkspaceContext,
     initialBaseBranch,
     persistDraft,
     onCreated,
@@ -1660,6 +1663,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     linkedGitLabIssue,
     linkedGitLabMR,
     linkedWorkItem,
+    initialPieWorkspaceContext,
     note,
     name,
     repoId,
@@ -3332,6 +3336,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
           isRemote: folderTargetIsRemote,
           launchSource: telemetrySource === 'onboarding' ? 'onboarding' : 'new_workspace_composer',
           runtimeEnvironmentId: folderTargetRuntimeEnvironmentId,
+          pieWorkspaceContext: initialPieWorkspaceContext,
           createFolderWorkspace: (input) =>
             createFolderWorkspace(input, {
               runtimeEnvironmentId: folderTargetRuntimeEnvironmentId
@@ -3372,6 +3377,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       folderCreateDisabled,
       folderTargetIsRemote,
       folderTargetRuntimeEnvironmentId,
+      initialPieWorkspaceContext,
       folderSourceRepos.length,
       linkedWorkItem,
       name,
@@ -3649,7 +3655,8 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
         undefined,
         undefined,
         undefined,
-        submitCompareBaseRef
+        submitCompareBaseRef,
+        initialPieWorkspaceContext ? { pieWorkspaceContext: initialPieWorkspaceContext } : undefined
       )
       const worktree = result.worktree
 
@@ -3740,6 +3747,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     linkedGitLabIssue,
     linkedGitLabMR,
     linkedWorkItem,
+    initialPieWorkspaceContext,
     name,
     normalizedSparseDirectories,
     note,
@@ -4105,6 +4113,9 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
               ? 'indeterminate'
               : 'stepped',
           ...(taskSourceContext ? { taskSourceContext } : {}),
+          ...(initialPieWorkspaceContext
+            ? { pieWorkspaceContext: initialPieWorkspaceContext }
+            : {}),
           ...(creationWorkspaceRunContext
             ? { workspaceRunContext: creationWorkspaceRunContext }
             : {}),
@@ -4224,6 +4235,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       effectivePresetId,
       telemetrySource,
       taskSourceContext,
+      initialPieWorkspaceContext,
       checkedHooksRepoId,
       commitHookCheckIfCurrent,
       loadHookCheckForRepo,

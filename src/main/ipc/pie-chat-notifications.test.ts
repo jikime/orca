@@ -11,16 +11,22 @@ vi.mock('electron', () => ({
 
 const clientMocks = vi.hoisted(() => ({
   listNotifications: vi.fn(),
+  getNotificationPreferences: vi.fn(),
   markNotificationRead: vi.fn(),
-  markAllNotificationsRead: vi.fn()
+  markAllNotificationsRead: vi.fn(),
+  setChannelNotificationLevel: vi.fn(),
+  updateNotificationPreferences: vi.fn()
 }))
 
 vi.mock('../pie-chat/chat-notification-client', () => clientMocks)
 
 import {
+  PIE_CHAT_GET_NOTIFICATION_PREFERENCES_CHANNEL,
   PIE_CHAT_LIST_NOTIFICATIONS_CHANNEL,
   PIE_CHAT_MARK_ALL_NOTIFICATIONS_READ_CHANNEL,
-  PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL
+  PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL,
+  PIE_CHAT_SET_CHANNEL_NOTIFICATION_LEVEL_CHANNEL,
+  PIE_CHAT_UPDATE_NOTIFICATION_PREFERENCES_CHANNEL
 } from '../../shared/pie-chat-contract'
 import { registerPieChatNotificationHandlers } from './pie-chat-notifications'
 import type { PieChatHandlerDeps } from './pie-chat-ipc-shared'
@@ -28,6 +34,7 @@ import { setTrustedPieRendererWebContentsId } from './pie-renderer-trust'
 
 const ORG = '20000000-0000-4000-8000-000000000001'
 const NOTIF = '20000000-0000-4000-8000-0000000000c1'
+const CHANNEL = '20000000-0000-4000-8000-000000000002'
 
 function trustedEvent(): unknown {
   const mainFrame = { url: 'file:///app/index.html' }
@@ -88,7 +95,9 @@ describe('Pie chat notification IPC', () => {
 
   it('rejects a non-uuid notification id before touching the client', () => {
     expect(() =>
-      handlerFor(PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL)(trustedEvent(), { notificationId: 'nope' })
+      handlerFor(PIE_CHAT_MARK_NOTIFICATION_READ_CHANNEL)(trustedEvent(), {
+        notificationId: 'nope'
+      })
     ).toThrow('PIE_CHAT_INVALID_REQUEST')
     expect(clientMocks.markNotificationRead).not.toHaveBeenCalled()
   })
@@ -100,6 +109,45 @@ describe('Pie chat notification IPC', () => {
       'https://cp.example/v1',
       'token-123',
       ORG,
+      expect.any(Function)
+    )
+  })
+
+  it('gets and updates global notification preferences', async () => {
+    clientMocks.getNotificationPreferences.mockResolvedValue({})
+    clientMocks.updateNotificationPreferences.mockResolvedValue({})
+    await handlerFor(PIE_CHAT_GET_NOTIFICATION_PREFERENCES_CHANNEL)(trustedEvent(), undefined)
+    await handlerFor(PIE_CHAT_UPDATE_NOTIFICATION_PREFERENCES_CHANNEL)(trustedEvent(), {
+      dndEnabled: true
+    })
+    expect(clientMocks.getNotificationPreferences).toHaveBeenCalledWith(
+      'https://cp.example/v1',
+      'token-123',
+      ORG,
+      expect.any(Function)
+    )
+    expect(clientMocks.updateNotificationPreferences).toHaveBeenCalledWith(
+      'https://cp.example/v1',
+      'token-123',
+      ORG,
+      { dndEnabled: true },
+      expect.any(String),
+      expect.any(Function)
+    )
+  })
+
+  it('sets a validated per-channel notification level', async () => {
+    await handlerFor(PIE_CHAT_SET_CHANNEL_NOTIFICATION_LEVEL_CHANNEL)(trustedEvent(), {
+      channelId: CHANNEL,
+      level: 'mentions'
+    })
+    expect(clientMocks.setChannelNotificationLevel).toHaveBeenCalledWith(
+      'https://cp.example/v1',
+      'token-123',
+      ORG,
+      CHANNEL,
+      'mentions',
+      expect.any(String),
       expect.any(Function)
     )
   })

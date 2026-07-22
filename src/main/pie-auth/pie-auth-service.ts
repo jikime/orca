@@ -54,6 +54,8 @@ export type PieAuthServiceDeps = {
   // Test seam so the refresh timer is drivable without real time. The fn may be
   // async so a test can await the rotation it triggers.
   scheduleRefresh?: (fn: () => void | Promise<void>, ms: number) => { clear: () => void }
+  onSessionAuthenticated?: () => void
+  onSessionUnavailable?: () => void
 }
 
 export type PieAuthService = {
@@ -164,6 +166,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
       session: reauth,
       sessionId: sessionBroker.getContext().sessionId
     })
+    deps.onSessionUnavailable?.()
   }
 
   async function login(): Promise<PieSessionState> {
@@ -258,6 +261,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
       }
       status = { state: 'signed_in', organizationId: session.organizationId }
       scheduleNextRefresh(tokens.expiresInSeconds)
+      deps.onSessionAuthenticated?.()
       return session
     } finally {
       channel.close()
@@ -290,6 +294,7 @@ export function createPieAuthService(deps: PieAuthServiceDeps): PieAuthService {
     deps.lifecycle.handleLogout(scope)
     active = null
     status = { state: 'idle' }
+    deps.onSessionUnavailable?.()
   }
 
   function stop(): void {

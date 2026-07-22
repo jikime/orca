@@ -76,8 +76,24 @@ describe('meeting media boundary', () => {
       roomJoin: true,
       canPublish: true,
       canSubscribe: true,
-      canPublishData: false
+      canPublishData: false,
+      canPublishSources: ['microphone', 'camera']
     })
     expect(issued.token).not.toContain('test-secret')
+
+    const presenter = await media.issueParticipantToken({
+      roomName: 'pie_room',
+      userId: organizationId,
+      role: 'presenter'
+    })
+    const presenterClaims = decodeJwt(presenter.token) as {
+      video?: { canPublishSources?: string[] }
+    }
+    expect(presenterClaims.video?.canPublishSources).toEqual([
+      'microphone',
+      'camera',
+      'screen_share',
+      'screen_share_audio'
+    ])
   })
 })

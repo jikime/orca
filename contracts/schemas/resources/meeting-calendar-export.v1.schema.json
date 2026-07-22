@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-calendar-export.v1.schema.json",
+  "title": "Export meeting to calendar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provider"],
+  "properties": {
+    "provider": { "enum": ["google_workspace", "microsoft_365"] }
+  }
+}

@@ -1,4 +1,3 @@
-import { WebSocket } from 'ws'
 import {
   PieRealtimeServerMessageSchema,
   type PieRealtimeEphemeral,
@@ -6,43 +5,11 @@ import {
 } from '../../shared/pie-realtime-contract'
 import { cursorSequence } from './realtime-cursor-sequence'
 import { buildClientHello } from './realtime-hello'
-
-export type RealtimeSocketHandlers = {
-  onOpen: () => void
-  onMessage: (data: string) => void
-  onClose: () => void
-  onError: (error: unknown) => void
-}
-
-export type RealtimeSocket = {
-  send: (data: string) => void
-  close: () => void
-}
-
-export type RealtimeSocketFactory = (
-  url: string,
-  handlers: RealtimeSocketHandlers,
-  // Bearer access token carried on the WS upgrade (Main-only ws client). The
-  // gateway verifies it and the subject's membership before subscribing.
-  authToken: string | null
-) => RealtimeSocket
-
-// Reuses the `ws` client already used by the relay transport in main; adds no
-// new dependency.
-export const defaultRealtimeSocketFactory: RealtimeSocketFactory = (url, handlers, authToken) => {
-  const socket = new WebSocket(
-    url,
-    authToken ? { headers: { authorization: `Bearer ${authToken}` } } : undefined
-  )
-  socket.on('open', () => handlers.onOpen())
-  socket.on('message', (data: Buffer) => handlers.onMessage(data.toString()))
-  socket.on('close', () => handlers.onClose())
-  socket.on('error', (error) => handlers.onError(error))
-  return {
-    send: (data) => socket.send(data),
-    close: () => socket.close()
-  }
-}
+import {
+  defaultRealtimeSocketFactory,
+  type RealtimeSocket,
+  type RealtimeSocketFactory
+} from './realtime-socket'
 
 export type RealtimeClientStatus =
   | { state: 'disabled' }
@@ -94,9 +61,11 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
   const defaultHeartbeatTimeoutMs = options.defaultHeartbeatTimeoutMs ?? 45_000
 
   let socket: RealtimeSocket | null = null
-  let stopped = false
+  let stopped = true
   let revoked = false
   let attempt = 0
+  let nextSocketId = 0
+  let activeSocketId: number | null = null
   let connectionId: string | null = null
   let lastAppliedSequence: number | null = null
   let lastAppliedCursor: string | null = null
@@ -136,14 +105,17 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
   }
 
   function scheduleReconnect(reason: string, delayMs?: number): void {
-    if (stopped || revoked) {
+    if (stopped || revoked || reconnectTimer) {
       return
     }
     attempt += 1
     const backoff = delayMs ?? Math.min(maxMs, baseMs * 2 ** (attempt - 1))
     const jitter = backoff * jitterRatio * random()
     setStatus({ state: 'reconnecting', attempt, reason })
-    reconnectTimer = setTimeout(() => connect(), backoff + jitter)
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      connect()
+    }, backoff + jitter)
     if (typeof reconnectTimer === 'object' && 'unref' in reconnectTimer) {
       reconnectTimer.unref()
     }
@@ -155,6 +127,7 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
     if (socket) {
       const closing = socket
       socket = null
+      activeSocketId = null
       closing.close()
     }
   }
@@ -234,7 +207,6 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
     switch (message.type) {
       case 'server.welcome':
         connectionId = message.connectionId
-        attempt = 0
         heartbeatTimeoutMs = message.heartbeatIntervalMs * 3
         armHeartbeatWatchdog()
         setStatus({ state: 'connected', connectionId, lastCursor: lastAppliedCursor })
@@ -243,6 +215,9 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
         applyChange(message)
         break
       case 'heartbeat':
+        // A heartbeat proves the connection survived beyond its handshake. Reset
+        // backoff here so a repeatable post-welcome protocol failure cannot hot-loop.
+        attempt = 0
         if (message.direction === 'ping') {
           send({
             type: 'heartbeat',
@@ -277,6 +252,11 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
         // Validated above; surfaced additively for the chat renderer (no cache dedup).
         options.onEphemeral?.(message)
         break
+      case 'remote_presence.changed':
+      case 'remote_cursor.changed':
+        // Why: all server protocol frames must be accepted even before a desktop
+        // consumer exists, otherwise one remote-session event reconnect-loops chat.
+        break
     }
   }
 
@@ -293,24 +273,36 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
       scheduleReconnect('awaiting-token', 1000)
       return
     }
+    const socketId = ++nextSocketId
+    activeSocketId = socketId
     socket = socketFactory(
       options.url,
       {
         onOpen: () => {
+          if (activeSocketId !== socketId) {
+            return
+          }
           send(buildClientHello(options, lastAppliedCursor))
           armHeartbeatWatchdog()
         },
-        onMessage: handleMessage,
+        onMessage: (raw) => {
+          if (activeSocketId === socketId) {
+            handleMessage(raw)
+          }
+        },
         onClose: () => {
-          if (stopped || revoked) {
+          if (stopped || revoked || activeSocketId !== socketId) {
             return
           }
           socket = null
+          activeSocketId = null
           connectionId = null
           scheduleReconnect('socket-closed')
         },
         onError: (error) => {
-          log(`[pie-realtime] socket error: ${String(error)}`)
+          if (activeSocketId === socketId) {
+            log(`[pie-realtime] socket error: ${String(error)}`)
+          }
         }
       },
       token
@@ -332,6 +324,9 @@ export function createRealtimeConnection(options: RealtimeConnectionOptions): Re
       if (options.isDisabled?.()) {
         // Safe mode (or another gate) is active — never open a connection.
         setStatus({ state: 'disabled' })
+        return
+      }
+      if (!stopped && !revoked) {
         return
       }
       stopped = false

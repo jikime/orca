@@ -8,6 +8,7 @@ import type {
 import { DmComposer } from './DmComposer'
 import { DirectMessageList } from './DirectMessageList'
 import { translate } from '@/i18n/i18n'
+import { Archive, BellOff } from 'lucide-react'
 
 type ChannelSidebarProps = {
   channels: PieChannel[]
@@ -60,11 +61,20 @@ function ChannelRow({ channel, active, onSelect }: ChannelRowProps): React.JSX.E
           {unread > 99 ? '99+' : unread}
         </span>
       ) : (
-        muted && (
-          <span className="ml-auto text-xs text-muted-foreground" title="Muted">
-            🔕
-          </span>
-        )
+        <span className="ml-auto flex items-center gap-1 text-muted-foreground">
+          {channel.archivedAt && (
+            <Archive
+              className="size-3"
+              aria-label={translate('auto.pie.chat.ChannelSidebar.archived', 'Archived')}
+            />
+          )}
+          {muted && (
+            <BellOff
+              className="size-3"
+              aria-label={translate('auto.pie.chat.ChannelSidebar.muted', 'Muted')}
+            />
+          )}
+        </span>
       )}
     </button>
   )

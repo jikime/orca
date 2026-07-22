@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pielab.ai/resources/meeting-agenda-item-create.v1.schema.json",
+  "title": "Create meeting agenda item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sourceChannelId", "sourceMessageId"],
+  "properties": {
+    "sourceChannelId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" },
+    "sourceMessageId": { "$ref": "https://schemas.pielab.ai/common/opaque-id.v1.schema.json" }
+  }
+}

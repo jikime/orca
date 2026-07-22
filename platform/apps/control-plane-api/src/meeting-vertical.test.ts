@@ -4,11 +4,14 @@ import {
   applyMeetingMediaPresenceEvent,
   createDatabase,
   createDatabasePool,
+  insertAiMeetingActionItems,
+  insertAiMeetingDecisions,
   runMigrations,
   seedEntitlementManifest,
   seedMembershipFixture,
   seedOrganizationFixture,
   seedRoleManifest,
+  withTenantTransaction,
   type PieDatabase
 } from '@pie/persistence'
 import { startPostgresHarness, type PostgresHarness } from '@pie/persistence/testing'
@@ -37,15 +40,21 @@ let orgId = ''
 let otherOrgId = ''
 let ownerId = '' // organization_owner: meeting.read + manage + minutes.review
 let memberId = ''
+let observerId = ''
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const closedMediaRooms: string[] = []
+const mutedMediaParticipants: string[] = []
+const removedMediaParticipants: string[] = []
+const stoppedMediaSessions: string[] = []
 let lastStartedMediaSession: {
   videoEgressId: string
-  audioEgressId: string
+  audioEgressId: string | null
   transcriptionDispatchId: string | null
 } | null = null
 
 const fakeMeetingMedia: MeetingMediaService = {
   serverUrl: 'ws://127.0.0.1:7880',
+  diagnoseConnectivity: async () => ({ reachable: true, latencyMs: 12 }),
   ensureRoom: async () => undefined,
   closeRoom: async (roomName) => {
     closedMediaRooms.push(roomName)
@@ -58,11 +67,20 @@ const fakeMeetingMedia: MeetingMediaService = {
     }
     return lastStartedMediaSession
   },
-  stopRecording: async () => undefined,
+  stopRecording: async ({ videoEgressId }) => {
+    if (videoEgressId) stoppedMediaSessions.push(videoEgressId)
+  },
   issueParticipantToken: async ({ roomName, userId, role }) => ({
     token: `test-token.${roomName}.${userId}.${role}`,
     expiresAt: new Date(Date.now() + 300_000).toISOString()
   }),
+  muteParticipantMicrophone: async ({ userId }) => {
+    mutedMediaParticipants.push(userId)
+    return true
+  },
+  removeParticipant: async ({ userId }) => {
+    removedMediaParticipants.push(userId)
+  },
   receiveWebhook: async (rawBody, authorization) => {
     if (authorization !== 'signed-webhook') throw new Error('invalid signature')
     return JSON.parse(rawBody) as MeetingMediaWebhookEvent
@@ -95,12 +113,32 @@ type MeetingWire = {
   scopeId: string | null
   version: number
 }
-type ParticipantWire = { id: string; userId: string; consentRecording: boolean; version: number }
+type ParticipantWire = {
+  id: string
+  userId: string
+  role: 'host' | 'co_host' | 'presenter' | 'participant'
+  accessStatus: 'invited' | 'waiting' | 'admitted' | 'denied' | 'blocked'
+  consentRecording: boolean
+  version: number
+}
 type RecordingWire = {
   id: string
   status: string
   objectRef: string | null
   durationSeconds: number | null
+  version: number
+}
+type CaptureConsentWire = {
+  id: string
+  participantId: string
+  captureType: string
+  status: string
+  currentPolicy: boolean
+  version: number
+}
+type GovernanceWire = {
+  captureStatus: string
+  activeCaptureTypes: string[]
   version: number
 }
 type MinutesWire = {
@@ -111,6 +149,15 @@ type MinutesWire = {
   reviewedBy: string | null
   status: string
   version: number
+}
+type ChannelWire = { id: string; scopeType: string; scopeId: string | null }
+type MessageWire = { id: string; channelId: string; body: string }
+type AgendaWire = {
+  id: string
+  meetingId: string
+  sourceChannelId: string
+  sourceMessageId: string
+  body: string
 }
 
 async function createMeeting(token: string, body: Record<string, unknown>): Promise<MeetingWire> {
@@ -141,6 +188,18 @@ function consent(token: string, participantId: string, version: number): Promise
     method: 'POST',
     headers: { 'if-match': `"meeting-participant-${version}"` },
     body: JSON.stringify({ consent: true })
+  })
+}
+
+function decideAdmission(
+  token: string,
+  participantId: string,
+  version: number,
+  action: 'admit' | 'deny'
+): Promise<Response> {
+  return bearerFetch(token, mt(orgId, `/meeting-participant-controls/${participantId}:${action}`), {
+    method: 'POST',
+    headers: { 'if-match': `"meeting-participant-${version}"` }
   })
 }
 
@@ -228,6 +287,14 @@ beforeAll(async () => {
       organizationId: orgId,
       issuer: TEST_ISSUER,
       subject: 'member',
+      roleIds: ['member']
+    })
+  ).userId
+  observerId = (
+    await seedMembershipFixture(db, {
+      organizationId: orgId,
+      issuer: TEST_ISSUER,
+      subject: 'observer',
       roleIds: ['member']
     })
   ).userId
@@ -333,7 +400,7 @@ describe('meeting vertical (R7 meeting control plane + LiveKit boundary)', () =>
       eventId: randomUUID(),
       eventType: 'egress_ended',
       roomName: meetingMediaRoomName(orgId, meeting.id),
-      egressId: mediaSession.audioEgressId,
+      egressId: mediaSession.audioEgressId!,
       succeeded: true,
       durationSeconds: 742,
       errorCode: null,
@@ -505,6 +572,10 @@ describe('meeting vertical (R7 meeting control plane + LiveKit boundary)', () =>
     const live = await jsonOf<MeetingWire>(
       await transition('owner', meeting.id, 'live', meeting.version)
     )
+    const diagnostic = await jsonOf<{ status: string; media: string; latencyMs: number }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/media-diagnostics`))
+    )
+    expect(diagnostic).toMatchObject({ status: 'ready', media: 'ready', latencyMs: 12 })
     const issued = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/media-token`), {
       method: 'POST'
     })
@@ -535,9 +606,25 @@ describe('meeting vertical (R7 meeting control plane + LiveKit boundary)', () =>
       })
     })
     expect(webhook.status).toBe(204)
+    const internalParticipantWebhook = await fetch(`${baseUrl}/v1/media/livekit/webhook`, {
+      method: 'POST',
+      headers: {
+        authorization: 'signed-webhook',
+        'content-type': 'application/webhook+json'
+      },
+      body: JSON.stringify({
+        eventId: randomUUID(),
+        eventType: 'participant_joined',
+        roomName: join.roomName,
+        participantIdentity: 'agent-test-job',
+        occurredAt: new Date().toISOString()
+      })
+    })
+    expect(internalParticipantWebhook.status).toBe(204)
     const current = await jsonOf<{ items: Array<ParticipantWire & { joinedAt: string | null }> }>(
       await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/participants`))
     )
+    expect(current.items).toHaveLength(1)
     expect(
       current.items.find((participant) => participant.userId === ownerId)?.joinedAt
     ).not.toBeNull()
@@ -603,5 +690,545 @@ describe('meeting vertical (R7 meeting control plane + LiveKit boundary)', () =>
       body: JSON.stringify({ summary: 'changed after finalize' })
     })
     expect(immutable.status).toBe(409)
+  })
+
+  it('(i) meeting chat is canonical and its messages promote to an idempotent linked agenda', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'chat-linked planning' })
+    const createChannel = (scopeType: string, scopeId: string | null): Promise<Response> =>
+      bearerFetch('owner', mt(orgId, '/channels'), {
+        method: 'POST',
+        headers: { 'idempotency-key': randomUUID() },
+        body: JSON.stringify({
+          name: `context-${scopeType}`,
+          visibility: 'internal',
+          scopeType,
+          scopeId
+        })
+      })
+    const firstChannelResponse = await createChannel('meeting', meeting.id)
+    expect(firstChannelResponse.status).toBe(201)
+    const channel = await jsonOf<ChannelWire>(firstChannelResponse)
+    expect(channel.scopeType).toBe('meeting')
+    expect(channel.scopeId).toBe(meeting.id)
+
+    const repeatedChannelResponse = await createChannel('meeting', meeting.id)
+    expect(repeatedChannelResponse.status).toBe(200)
+    expect((await jsonOf<ChannelWire>(repeatedChannelResponse)).id).toBe(channel.id)
+
+    const messageResponse = await bearerFetch(
+      'owner',
+      mt(orgId, `/channels/${channel.id}/messages`),
+      {
+        method: 'POST',
+        headers: { 'idempotency-key': randomUUID() },
+        body: JSON.stringify({ body: 'Review launch risks with the support lead.' })
+      }
+    )
+    expect(messageResponse.status).toBe(201)
+    const message = await jsonOf<MessageWire>(messageResponse)
+
+    const promote = (): Promise<Response> =>
+      bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/agenda-items`), {
+        method: 'POST',
+        headers: { 'idempotency-key': randomUUID() },
+        body: JSON.stringify({
+          sourceChannelId: channel.id,
+          sourceMessageId: message.id
+        })
+      })
+    const promotedResponse = await promote()
+    expect(promotedResponse.status).toBe(201)
+    const promoted = await jsonOf<AgendaWire>(promotedResponse)
+    expect(promoted.body).toBe(message.body)
+    expect(promoted.sourceMessageId).toBe(message.id)
+
+    const repeatedPromotion = await promote()
+    expect(repeatedPromotion.status).toBe(200)
+    expect((await jsonOf<AgendaWire>(repeatedPromotion)).id).toBe(promoted.id)
+
+    const agenda = await jsonOf<{ items: AgendaWire[] }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/agenda-items`))
+    )
+    expect(agenda.items).toEqual([promoted])
+
+    const organizationChannel = await jsonOf<ChannelWire>(await createChannel('organization', null))
+    const foreignMessage = await jsonOf<MessageWire>(
+      await bearerFetch('owner', mt(orgId, `/channels/${organizationChannel.id}/messages`), {
+        method: 'POST',
+        headers: { 'idempotency-key': randomUUID() },
+        body: JSON.stringify({ body: 'Not a meeting agenda source.' })
+      })
+    )
+    const rejected = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/agenda-items`), {
+      method: 'POST',
+      headers: { 'idempotency-key': randomUUID() },
+      body: JSON.stringify({
+        sourceChannelId: organizationChannel.id,
+        sourceMessageId: foreignMessage.id
+      })
+    })
+    expect(rejected.status).toBe(404)
+  })
+
+  it('(j) normalizes timed transcript segments, paginates, seeks, and retains corrections', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'timed transcript' })
+    const created = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/transcripts`), {
+      method: 'POST',
+      body: JSON.stringify({
+        source: 'post_recording',
+        content: 'First segment. Second segment.',
+        language: 'en',
+        segments: [
+          { start: 0, end: 1.25, speaker: 'Speaker A', text: 'First segment.' },
+          { start: 1.25, end: 3, speaker: 'Speaker B', text: 'Second segment.' }
+        ]
+      })
+    })
+    expect(created.status).toBe(201)
+    const transcript = await jsonOf<{ id: string }>(created)
+    const firstPage = await jsonOf<{
+      items: Array<{ id: string; startMs: number; endMs: number; version: number }>
+      nextCursor: string | null
+    }>(
+      await bearerFetch(
+        'owner',
+        mt(orgId, `/meeting-transcripts/${transcript.id}/segments?limit=1`)
+      )
+    )
+    expect(firstPage.items).toHaveLength(1)
+    expect(firstPage.items[0]).toMatchObject({ startMs: 0, endMs: 1_250, version: 1 })
+    expect(firstPage.nextCursor).not.toBeNull()
+    const secondPage = await jsonOf<{ items: Array<{ text: string }> }>(
+      await bearerFetch(
+        'owner',
+        mt(
+          orgId,
+          `/meeting-transcripts/${transcript.id}/segments?limit=1&cursor=${encodeURIComponent(firstPage.nextCursor!)}`
+        )
+      )
+    )
+    expect(secondPage.items).toEqual([expect.objectContaining({ text: 'Second segment.' })])
+
+    const segment = firstPage.items[0]!
+    const correctionKey = randomUUID()
+    expect(
+      (
+        await bearerFetch('member', mt(orgId, `/meeting-transcript-segments/${segment.id}`), {
+          method: 'PATCH',
+          headers: {
+            'if-match': '"meeting-transcript-segment-1"',
+            'idempotency-key': randomUUID()
+          },
+          body: JSON.stringify({ speakerLabel: 'Alice', text: 'Corrected first segment.' })
+        })
+      ).status
+    ).toBe(403)
+    const corrected = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-transcript-segments/${segment.id}`),
+      {
+        method: 'PATCH',
+        headers: {
+          'if-match': '"meeting-transcript-segment-1"',
+          'idempotency-key': correctionKey
+        },
+        body: JSON.stringify({ speakerLabel: 'Alice', text: 'Corrected first segment.' })
+      }
+    )
+    expect(corrected.status).toBe(200)
+    expect(await jsonOf(corrected)).toEqual(
+      expect.objectContaining({
+        speakerLabel: 'Alice',
+        text: 'Corrected first segment.',
+        version: 2
+      })
+    )
+    const revisions = await jsonOf<{
+      items: Array<{ revision: number; speakerLabel: string; text: string }>
+    }>(
+      await bearerFetch('owner', mt(orgId, `/meeting-transcript-segments/${segment.id}/revisions`))
+    )
+    expect(revisions.items).toEqual([
+      expect.objectContaining({ revision: 1, speakerLabel: 'Speaker A', text: 'First segment.' })
+    ])
+  })
+
+  it('(k) reviews structured outcomes before converting an action item to work', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'outcome review' })
+    const minutes = await jsonOf<MinutesWire>(
+      await createMinutes('owner', meeting.id, {
+        summary: 'AI outcomes',
+        sourceType: 'ai'
+      })
+    )
+    await withTenantTransaction(db, orgId, async (trx) => {
+      await insertAiMeetingDecisions(trx, {
+        organizationId: orgId,
+        meetingId: meeting.id,
+        minutesId: minutes.id,
+        items: [{ statement: 'Ship on Friday.', evidenceSegmentId: null }]
+      })
+      await insertAiMeetingActionItems(trx, {
+        organizationId: orgId,
+        meetingId: meeting.id,
+        minutesId: minutes.id,
+        items: [
+          {
+            task: 'Prepare release checklist.',
+            owner: 'Mina',
+            due: null,
+            evidenceSegmentId: null
+          }
+        ]
+      })
+    })
+    const decisions = await jsonOf<{ items: Array<{ id: string; version: number }> }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/decisions`))
+    )
+    const actions = await jsonOf<{
+      items: Array<{ id: string; version: number; workItemId: string | null }>
+    }>(await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/action-items`)))
+    const decision = decisions.items[0]!
+    const actionItem = actions.items[0]!
+
+    const forbiddenReview = await bearerFetch(
+      'member',
+      mt(orgId, `/meeting-decisions/${decision.id}:review`),
+      {
+        method: 'POST',
+        headers: {
+          'if-match': `"meeting-decision-${decision.version}"`,
+          'idempotency-key': randomUUID()
+        },
+        body: JSON.stringify({ decision: 'approve' })
+      }
+    )
+    expect(forbiddenReview.status).toBe(403)
+    const reviewedDecision = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-decisions/${decision.id}:review`),
+      {
+        method: 'POST',
+        headers: {
+          'if-match': `"meeting-decision-${decision.version}"`,
+          'idempotency-key': randomUUID()
+        },
+        body: JSON.stringify({ decision: 'approve' })
+      }
+    )
+    expect(await jsonOf(reviewedDecision)).toEqual(
+      expect.objectContaining({ status: 'confirmed', reviewStatus: 'approved' })
+    )
+
+    const team = await jsonOf<{ id: string }>(
+      await bearerFetch('owner', mt(orgId, '/teams'), {
+        method: 'POST',
+        headers: { 'idempotency-key': randomUUID() },
+        body: JSON.stringify({
+          key: `MT${randomUUID().slice(0, 6).toUpperCase()}`,
+          name: 'Meeting'
+        })
+      })
+    )
+    const blockedConversion = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-action-items/${actionItem.id}:convert-to-work-item`),
+      {
+        method: 'POST',
+        headers: {
+          'if-match': `"meeting-action-item-${actionItem.version}"`,
+          'idempotency-key': randomUUID()
+        },
+        body: JSON.stringify({ teamId: team.id })
+      }
+    )
+    expect(blockedConversion.status).toBe(422)
+    const reviewedAction = await jsonOf<{ version: number; reviewStatus: string }>(
+      await bearerFetch('owner', mt(orgId, `/meeting-action-items/${actionItem.id}:review`), {
+        method: 'POST',
+        headers: {
+          'if-match': `"meeting-action-item-${actionItem.version}"`,
+          'idempotency-key': randomUUID()
+        },
+        body: JSON.stringify({ decision: 'approve' })
+      })
+    )
+    expect(reviewedAction.reviewStatus).toBe('approved')
+    const converted = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-action-items/${actionItem.id}:convert-to-work-item`),
+      {
+        method: 'POST',
+        headers: {
+          'if-match': `"meeting-action-item-${reviewedAction.version}"`,
+          'idempotency-key': randomUUID()
+        },
+        body: JSON.stringify({ teamId: team.id })
+      }
+    )
+    expect(converted.status).toBe(200)
+    const workItemId = (await jsonOf<{ workItemId: string }>(converted)).workItemId
+    expect(workItemId).toMatch(UUID_PATTERN)
+    const myWork = await jsonOf<{ items: Array<{ id: string; assigneeId: string | null }> }>(
+      await bearerFetch('owner', mt(orgId, '/work-items?assignee=me'))
+    )
+    expect(myWork.items).toContainEqual(
+      expect.objectContaining({ id: workItemId, assigneeId: ownerId })
+    )
+    const sources = await jsonOf<{
+      items: Array<{ kind: string; sourceId: string; containerId: string; containerLabel: string }>
+    }>(await bearerFetch('owner', mt(orgId, `/work-items/${workItemId}/source-bindings`)))
+    expect(sources.items).toEqual([
+      expect.objectContaining({
+        kind: 'meeting_action_item',
+        sourceId: actionItem.id,
+        containerId: meeting.id,
+        containerLabel: 'outcome review'
+      })
+    ])
+  })
+
+  it('(l) lets a meeting manager mute and permanently remove a connected participant', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'participant controls' })
+    await jsonOf<ParticipantWire & { accessStatus: string }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/participants`), {
+        method: 'POST',
+        body: JSON.stringify({ userId: memberId, role: 'participant' })
+      })
+    )
+    await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}:transition`), {
+      method: 'POST',
+      headers: { 'if-match': '"meeting-1"' },
+      body: JSON.stringify({ toStatus: 'live' })
+    })
+    const waitingToken = await bearerFetch(
+      'member',
+      mt(orgId, `/meetings/${meeting.id}/media-token`),
+      { method: 'POST' }
+    )
+    expect(waitingToken.status).toBe(425)
+    expect((await jsonOf<{ code: string }>(waitingToken)).code).toBe('MEETING_ADMISSION_REQUIRED')
+    const waiting = await jsonOf<ParticipantWire>(
+      await bearerFetch('member', mt(orgId, `/meetings/${meeting.id}/waiting-room`), {
+        method: 'POST'
+      })
+    )
+    expect(waiting.accessStatus).toBe('waiting')
+    expect((await decideAdmission('member', waiting.id, waiting.version, 'admit')).status).toBe(403)
+    const admitted = await jsonOf<ParticipantWire>(
+      await decideAdmission('owner', waiting.id, waiting.version, 'admit')
+    )
+    expect(admitted.accessStatus).toBe('admitted')
+    const issued = await bearerFetch('member', mt(orgId, `/meetings/${meeting.id}/media-token`), {
+      method: 'POST'
+    })
+    expect(issued.status).toBe(200)
+    expect((await jsonOf<{ token: string }>(issued)).token).toContain('.participant')
+
+    const presenter = await jsonOf<ParticipantWire>(
+      await bearerFetch('owner', mt(orgId, `/meeting-participants/${admitted.id}`), {
+        method: 'PATCH',
+        headers: {
+          'if-match': `"meeting-participant-${admitted.version}"`,
+          'content-type': 'application/merge-patch+json'
+        },
+        body: JSON.stringify({ role: 'presenter' })
+      })
+    )
+    expect(presenter.role).toBe('presenter')
+    const presenterToken = await jsonOf<{ token: string }>(
+      await bearerFetch('member', mt(orgId, `/meetings/${meeting.id}/media-token`), {
+        method: 'POST'
+      })
+    )
+    expect(presenterToken.token).toContain('.presenter')
+
+    const mute = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-participant-controls/${presenter.id}:mute`),
+      { method: 'POST' }
+    )
+    expect(mute.status).toBe(204)
+    expect(mutedMediaParticipants).toContain(memberId)
+
+    const removed = await jsonOf<{ accessStatus: string }>(
+      await bearerFetch(
+        'owner',
+        mt(orgId, `/meeting-participant-controls/${presenter.id}:remove`),
+        { method: 'POST' }
+      )
+    )
+    expect(removed.accessStatus).toBe('blocked')
+    expect(removedMediaParticipants).toContain(memberId)
+    expect(
+      (
+        await bearerFetch('member', mt(orgId, `/meetings/${meeting.id}/media-token`), {
+          method: 'POST'
+        })
+      ).status
+    ).toBe(403)
+  })
+
+  it('(m) preserves an explicit meeting schedule for desktop reminders', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const scheduledStart = '2026-07-22T01:00:00.000Z'
+    const scheduledEnd = '2026-07-22T02:00:00.000Z'
+    const created = await jsonOf<MeetingWire & { scheduledStart: string; scheduledEnd: string }>(
+      await bearerFetch('owner', mt(orgId, '/meetings'), {
+        method: 'POST',
+        headers: { 'idempotency-key': randomUUID() },
+        body: JSON.stringify({ title: 'scheduled review', scheduledStart, scheduledEnd })
+      })
+    )
+    expect(created.scheduledStart).toBe(scheduledStart)
+    expect(created.scheduledEnd).toBe(scheduledEnd)
+  })
+
+  it('(n) gates each capture purpose and pauses or resumes the active media session', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'capture governance' })
+    await transition('owner', meeting.id, 'live', meeting.version)
+    await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/media-token`), { method: 'POST' })
+    await applyMeetingMediaPresenceEvent(db, {
+      organizationId: orgId,
+      meetingId: meeting.id,
+      eventId: randomUUID(),
+      eventType: 'participant_joined',
+      participantUserId: ownerId,
+      occurredAt: new Date().toISOString()
+    })
+    const consents = await jsonOf<{ items: CaptureConsentWire[] }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/capture-consents`))
+    )
+    expect(consents.items).toHaveLength(4)
+    const recordingConsent = consents.items.find((item) => item.captureType === 'recording')!
+    const grantResponse = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-capture-consents/${recordingConsent.id}`),
+      {
+        method: 'PATCH',
+        headers: {
+          'if-match': `"meeting-capture-consent-${recordingConsent.version}"`,
+          'idempotency-key': randomUUID()
+        },
+        body: JSON.stringify({ status: 'granted' })
+      }
+    )
+    expect(grantResponse.status, await grantResponse.clone().text()).toBe(200)
+    const granted = await jsonOf<CaptureConsentWire>(grantResponse)
+    expect(granted).toMatchObject({ status: 'granted', currentPolicy: true })
+    const started = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/recordings`), {
+      method: 'POST',
+      body: JSON.stringify({ captureTypes: ['recording'] })
+    })
+    expect(started.status).toBe(201)
+
+    const pause = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/capture/pause`), {
+      method: 'POST'
+    })
+    expect(pause.status).toBe(200)
+    expect((await jsonOf<GovernanceWire>(pause)).captureStatus).toBe('paused')
+    expect(stoppedMediaSessions).toContain(lastStartedMediaSession!.videoEgressId)
+
+    const resume = await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/capture/resume`), {
+      method: 'POST'
+    })
+    expect(resume.status).toBe(200)
+    await addParticipant('owner', meeting.id, { userId: memberId })
+    const activeBeforeJoin = lastStartedMediaSession!.videoEgressId
+    const waitingMemberToken = await bearerFetch(
+      'member',
+      mt(orgId, `/meetings/${meeting.id}/media-token`),
+      { method: 'POST' }
+    )
+    expect(waitingMemberToken.status).toBe(425)
+    const waitingParticipants = await jsonOf<{ items: ParticipantWire[] }>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/participants`))
+    )
+    const waitingMember = waitingParticipants.items.find((item) => item.userId === memberId)!
+    const admittedMember = await decideAdmission(
+      'owner',
+      waitingMember.id,
+      waitingMember.version,
+      'admit'
+    )
+    expect(admittedMember.status).toBe(200)
+    const memberToken = await bearerFetch(
+      'member',
+      mt(orgId, `/meetings/${meeting.id}/media-token`),
+      { method: 'POST' }
+    )
+    expect(memberToken.status).toBe(200)
+    expect(stoppedMediaSessions).toContain(activeBeforeJoin)
+    const resumeAfterPrejoinPause = await bearerFetch(
+      'owner',
+      mt(orgId, `/meetings/${meeting.id}/capture/resume`),
+      { method: 'POST' }
+    )
+    expect(resumeAfterPrejoinPause.status).toBe(200)
+    const activeSession = lastStartedMediaSession!.videoEgressId
+    const revoked = await bearerFetch(
+      'owner',
+      mt(orgId, `/meeting-capture-consents/${granted.id}`),
+      {
+        method: 'PATCH',
+        headers: {
+          'if-match': `"meeting-capture-consent-${granted.version}"`,
+          'idempotency-key': randomUUID()
+        },
+        body: JSON.stringify({ status: 'revoked' })
+      }
+    )
+    expect(revoked.status).toBe(200)
+    expect(stoppedMediaSessions).toContain(activeSession)
+    const governance = await jsonOf<GovernanceWire>(
+      await bearerFetch('owner', mt(orgId, `/meetings/${meeting.id}/governance`))
+    )
+    expect(governance).toMatchObject({
+      captureStatus: 'paused',
+      activeCaptureTypes: ['recording']
+    })
+  })
+
+  it('(o) lets an admitted co-host manage the waiting room without org meeting.manage', async (ctx) => {
+    if (!harness) return ctx.skip()
+    const meeting = await createMeeting('owner', { title: 'co-host waiting room' })
+    await addParticipant('owner', meeting.id, { userId: memberId, role: 'co_host' })
+    await addParticipant('owner', meeting.id, { userId: observerId, role: 'participant' })
+    await transition('owner', meeting.id, 'live', meeting.version)
+
+    await bearerFetch('member', mt(orgId, `/meetings/${meeting.id}/media-token`), {
+      method: 'POST'
+    })
+    const memberWaiting = await jsonOf<ParticipantWire>(
+      await bearerFetch('member', mt(orgId, `/meetings/${meeting.id}/waiting-room`), {
+        method: 'POST'
+      })
+    )
+    const coHost = await jsonOf<ParticipantWire>(
+      await decideAdmission('owner', memberWaiting.id, memberWaiting.version, 'admit')
+    )
+    expect(coHost).toMatchObject({ role: 'co_host', accessStatus: 'admitted' })
+
+    await bearerFetch('observer', mt(orgId, `/meetings/${meeting.id}/media-token`), {
+      method: 'POST'
+    })
+    const observerWaiting = await jsonOf<ParticipantWire>(
+      await bearerFetch('observer', mt(orgId, `/meetings/${meeting.id}/waiting-room`), {
+        method: 'POST'
+      })
+    )
+    const admitted = await decideAdmission(
+      'member',
+      observerWaiting.id,
+      observerWaiting.version,
+      'admit'
+    )
+    expect(admitted.status).toBe(200)
+    expect((await jsonOf<ParticipantWire>(admitted)).accessStatus).toBe('admitted')
   })
 })

@@ -21,6 +21,7 @@ import type { PieRuntimeRendererApi } from '../shared/pie-runtime-handshake-cont
 import type { PieChatRendererApi } from '../shared/pie-chat-contract'
 import type { PieControlPlaneRendererApi } from '../shared/pie-control-plane-ipc'
 import type { MeetingMediaPreloadApi } from '../shared/meeting-display-source'
+import type { PieMeetingNotificationTarget } from '../shared/pie-meeting-notification'
 import type { AppIdentity } from '../shared/app-identity'
 import type { MobileRelayStatus } from '../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../shared/mobile-pairing-connection-mode'
@@ -1109,6 +1110,7 @@ export type PreloadApi = {
       folderPath?: string | null
       connectionId?: string | null
       linkedTask?: FolderWorkspace['linkedTask']
+      pieWorkspaceContext?: FolderWorkspace['pieWorkspaceContext']
       createdWithAgent?: FolderWorkspace['createdWithAgent']
       pendingFirstAgentMessageRename?: boolean
     }) => Promise<FolderWorkspace>
@@ -1120,6 +1122,7 @@ export type PreloadApi = {
           | 'name'
           | 'folderPath'
           | 'linkedTask'
+          | 'pieWorkspaceContext'
           | 'comment'
           | 'isArchived'
           | 'isUnread'
@@ -2201,6 +2204,7 @@ export type PreloadApi = {
     getPermissionStatus: () => Promise<NotificationPermissionStatusResult>
     probeDelivery: (args?: { force?: boolean }) => Promise<NotificationDeliveryProbeResult>
     playSound: (options?: { force?: boolean; volume?: number }) => Promise<NotificationSoundResult>
+    onMeetingClicked: (callback: (target: PieMeetingNotificationTarget) => void) => () => void
   }
   onboarding: {
     get: () => Promise<OnboardingState>

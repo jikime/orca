@@ -2,7 +2,12 @@ import type { Kysely } from 'kysely'
 import { emitCollaborationChange, isChannelMemberTx } from './channel-store'
 import type { Database } from './database-schema'
 import { withTenantTransaction } from './tenant-transaction'
-import { createWorkItemTx, type WorkItemPriority, type WorkItemResource } from './work-item-store'
+import {
+  createWorkItemTx,
+  getWorkItemTx,
+  type WorkItemPriority,
+  type WorkItemResource
+} from './work-item-store'
 
 // The work-item title upper bound (contract work-item-create.v1: title maxLength 500). A
 // title derived from a message body is truncated to this so the reused createWorkItem path
@@ -13,7 +18,7 @@ const WORK_ITEM_TITLE_MAX = 500
 const FALLBACK_TITLE = 'Converted chat message'
 
 export type ConvertMessageToWorkItemResult =
-  | { ok: true; workItem: WorkItemResource; linkId: string }
+  | { ok: true; workItem: WorkItemResource; linkId: string; created: boolean }
   | {
       ok: false
       reason:
@@ -57,8 +62,8 @@ function buildDescription(channelId: string, messageId: string, body: string): s
  *
  * The dual-permission gate (message.read on the source, work_item.create on the target) is
  * enforced at the ROUTE; the store additionally enforces channel membership on the source.
- * The link insert is idempotent on (org, message, work_item): a replay does not create a
- * second link.
+ * The source message row is locked before checking its existing binding. This makes the
+ * source identity, rather than a caller-generated retry key, the final duplicate barrier.
  */
 export async function convertMessageToWorkItem(
   db: Kysely<Database>,
@@ -83,6 +88,7 @@ export async function convertMessageToWorkItem(
       .select(['id', 'body', 'version', 'deleted_at'])
       .where('id', '=', input.messageId)
       .where('channel_id', '=', input.channelId)
+      .forUpdate()
       .executeTakeFirst()
     if (!message) {
       return { ok: false, reason: 'source_not_found' }
@@ -92,6 +98,30 @@ export async function convertMessageToWorkItem(
     }
     if (message.deleted_at !== null) {
       return { ok: false, reason: 'source_deleted' }
+    }
+    const existingLinks = await trx
+      .selectFrom('collaboration.message_work_item_links')
+      .select(['id', 'work_item_id'])
+      .where('message_id', '=', input.messageId)
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .execute()
+    for (const existingLink of existingLinks) {
+      const existingWorkItem = await getWorkItemTx(trx, existingLink.work_item_id)
+      if (existingWorkItem) {
+        return {
+          ok: true,
+          workItem: existingWorkItem,
+          linkId: existingLink.id,
+          created: false
+        }
+      }
+      // Why: the cross-schema id is intentionally not an FK; discard a stale
+      // binding before recreating so the source never stays permanently broken.
+      await trx
+        .deleteFrom('collaboration.message_work_item_links')
+        .where('id', '=', existingLink.id)
+        .execute()
     }
     // (b) Create the work item on the shared identifier/counter path. Its failure reasons
     // propagate unchanged so the route can map them (team_not_found, invalid_state,
@@ -142,7 +172,7 @@ export async function convertMessageToWorkItem(
       Number(message.version),
       'updated'
     )
-    return { ok: true, workItem: created.workItem, linkId }
+    return { ok: true, workItem: created.workItem, linkId, created: true }
   })
 }
 

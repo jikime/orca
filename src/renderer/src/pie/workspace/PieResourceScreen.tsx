@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
+import { MessagesSquare, Pencil, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -12,83 +11,33 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { apiPost, resourceEtag, PieApiError } from '../control-plane/pie-api-client'
+import { apiPatch, apiPost, resourceEtag, PieApiError } from '../control-plane/pie-api-client'
 import { usePieResource } from '../control-plane/use-pie-resource'
 import { PieStatusBadge } from './PieStatusBadge'
-import type { PieActionSpec, PieDomainConfig, PieFieldSpec } from './pie-domain-registry'
+import type { PieActionSpec, PieDomainConfig } from './pie-domain-registry'
 import { translate } from '@/i18n/i18n'
+import { openPieResourceConversation } from './pie-resource-conversation'
+import { PieResourceMeetingContext } from './PieResourceMeetingContext'
+import { PieResourceMutationDialog } from './PieResourceMutationDialog'
 
 type Row = Record<string, unknown> & { id: string; version?: number; status?: string }
 
 const META_LABEL = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'
 
-function FieldInput({
-  field,
-  value,
-  onChange
+export function PieResourceScreen({
+  config,
+  fixedProjectId
 }: {
-  field: PieFieldSpec
-  value: string
-  onChange: (v: string) => void
+  config: PieDomainConfig
+  fixedProjectId?: string
 }): React.JSX.Element {
-  if (field.type === 'textarea') {
-    return (
-      <Textarea
-        className="min-h-20 resize-y"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    )
-  }
-  if (field.type === 'select') {
-    // Radix rejects an empty string value; an unset field stays on the placeholder.
-    return (
-      <Select value={value || undefined} onValueChange={onChange}>
-        <SelectTrigger className="w-full">
-          <SelectValue
-            placeholder={translate('auto.pie.workspace.PieResourceScreen.4e4c45f739', 'Select…')}
-          />
-        </SelectTrigger>
-        <SelectContent>
-          {(field.options ?? []).map((opt) => (
-            <SelectItem key={opt} value={opt}>
-              {opt}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    )
-  }
-  return (
-    <Input
-      type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  )
-}
-
-// Coerces a form's string values into the JSON body the API expects (numbers for
-// number fields; empty optional fields dropped).
-function buildBody(fields: readonly PieFieldSpec[], form: Record<string, string>): unknown {
-  const body: Record<string, unknown> = {}
-  for (const field of fields) {
-    const raw = form[field.key]
-    if (raw === undefined || raw === '') {
-      continue
-    }
-    body[field.key] = field.type === 'number' ? Number(raw) : raw
-  }
-  return body
-}
-
-export function PieResourceScreen({ config }: { config: PieDomainConfig }): React.JSX.Element {
-  const [projectId, setProjectId] = useState('')
+  const [selectedProjectId, setSelectedProjectId] = useState('')
   const [selected, setSelected] = useState<Row | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState<Record<string, string>>({})
+  const [createOpen, setCreateOpen] = useState(false)
+  const [editing, setEditing] = useState<Row | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const projectId = fixedProjectId ?? selectedProjectId
 
   const listPath = useMemo(() => {
     if (config.scope === 'project') {
@@ -126,7 +75,7 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
     }
   }
 
-  const submitCreate = (): void => {
+  const submitCreate = async (body: Record<string, unknown>): Promise<void> => {
     if (!config.createPath || !config.createFields) {
       return
     }
@@ -134,11 +83,21 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
       config.scope === 'project'
         ? config.createPath.replace('{projectId}', projectId.trim())
         : config.createPath
-    void run(async () => {
-      await apiPost(path, buildBody(config.createFields!, form))
-      setCreating(false)
-      setForm({})
-    })
+    await apiPost(path, body)
+    list.refetch()
+  }
+
+  const submitEdit = async (body: Record<string, unknown>): Promise<void> => {
+    if (!editing || editing.version === undefined) {
+      return
+    }
+    const updated = await apiPatch<Row>(
+      config.itemPath(editing.id),
+      body,
+      resourceEtag(config.etagPrefix, editing.version)
+    )
+    setSelected(updated)
+    list.refetch()
   }
 
   const runAction = (row: Row, action: PieActionSpec): void => {
@@ -149,9 +108,37 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
     void run(() => apiPost(`${config.itemPath(row.id)}:${action.verb}`, action.body, etag))
   }
 
+  const openContextChannel = async (row: Row): Promise<void> => {
+    if (!config.contextChannelScope) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await openPieResourceConversation({
+        scopeType: config.contextChannelScope,
+        resourceId: row.id,
+        label: String(row.name ?? row.subject ?? config.label)
+      })
+    } catch (caught) {
+      setError(
+        caught instanceof PieApiError
+          ? `${caught.code ?? caught.status}: ${caught.message}`
+          : translate(
+              'auto.pie.workspace.PieResourceScreen.chatfailed',
+              'Could not open the resource conversation.'
+            )
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const visibleActions = (config.actions ?? []).filter(
     (a) => !a.whenStatus || (selected?.status && a.whenStatus.includes(selected.status))
   )
+  const itemLabel = config.label.replace(/s$/, '')
+  const editFields = config.editFields ?? config.createFields
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -163,8 +150,8 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
           </Badge>
         )}
         <div className="ml-auto flex items-center gap-2">
-          {config.scope === 'project' && (
-            <Select value={projectId || undefined} onValueChange={setProjectId}>
+          {config.scope === 'project' && !fixedProjectId && (
+            <Select value={projectId || undefined} onValueChange={setSelectedProjectId}>
               <SelectTrigger size="sm" className="w-60">
                 <SelectValue
                   placeholder={
@@ -190,10 +177,9 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
             </Select>
           )}
           {config.createFields && (
-            <Button size="sm" onClick={() => setCreating((c) => !c)} disabled={listPath === null}>
-              {creating
-                ? translate('auto.pie.workspace.PieResourceScreen.cancel', 'Cancel')
-                : translate('auto.pie.workspace.PieResourceScreen.new', 'New')}
+            <Button size="sm" onClick={() => setCreateOpen(true)} disabled={listPath === null}>
+              <Plus />
+              {translate('auto.pie.workspace.PieResourceScreen.new', 'New')}
             </Button>
           )}
         </div>
@@ -202,35 +188,6 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
       {error && (
         <div className="border-b border-border bg-destructive/10 px-4 py-2 text-xs font-medium text-destructive">
           {error}
-        </div>
-      )}
-
-      {creating && config.createFields && (
-        <div className="border-b border-border bg-muted/30 px-4 py-3">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-            {config.createFields.map((field) => (
-              <label
-                key={field.key}
-                className={cn('flex flex-col gap-1', field.type === 'textarea' && 'col-span-2')}
-              >
-                <span className={META_LABEL}>
-                  {field.label}
-                  {field.required && <span className="text-destructive"> *</span>}
-                </span>
-                <FieldInput
-                  field={field}
-                  value={form[field.key] ?? ''}
-                  onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
-                />
-              </label>
-            ))}
-          </div>
-          <div className="mt-3">
-            <Button size="sm" onClick={submitCreate} disabled={busy}>
-              {translate('auto.pie.workspace.PieResourceScreen.6e77642240', 'Create')}{' '}
-              {config.label.replace(/s$/, '')}
-            </Button>
-          </div>
         </div>
       )}
 
@@ -336,8 +293,33 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
                 ))}
               </div>
             </ScrollArea>
-            {visibleActions.length > 0 && (
+            <PieResourceMeetingContext config={config} resource={selected} />
+            {(visibleActions.length > 0 || config.contextChannelScope || config.editable) && (
               <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
+                {config.editable && editFields && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => setEditing(selected)}
+                  >
+                    <Pencil />
+                    {translate('auto.pie.workspace.PieResourceScreen.edit', 'Edit')}
+                  </Button>
+                )}
+                {config.contextChannelScope && (
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void openContextChannel(selected)}
+                  >
+                    <MessagesSquare />
+                    {translate(
+                      'auto.pie.workspace.PieResourceScreen.openchat',
+                      'Open conversation'
+                    )}
+                  </Button>
+                )}
                 {visibleActions.map((action) => (
                   <Button
                     key={action.label}
@@ -354,6 +336,42 @@ export function PieResourceScreen({ config }: { config: PieDomainConfig }): Reac
           </aside>
         )}
       </div>
+      {config.createFields && (
+        <PieResourceMutationDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          mode="create"
+          itemLabel={itemLabel}
+          description={translate(
+            'auto.pie.workspace.PieResourceScreen.createDescription',
+            'Add a new {{value0}} with the details needed to start tracking it.',
+            { value0: itemLabel.toLowerCase() }
+          )}
+          fields={config.createFields}
+          initialValues={null}
+          onSubmit={submitCreate}
+        />
+      )}
+      {config.editable && editFields && (
+        <PieResourceMutationDialog
+          open={editing !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditing(null)
+            }
+          }}
+          mode="edit"
+          itemLabel={itemLabel}
+          description={translate(
+            'auto.pie.workspace.PieResourceScreen.editDescription',
+            'Update this {{value0}} without changing its workflow state.',
+            { value0: itemLabel.toLowerCase() }
+          )}
+          fields={editFields}
+          initialValues={editing}
+          onSubmit={submitEdit}
+        />
+      )}
     </div>
   )
 }

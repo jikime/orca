@@ -31,7 +31,7 @@ export async function attachMeetingRecordingMedia(
     recordingId: string
     expectedVersion: number
     videoEgressId: string
-    audioEgressId: string
+    audioEgressId: string | null
     transcriptionDispatchId: string | null
   }
 ): Promise<MeetingRecordingResource | null> {
@@ -174,6 +174,7 @@ export async function listActiveMeetingRecordingControlStates(
       .selectAll()
       .where('meeting_id', '=', meetingId)
       .where('status', '=', 'pending')
+      .where('stopped_at', 'is', null)
       .execute()
     return rows.map(mapControlState)
   })
@@ -250,7 +251,7 @@ export async function applyMeetingEgressEnded(
       .returningAll()
       .executeTakeFirstOrThrow()
 
-    if (output === 'audio' && input.succeeded) {
+    if (output === 'audio' && input.succeeded && row.capture_types.includes('transcription')) {
       await trx
         .insertInto('meetings.processing_jobs')
         .values({

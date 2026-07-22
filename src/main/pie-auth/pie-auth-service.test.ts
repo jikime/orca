@@ -51,6 +51,7 @@ type Environment = {
   saved: PieSessionSecret[]
   events: PieSessionState[]
   triggerRefresh: () => void | Promise<void>
+  availabilityEvents: string[]
 }
 
 const cleanups: (() => Promise<void> | void)[] = []
@@ -83,6 +84,7 @@ async function makeEnv(options: {
   const deepLinkBroker = new PieAuthCallbackBroker()
 
   let refreshFn: (() => void) | null = null
+  const availabilityEvents: string[] = []
   const openAuthorizationUrl = async (authUrl: string): Promise<void> => {
     const url = new URL(authUrl)
     const redirectUri = url.searchParams.get('redirect_uri') ?? ''
@@ -118,7 +120,9 @@ async function makeEnv(options: {
     scheduleRefresh: (fn) => {
       refreshFn = fn
       return { clear: () => {} }
-    }
+    },
+    onSessionAuthenticated: () => availabilityEvents.push('authenticated'),
+    onSessionUnavailable: () => availabilityEvents.push('unavailable')
   })
   cleanups.push(() => service.stop())
 
@@ -129,6 +133,7 @@ async function makeEnv(options: {
     broker,
     saved,
     events,
+    availabilityEvents,
     triggerRefresh: () => refreshFn?.()
   }
 }
@@ -141,6 +146,7 @@ describe('pie-auth-service login vertical', () => {
     expect(env.broker.getState().status).toBe('signed_in')
     expect(env.service.getStatus().state).toBe('signed_in')
     expect(env.events.at(-1)?.status).toBe('signed_in')
+    expect(env.availabilityEvents).toEqual(['authenticated'])
   })
 
   it('persists ONLY the refresh token; no token strings reach the session broker', async () => {
@@ -179,6 +185,7 @@ describe('pie-auth-service login vertical', () => {
     await env.triggerRefresh()
     expect(env.broker.getState().status).toBe('reauth_required')
     expect(env.service.getStatus().state).toBe('reauth_required')
+    expect(env.availabilityEvents).toEqual(['authenticated', 'unavailable'])
   })
 
   it('rejects the login when the ID token nonce does not match', async () => {
@@ -196,6 +203,7 @@ describe('pie-auth-service login vertical', () => {
     await env.service.logout()
     expect(env.broker.getState().status).toBe('signed_out')
     expect(env.service.getStatus().state).toBe('idle')
+    expect(env.availabilityEvents).toEqual(['authenticated', 'unavailable'])
   })
 
   it('falls back to the pie:// deep-link channel when loopback is unavailable', async () => {

@@ -53,6 +53,12 @@ export async function listMessages(
   if (options.cursor !== undefined) {
     query.set('cursor', options.cursor)
   }
+  if (options.before !== undefined) {
+    query.set('before', options.before)
+  }
+  if (options.latest !== undefined) {
+    query.set('latest', String(options.latest))
+  }
   if (options.threadRoot !== undefined) {
     query.set('threadRoot', options.threadRoot)
   }
@@ -67,6 +73,28 @@ export async function listMessages(
   const parsed = PieMessageListResponseSchema.safeParse(await response.json())
   if (!parsed.success) {
     throw new PieChatError('message list response failed schema validation')
+  }
+  return parsed.data
+}
+
+export async function getMessage(
+  apiBaseUrl: string,
+  accessToken: string,
+  organizationId: string,
+  channelId: string,
+  messageId: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<PieMessage> {
+  const response = await fetchImpl(
+    `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/messages/${messageId}`,
+    { headers: authHeaders(accessToken) }
+  )
+  if (!response.ok) {
+    throw new PieChatError(`get message failed with ${response.status}`, response.status)
+  }
+  const parsed = PieMessageSchema.safeParse(await response.json())
+  if (!parsed.success) {
+    throw new PieChatError('message response failed schema validation')
   }
   return parsed.data
 }
@@ -137,11 +165,18 @@ export async function deleteMessage(
   organizationId: string,
   channelId: string,
   messageId: string,
+  reason?: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<void> {
   const response = await fetchImpl(
     `${channelsBase(apiBaseUrl, organizationId)}/${channelId}/messages/${messageId}`,
-    { method: 'DELETE', headers: authHeaders(accessToken) }
+    reason
+      ? {
+          method: 'DELETE',
+          headers: jsonHeaders(accessToken),
+          body: JSON.stringify({ reason })
+        }
+      : { method: 'DELETE', headers: authHeaders(accessToken) }
   )
   if (!response.ok) {
     throw new PieChatError(`delete message failed with ${response.status}`, response.status)

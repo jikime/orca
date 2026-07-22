@@ -635,6 +635,8 @@ export type UISlice = {
   taskPageData: {
     preselectedRepoId?: string
     prefilledName?: string
+    /** Kept separate so external provider settings never treat Pie like an integration. */
+    internalTaskSource?: 'pie'
     taskSource?: TaskProvider
     openGitHubWorkItem?: GitHubWorkItem
     openGitHubSourceContext?: TaskSourceContext | null
@@ -1268,6 +1270,11 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         state.activeView === 'tasks' ? state.previousViewBeforeTasks : state.activeView,
       taskPageData: data
     }))
+    // Why: Pie owns its own WorkItem projection and does not need an external
+    // provider or repository prefetch just to browse My Work.
+    if (data.internalTaskSource === 'pie') {
+      return
+    }
     // Why: prefetch the GitHub work-item list in parallel with React's first
     // render of the TaskPage — by the time the page's own effect runs, the SWR
     // cache is either already populated or the request is in-flight and will

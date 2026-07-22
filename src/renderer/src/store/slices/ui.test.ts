@@ -1923,6 +1923,39 @@ describe('createUISlice settings navigation', () => {
     )
   })
 
+  it('opens internal Pie tasks without external provider prefetch', () => {
+    const store = createUIStore()
+    const prefetchWorkItems = vi.fn()
+    const prefetchLinearIssues = vi.fn()
+
+    store.setState({
+      repos: [
+        {
+          id: 'repo-1',
+          path: '/repo',
+          displayName: 'Repo',
+          badgeColor: 'blue',
+          addedAt: 1,
+          kind: 'git'
+        }
+      ],
+      settings: {
+        visibleTaskProviders: ['github', 'linear'],
+        defaultTaskSource: 'github',
+        defaultTaskViewPreset: 'all'
+      } as unknown as AppState['settings'],
+      prefetchWorkItems,
+      prefetchLinearIssues
+    } as unknown as Partial<AppState>)
+
+    store.getState().openTaskPage({ internalTaskSource: 'pie' })
+
+    expect(store.getState().activeView).toBe('tasks')
+    expect(store.getState().taskPageData).toEqual({ internalTaskSource: 'pie' })
+    expect(prefetchWorkItems).not.toHaveBeenCalled()
+    expect(prefetchLinearIssues).not.toHaveBeenCalled()
+  })
+
   it('prefetches direct Linear task opens with their source context', () => {
     const store = createUIStore()
     const prefetchLinearIssues = vi.fn()

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'TaskPage.tsx'), 'utf8')
+const PIE_TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'PieTaskPage.tsx'), 'utf8')
 
 function sourceBetween(source: string, startPattern: string, endPattern: string): string {
   const start = source.indexOf(startPattern)
@@ -47,6 +48,14 @@ describe('TaskPage source switching host boundary', () => {
     expect(section).not.toContain('activeRuntimeEnvironmentId')
     expect(section).not.toContain('projectHostSetupId')
     expect(section).not.toContain('workspaceRunContext')
+  })
+
+  it('keeps Pie as an internal task source instead of an external provider', () => {
+    expect(TASK_PAGE_SOURCE).toContain("{ internalTaskSource: 'pie' }")
+    expect(TASK_PAGE_SOURCE).toContain("internalTaskSource === 'pie'")
+    expect(TASK_PAGE_SOURCE).not.toContain("setTaskSource('pie')")
+    expect(PIE_TASK_PAGE_SOURCE).toContain('<WorkItemBoard scope="mine" />')
+    expect(PIE_TASK_PAGE_SOURCE).not.toContain("taskSource: 'pie'")
   })
 
   it('treats missing remote task-source capability as source unavailable', () => {

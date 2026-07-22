@@ -18,7 +18,7 @@ export function ComposerAttachmentPreview({
     return null
   }
   return (
-    <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto border-b border-border px-2 pt-2 pb-1.5">
+    <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto border-b border-border px-2 pt-2 pb-1.5 scrollbar-sleek">
       {attachments.map((attachment) => (
         <span
           key={attachment.id}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -13,69 +13,66 @@ import { usePieResource } from '../control-plane/use-pie-resource'
 import { useWorkItemBoard, type WorkItem } from './use-work-item-board'
 import { WorkItemDetail } from './WorkItemDetail'
 import { translate } from '@/i18n/i18n'
+import {
+  subscribePieWorkItemNavigation,
+  takePieWorkItemNavigation
+} from './pie-work-item-navigation'
+import { WorkItemBoardCard, WorkItemPriorityDot } from './WorkItemBoardCard'
+import { useWorkItemBoardPointerDrag } from './use-work-item-board-pointer-drag'
 
-const PRIORITY_TONE: Record<string, string> = {
-  urgent: 'bg-destructive',
-  high: 'bg-amber-500',
-  medium: 'bg-sky-500',
-  low: 'bg-muted-foreground/50'
-}
-
-function PriorityDot({ priority }: { priority: string }): React.JSX.Element | null {
-  if (!priority || priority === 'none') {
-    return null
-  }
-  return (
-    <span
-      className={cn(
-        'size-2 shrink-0 rounded-full',
-        PRIORITY_TONE[priority] ?? 'bg-muted-foreground/40'
-      )}
-      title={priority}
-    />
-  )
-}
-
-function Card({
-  item,
-  active,
-  onOpen,
-  onDragStart
+export function WorkItemBoard({
+  scope = 'all',
+  fixedProjectId,
+  initialSelectedId,
+  listenForNavigation = true
 }: {
-  item: WorkItem
-  active: boolean
-  onOpen: () => void
-  onDragStart: (e: React.DragEvent) => void
-}): React.JSX.Element {
-  return (
-    <article
-      draggable
-      onDragStart={onDragStart}
-      onClick={onOpen}
-      className={cn(
-        'cursor-grab rounded-lg border border-border bg-background p-2.5 shadow-xs transition-shadow hover:shadow-sm active:cursor-grabbing',
-        active && 'border-ring ring-2 ring-ring/30'
-      )}
-    >
-      <div className="flex items-center gap-1.5">
-        <PriorityDot priority={item.priority} />
-        <span className="font-mono text-[11px] text-muted-foreground">{item.identifier}</span>
-      </div>
-      <p className="mt-1 text-[13px] leading-snug text-foreground">{item.title}</p>
-    </article>
-  )
-}
-
-export function WorkItemBoard(): React.JSX.Element {
-  const [projectId, setProjectId] = useState('')
+  scope?: 'all' | 'mine'
+  fixedProjectId?: string
+  initialSelectedId?: string | null
+  listenForNavigation?: boolean
+} = {}): React.JSX.Element {
+  const [selectedProjectId, setSelectedProjectId] = useState('')
   const [view, setView] = useState<'board' | 'list'>('board')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [overCol, setOverCol] = useState<string | null>(null)
   const [draft, setDraft] = useState<Record<string, string>>({})
 
-  const board = useWorkItemBoard(projectId)
+  useEffect(() => {
+    if (!listenForNavigation) {
+      return
+    }
+    const openPending = (): void => {
+      const target = takePieWorkItemNavigation()
+      if (target) {
+        setSelectedId(target.workItemId)
+      }
+    }
+    openPending()
+    return subscribePieWorkItemNavigation(openPending)
+  }, [listenForNavigation])
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      setSelectedId(initialSelectedId)
+    }
+  }, [initialSelectedId])
+
+  const projectId = fixedProjectId ?? selectedProjectId
+  const board = useWorkItemBoard({
+    ...(projectId ? { projectId } : {}),
+    ...(scope === 'mine' ? { assignee: 'me' as const } : {})
+  })
+  const {
+    boardRef,
+    draggingId,
+    overStateId: overCol,
+    onCardPointerDown
+  } = useWorkItemBoardPointerDrag({
+    items: board.items,
+    movingItemIds: board.movingItemIds,
+    onMove: (item, stateId) => void board.move(item, stateId)
+  })
   const projects =
     (usePieResource<Record<string, unknown>>('/projects').data?.items as
       | { id: string; name: string }[]
@@ -100,20 +97,6 @@ export function WorkItemBoard(): React.JSX.Element {
   const byState = (id: string): WorkItem[] => items.filter((i) => i.stateId === id)
   const selected = board.items.find((i) => i.id === selectedId) ?? null
 
-  const onDragStartCard = (e: React.DragEvent, item: WorkItem): void => {
-    e.dataTransfer.setData('text/plain', item.id)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-  const onDropCol = (e: React.DragEvent, stateId: string): void => {
-    e.preventDefault()
-    const id = e.dataTransfer.getData('text/plain')
-    const dragged = board.items.find((i) => i.id === id)
-    if (dragged) {
-      void board.move(dragged, stateId)
-    }
-    setOverCol(null)
-  }
-
   if (!board.loading && !board.team) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -123,10 +106,16 @@ export function WorkItemBoard(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div
+      ref={boardRef}
+      data-work-item-board=""
+      className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+    >
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
         <h2 className="text-sm font-semibold text-foreground">
-          {translate('auto.pie.workspace.WorkItemBoard.243c0fa1a8', 'Board')}
+          {scope === 'mine'
+            ? translate('auto.pie.workspace.WorkItemBoard.mywork', 'My Work')
+            : translate('auto.pie.workspace.WorkItemBoard.work', 'Work')}
         </h2>
         <div className="flex overflow-hidden rounded-md border border-input">
           {(['board', 'list'] as const).map((v) => (
@@ -175,37 +164,41 @@ export function WorkItemBoard(): React.JSX.Element {
               }
             ]}
           />
-          <FilterSelect
-            value={assigneeFilter}
-            onChange={setAssigneeFilter}
-            placeholder={translate('auto.pie.workspace.WorkItemBoard.b565a2ab30', 'Assignee')}
-            options={[
-              {
-                value: 'all',
-                label: translate('auto.pie.workspace.WorkItemBoard.7561482dbe', 'All assignees')
-              },
-              {
-                value: 'unassigned',
-                label: translate('auto.pie.workspace.WorkItemBoard.71230ef6f0', 'Unassigned')
-              },
-              ...board.members.map((m) => ({
-                value: m.userId,
-                label: m.displayName || m.userId.slice(0, 8)
-              }))
-            ]}
-          />
-          <FilterSelect
-            value={projectId || 'all'}
-            onChange={(v) => setProjectId(v === 'all' ? '' : v)}
-            placeholder={translate('auto.pie.workspace.WorkItemBoard.f8420a103a', 'Project')}
-            options={[
-              {
-                value: 'all',
-                label: translate('auto.pie.workspace.WorkItemBoard.130caa9064', 'All projects')
-              },
-              ...projects.map((p) => ({ value: p.id, label: p.name }))
-            ]}
-          />
+          {scope !== 'mine' && (
+            <FilterSelect
+              value={assigneeFilter}
+              onChange={setAssigneeFilter}
+              placeholder={translate('auto.pie.workspace.WorkItemBoard.b565a2ab30', 'Assignee')}
+              options={[
+                {
+                  value: 'all',
+                  label: translate('auto.pie.workspace.WorkItemBoard.7561482dbe', 'All assignees')
+                },
+                {
+                  value: 'unassigned',
+                  label: translate('auto.pie.workspace.WorkItemBoard.71230ef6f0', 'Unassigned')
+                },
+                ...board.members.map((m) => ({
+                  value: m.userId,
+                  label: m.displayName || m.userId.slice(0, 8)
+                }))
+              ]}
+            />
+          )}
+          {!fixedProjectId && (
+            <FilterSelect
+              value={projectId || 'all'}
+              onChange={(v) => setSelectedProjectId(v === 'all' ? '' : v)}
+              placeholder={translate('auto.pie.workspace.WorkItemBoard.f8420a103a', 'Project')}
+              options={[
+                {
+                  value: 'all',
+                  label: translate('auto.pie.workspace.WorkItemBoard.130caa9064', 'All projects')
+                },
+                ...projects.map((p) => ({ value: p.id, label: p.name }))
+              ]}
+            />
+          )}
         </div>
       </header>
 
@@ -215,20 +208,15 @@ export function WorkItemBoard(): React.JSX.Element {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        <div className="min-h-0 flex-1">
+      <div data-work-item-board-content="" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div data-work-item-board-primary="" className="min-h-0 min-w-0 flex-1">
           {view === 'board' ? (
             <ScrollArea className="h-full">
               <div className="flex items-start gap-3 p-3">
                 {board.columns.map((col) => (
                   <div
                     key={col.id}
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      setOverCol(col.id)
-                    }}
-                    onDragLeave={() => setOverCol((c) => (c === col.id ? null : c))}
-                    onDrop={(e) => onDropCol(e, col.id)}
+                    data-work-item-state-drop-target={col.id}
                     className={cn(
                       'flex w-72 shrink-0 flex-col rounded-xl border border-border bg-card/40 transition-colors',
                       overCol === col.id && 'border-ring bg-accent/40'
@@ -242,12 +230,14 @@ export function WorkItemBoard(): React.JSX.Element {
                     </div>
                     <div className="flex flex-col gap-2 px-2 pb-2">
                       {byState(col.id).map((item) => (
-                        <Card
+                        <WorkItemBoardCard
                           key={item.id}
                           item={item}
                           active={selectedId === item.id}
+                          dragging={draggingId === item.id}
+                          moving={board.movingItemIds.has(item.id)}
                           onOpen={() => setSelectedId(item.id)}
-                          onDragStart={(e) => onDragStartCard(e, item)}
+                          onPointerDown={(event) => onCardPointerDown(event, item)}
                         />
                       ))}
                       <Input
@@ -288,7 +278,7 @@ export function WorkItemBoard(): React.JSX.Element {
                           selectedId === item.id && 'bg-accent'
                         )}
                       >
-                        <PriorityDot priority={item.priority} />
+                        <WorkItemPriorityDot priority={item.priority} />
                         <span className="font-mono text-[11px] text-muted-foreground">
                           {item.identifier}
                         </span>
@@ -304,7 +294,9 @@ export function WorkItemBoard(): React.JSX.Element {
 
         {selected && (
           <WorkItemDetail
+            key={selected.id}
             item={selected}
+            projectName={projects.find((project) => project.id === selected.projectId)?.name}
             columns={board.columns}
             members={board.members}
             onMove={(s) => void board.move(selected, s)}
